@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Llama Chat</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="chat-container">
+
+        <header class="chat-header">
+            <div>
+                <h1>Llama Chat</h1>
+                <p>Local AI Assistant</p>
+            </div>
+
+            <div class="status">
+                <span class="status-dot"></span>
+                Online
+            </div>
+        </header>
+
+
+        <main id="chatMessages" class="chat-messages">
+
+            <div class="message assistant">
+                <div class="avatar">AI</div>
+
+                <div class="message-content">
+                    <div class="message-name">Llama</div>
+                    <div class="message-text">
+                        Hello! 👋 How can I help you?
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+
+        <form id="chatForm" class="chat-input-area">
+
+            <input
+                id="promptInput"
+                type="text"
+                placeholder="Ask Llama anything..."
+                autocomplete="off"
+            >
+
+            <button type="submit">
+                ➤
+            </button>
+
+        </form>
+
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="app.js"></script>
+
+</body>
+</html>
