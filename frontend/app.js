@@ -1,567 +1,908 @@
 const chatForm =
-  document.getElementById("chatForm");
+    document.getElementById("chatForm");
 
 const promptInput =
-  document.getElementById("promptInput");
+    document.getElementById("promptInput");
 
 const chatMessages =
-  document.getElementById("chatMessages");
-
-const clearButton =
-  document.getElementById("clearButton");
+    document.getElementById("chatMessages");
 
 const themeButton =
-  document.getElementById("themeButton");
+    document.getElementById("themeButton");
 
 const suggestions =
-  document.getElementById("suggestions");
+    document.getElementById("suggestions");
+
+const sendButton =
+    document.querySelector(".send-button");
+
+const attachmentButton =
+    document.getElementById("attachmentButton");
+
+const microphoneButton =
+    document.getElementById("microphoneButton");
 
 
-/* =========================
+/* =========================================================
    API CONFIGURATION
-========================= */
+========================================================= */
 
 const API_BASE_URL =
-  window.location.hostname === "localhost" ||
-  window.location.hostname === "127.0.0.1"
-    ? "http://localhost:8000"
-    : "";
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1"
+        ? "http://localhost:8000"
+        : "";
 
 
-/* =========================
+/* =========================================================
+   REQUEST LIMITS
+========================================================= */
+
+const MAX_PROMPT_LENGTH = 4000;
+
+const REQUEST_TIMEOUT = 125000;
+
+
+/* =========================================================
    INITIAL WELCOME STATE
-========================= */
+========================================================= */
 
 const initialWelcomeMarkup = `
-  <div
-    class="welcome-state"
-    id="welcomeState"
-  >
+    <div
+        class="welcome-state"
+        id="welcomeState"
+    >
+        <h2>
+            What would you like to know?
+        </h2>
 
-    <div class="welcome-orb">
-
-      <div class="orb-core"></div>
-
+        <p>
+            Ask naturally. Learn something new.
+            Understand things more clearly.
+        </p>
     </div>
-
-    <h2>
-      What would you like to know?
-    </h2>
-
-    <p>
-      Ask naturally.
-      Learn something new.
-      Understand things more clearly.
-    </p>
-
-  </div>
 `;
 
 
-/* =========================
+/* =========================================================
+   CONBOT ERROR
+========================================================= */
+
+class ConbotError extends Error {
+
+    constructor(type, message) {
+
+        super(message);
+
+        this.name =
+            "ConbotError";
+
+        this.type =
+            type;
+    }
+}
+
+
+/* =========================================================
    ASK CONBOT
-========================= */
+========================================================= */
 
 async function askConbot(prompt) {
 
-  const response =
-    await fetch(
-      `${API_BASE_URL}/ask`,
-      {
-        method: "POST",
+    const controller =
+        new AbortController();
 
-        headers: {
-          "Content-Type": "application/json"
-        },
-
-        body: JSON.stringify({
-          prompt: prompt
-        })
-      }
-    );
-
-
-  if (!response.ok) {
-
-    let detail = "";
+    const timeoutId =
+        setTimeout(
+            () => controller.abort(),
+            REQUEST_TIMEOUT
+        );
 
     try {
 
-      const errorData =
-        await response.json();
+        const response =
+            await fetch(
+                `${API_BASE_URL}/ask`,
+                {
+                    method: "POST",
 
-      if (errorData?.detail) {
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
 
-        detail =
-          `: ${errorData.detail}`;
+                    body: JSON.stringify({
+                        prompt: prompt
+                    }),
 
-      }
+                    signal:
+                        controller.signal
+                }
+            );
 
-    } catch (_) {
-      // Ignore invalid error responses.
+
+        /* -----------------------------------------
+           HTTP ERROR HANDLING
+        ----------------------------------------- */
+
+        if (!response.ok) {
+
+            switch (response.status) {
+
+                case 400:
+
+                    throw new ConbotError(
+                        "INVALID_REQUEST",
+                        "The request could not be processed."
+                    );
+
+
+                case 429:
+
+                    throw new ConbotError(
+                        "RATE_LIMITED",
+                        "Too many requests."
+                    );
+
+
+                case 503:
+
+                    throw new ConbotError(
+                        "SERVICE_UNAVAILABLE",
+                        "The AI service is temporarily unavailable."
+                    );
+
+
+                case 504:
+
+                    throw new ConbotError(
+                        "SERVICE_TIMEOUT",
+                        "The AI service took too long to respond."
+                    );
+
+
+                default:
+
+                    if (
+                        response.status >= 500
+                    ) {
+
+                        throw new ConbotError(
+                            "SERVER_ERROR",
+                            "The server is temporarily unavailable."
+                        );
+                    }
+
+
+                    throw new ConbotError(
+                        "REQUEST_FAILED",
+                        "The request could not be completed."
+                    );
+            }
+        }
+
+
+        /* -----------------------------------------
+           PARSE RESPONSE
+        ----------------------------------------- */
+
+        let data;
+
+        try {
+
+            data =
+                await response.json();
+
+        } catch (_) {
+
+            throw new ConbotError(
+                "INVALID_RESPONSE",
+                "The server returned an invalid response."
+            );
+        }
+
+
+        /* -----------------------------------------
+           VALIDATE ANSWER
+        ----------------------------------------- */
+
+        if (
+            !data ||
+            typeof data.answer !== "string" ||
+            !data.answer.trim()
+        ) {
+
+            throw new ConbotError(
+                "INVALID_RESPONSE",
+                "The AI service returned an invalid answer."
+            );
+        }
+
+
+        return data.answer;
+
+
+    } catch (error) {
+
+        /* -----------------------------------------
+           REQUEST TIMEOUT
+        ----------------------------------------- */
+
+        if (
+            error.name ===
+            "AbortError"
+        ) {
+
+            throw new ConbotError(
+                "SERVICE_TIMEOUT",
+                "The request timed out."
+            );
+        }
+
+
+        /* -----------------------------------------
+           OUR OWN CONTROLLED ERRORS
+        ----------------------------------------- */
+
+        if (
+            error instanceof
+            ConbotError
+        ) {
+
+            throw error;
+        }
+
+
+        /* -----------------------------------------
+           NETWORK FAILURE
+        ----------------------------------------- */
+
+        throw new ConbotError(
+            "NETWORK_ERROR",
+            "Unable to connect to ConBOT."
+        );
+
+
+    } finally {
+
+        clearTimeout(
+            timeoutId
+        );
+    }
+}
+
+
+/* =========================================================
+   USER-FRIENDLY ERROR MESSAGE
+========================================================= */
+
+function getErrorMessage(error) {
+
+    switch (error?.type) {
+
+        case "RATE_LIMITED":
+
+            return (
+                "You're sending questions a little too quickly. " +
+                "Please wait a moment and try again."
+            );
+
+
+        case "SERVICE_TIMEOUT":
+
+            return (
+                "ConBOT is taking longer than expected. " +
+                "Please try again."
+            );
+
+
+        case "SERVICE_UNAVAILABLE":
+
+            return (
+                "ConBOT is temporarily unavailable. " +
+                "Please try again in a few minutes."
+            );
+
+
+        case "INVALID_REQUEST":
+
+            return (
+                "We couldn't process that question. " +
+                "Please check it and try again."
+            );
+
+
+        case "INVALID_RESPONSE":
+
+            return (
+                "ConBOT couldn't complete that answer. " +
+                "Please try again."
+            );
+
+
+        case "NETWORK_ERROR":
+
+            return (
+                "We're having trouble connecting to ConBOT right now. " +
+                "Please try again in a moment."
+            );
+
+
+        case "SERVER_ERROR":
+
+            return (
+                "ConBOT is temporarily unavailable. " +
+                "Please try again in a few minutes."
+            );
+
+
+        default:
+
+            return (
+                "Something went wrong. " +
+                "Please try again in a moment."
+            );
+    }
+}
+
+
+/* =========================================================
+   ADD MESSAGE
+========================================================= */
+
+function addMessage(text, sender) {
+
+    const welcome =
+        document.getElementById(
+            "welcomeState"
+        );
+
+
+    if (welcome) {
+
+        welcome.remove();
     }
 
 
-    throw new Error(
-      `API request failed (${response.status})${detail}`
-    );
-
-  }
-
-
-  const data =
-    await response.json();
+    const message =
+        document.createElement(
+            "div"
+        );
 
 
-  if (!data.answer) {
-
-    throw new Error(
-      "The AI service returned no answer."
-    );
-
-  }
+    message.className =
+        `message ${sender}`;
 
 
-  return data.answer;
+    /* -----------------------------------------
+       USER MESSAGE
+    ----------------------------------------- */
 
-}
+    if (
+        sender === "user"
+    ) {
 
+        message.innerHTML = `
+            <div class="message-content">
+                <div class="message-text"></div>
+            </div>
+        `;
 
-/* =========================
-   ADD MESSAGE
-========================= */
-
-function addMessage(
-  text,
-  sender
-) {
-
-  const welcome =
-    document.getElementById(
-      "welcomeState"
-    );
+    }
 
 
-  if (welcome) {
+    /* -----------------------------------------
+       ASSISTANT MESSAGE
+    ----------------------------------------- */
 
-    welcome.remove();
+    else {
 
-  }
+        message.innerHTML = `
+            <div class="avatar">
+                AI
+            </div>
 
+            <div class="message-content">
 
-  const message =
-    document.createElement(
-      "div"
-    );
+                <div class="message-name">
+                    ConBOT
+                </div>
 
+                <div class="message-text"></div>
 
-  message.className =
-    `message ${sender}`;
-
-
-  /* USER */
-
-  if (sender === "user") {
-
-    message.innerHTML = `
-      <div class="message-content">
-        <div class="message-text"></div>
-      </div>
-    `;
-
-  }
+            </div>
+        `;
+    }
 
 
-  /* ASSISTANT */
-
-  else {
-
-    message.innerHTML = `
-      <div class="avatar">
-        AI
-      </div>
-
-      <div class="message-content">
-
-        <div class="message-name">
-          CONBOT
-        </div>
-
-        <div class="message-text"></div>
-
-      </div>
-    `;
-
-  }
+    const messageText =
+        message.querySelector(
+            ".message-text"
+        );
 
 
-  const messageText =
-    message.querySelector(
-      ".message-text"
-    );
+    /*
+       SECURITY:
+       Use textContent rather than innerHTML
+       for user/model generated content.
+    */
 
-
-  /*
-   * textContent is deliberately used
-   * for safe output.
-   *
-   * This prevents user/model text
-   * from being treated as HTML.
-   */
-
-  messageText.textContent =
-    text;
-
-
-  chatMessages.appendChild(
-    message
-  );
-
-
-  chatMessages.scrollTop =
-    chatMessages.scrollHeight;
-
-}
-
-
-/* =========================
-   TYPING / THINKING STATE
-========================= */
-
-function setLoading(
-  isLoading
-) {
-
-  const existing =
-    document.getElementById(
-      "typingIndicator"
-    );
-
-
-  if (
-    isLoading &&
-    !existing
-  ) {
-
-    const node =
-      document.createElement(
-        "div"
-      );
-
-
-    node.className =
-      "message assistant";
-
-
-    node.id =
-      "typingIndicator";
-
-
-    node.innerHTML = `
-      <div class="avatar">
-        AI
-      </div>
-
-      <div class="message-content">
-
-        <div class="message-name">
-          CONBOT
-        </div>
-
-        <div class="message-text typing-state">
-          Thinking…
-        </div>
-
-      </div>
-    `;
+    messageText.textContent =
+        text;
 
 
     chatMessages.appendChild(
-      node
+        message
     );
 
 
     chatMessages.scrollTop =
-      chatMessages.scrollHeight;
-
-  }
-
-
-  if (
-    !isLoading &&
-    existing
-  ) {
-
-    existing.remove();
-
-  }
-
+        chatMessages.scrollHeight;
 }
 
 
-/* =========================
-   SUBMIT CHAT
-========================= */
+/* =========================================================
+   THINKING STATE
+========================================================= */
 
-async function handleSubmit(
-  event
-) {
+function setLoading(isLoading) {
 
-  event.preventDefault();
-
-
-  const prompt =
-    promptInput.value.trim();
+    const existing =
+        document.getElementById(
+            "typingIndicator"
+        );
 
 
-  if (!prompt) {
-
-    promptInput.focus();
-
-    return;
-
-  }
-
-
-  addMessage(
-    prompt,
-    "user"
-  );
-
-
-  promptInput.value =
-    "";
-
-  promptInput.style.height =
-    "auto";
-
-
-  setLoading(true);
-
-
-  try {
-
-    const answer =
-      await askConbot(
-        prompt
-      );
-
-
-    addMessage(
-      answer,
-      "assistant"
-    );
-
-  }
-
-
-  catch (error) {
-
-    console.error(
-      "CONBOT request failed:",
-      error
-    );
-
-
-    addMessage(
-      "CONBOT is having trouble connecting right now. Please try again in a moment.",
-      "assistant"
-    );
-
-  }
-
-
-  finally {
-
-    setLoading(false);
-
-    promptInput.focus();
-
-  }
-
-}
-
-
-/* =========================
-   FORM SUBMIT
-========================= */
-
-chatForm.addEventListener(
-  "submit",
-  handleSubmit
-);
-
-
-/* =========================
-   AUTO-RESIZE TEXTAREA
-========================= */
-
-promptInput.addEventListener(
-  "input",
-  () => {
-
-    promptInput.style.height =
-      "auto";
-
-
-    promptInput.style.height =
-      `${Math.min(
-        promptInput.scrollHeight,
-        190
-      )}px`;
-
-  }
-);
-
-
-/* =========================
-   ENTER TO SEND
-========================= */
-
-promptInput.addEventListener(
-  "keydown",
-  (event) => {
+    /* -----------------------------------------
+       START THINKING
+    ----------------------------------------- */
 
     if (
-      event.key === "Enter" &&
-      !event.shiftKey
+        isLoading &&
+        !existing
     ) {
 
-      event.preventDefault();
+        const node =
+            document.createElement(
+                "div"
+            );
 
-      chatForm.requestSubmit();
 
+        node.className =
+            "message assistant";
+
+
+        node.id =
+            "typingIndicator";
+
+
+        node.innerHTML = `
+            <div class="avatar">
+                AI
+            </div>
+
+            <div class="message-content">
+
+                <div class="message-name">
+                    ConBOT
+                </div>
+
+                <div
+                    class="message-text typing-state"
+                    role="status"
+                    aria-live="polite"
+                >
+                    Thinking…
+                </div>
+
+            </div>
+        `;
+
+
+        chatMessages.appendChild(
+            node
+        );
+
+
+        chatMessages.scrollTop =
+            chatMessages.scrollHeight;
     }
 
-  }
-);
+
+    /* -----------------------------------------
+       STOP THINKING
+    ----------------------------------------- */
+
+    if (
+        !isLoading &&
+        existing
+    ) {
+
+        existing.remove();
+    }
+}
 
 
-/* =========================
-   CLEAR CHAT
-========================= */
+/* =========================================================
+   SUBMIT CHAT
+========================================================= */
 
-clearButton.addEventListener(
-  "click",
-  () => {
+async function handleSubmit(event) {
 
-    chatMessages.innerHTML =
-      initialWelcomeMarkup;
+    event.preventDefault();
+
+
+    if (
+        !promptInput ||
+        promptInput.disabled
+    ) {
+
+        return;
+    }
+
+
+    const prompt =
+        promptInput.value.trim();
+
+
+    /* -----------------------------------------
+       EMPTY INPUT
+    ----------------------------------------- */
+
+    if (!prompt) {
+
+        promptInput.focus();
+
+        return;
+    }
+
+
+    /* -----------------------------------------
+       LENGTH VALIDATION
+    ----------------------------------------- */
+
+    if (
+        prompt.length >
+        MAX_PROMPT_LENGTH
+    ) {
+
+        addMessage(
+            "Your question is too long. Please keep it under 4,000 characters.",
+            "assistant"
+        );
+
+
+        promptInput.focus();
+
+        return;
+    }
+
+
+    /* -----------------------------------------
+       DISABLE UI
+    ----------------------------------------- */
+
+    promptInput.disabled =
+        true;
+
+
+    if (sendButton) {
+
+        sendButton.disabled =
+            true;
+    }
+
+
+    /* -----------------------------------------
+       ADD USER MESSAGE
+    ----------------------------------------- */
+
+    addMessage(
+        prompt,
+        "user"
+    );
+
 
     promptInput.value =
-      "";
+        "";
+
 
     promptInput.style.height =
-      "auto";
-
-    promptInput.focus();
-
-  }
-);
+        "auto";
 
 
-/* =========================
-   EXAMPLE PROMPTS
-========================= */
+    /* -----------------------------------------
+       SHOW THINKING
+    ----------------------------------------- */
 
-suggestions.addEventListener(
-  "click",
-  (event) => {
-
-    const button =
-      event.target.closest(
-        "[data-prompt]"
-      );
+    setLoading(true);
 
 
-    if (!button) {
-      return;
+    try {
+
+        const answer =
+            await askConbot(
+                prompt
+            );
+
+
+        addMessage(
+            answer,
+            "assistant"
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "ConBOT request failed:",
+            error
+        );
+
+
+        addMessage(
+            getErrorMessage(error),
+            "assistant"
+        );
+
+
+    } finally {
+
+        setLoading(false);
+
+
+        promptInput.disabled =
+            false;
+
+
+        if (sendButton) {
+
+            sendButton.disabled =
+                false;
+        }
+
+
+        promptInput.focus();
     }
+}
 
 
-    promptInput.value =
-      button.dataset.prompt;
+/* =========================================================
+   FORM SUBMIT
+========================================================= */
 
+if (chatForm) {
 
-    promptInput.focus();
-
-
-    promptInput.dispatchEvent(
-      new Event("input")
+    chatForm.addEventListener(
+        "submit",
+        handleSubmit
     );
-
-  }
-);
+}
 
 
-/* =========================
+/* =========================================================
+   AUTO-RESIZE TEXTAREA
+========================================================= */
+
+if (promptInput) {
+
+    promptInput.addEventListener(
+        "input",
+        () => {
+
+            promptInput.style.height =
+                "auto";
+
+
+            promptInput.style.height =
+                `${Math.min(
+                    promptInput.scrollHeight,
+                    190
+                )}px`;
+        }
+    );
+}
+
+
+/* =========================================================
+   ENTER TO SEND
+========================================================= */
+
+if (promptInput) {
+
+    promptInput.addEventListener(
+        "keydown",
+        (event) => {
+
+            if (
+                event.key === "Enter" &&
+                !event.shiftKey
+            ) {
+
+                event.preventDefault();
+
+
+                if (chatForm) {
+
+                    chatForm.requestSubmit();
+                }
+            }
+        }
+    );
+}
+
+
+/* =========================================================
+   EXAMPLE PROMPTS
+========================================================= */
+
+if (suggestions) {
+
+    suggestions.addEventListener(
+        "click",
+        (event) => {
+
+            const button =
+                event.target.closest(
+                    "[data-prompt]"
+                );
+
+
+            if (!button) {
+
+                return;
+            }
+
+
+            const prompt =
+                button.dataset.prompt;
+
+
+            if (
+                !prompt ||
+                prompt.length >
+                MAX_PROMPT_LENGTH
+            ) {
+
+                return;
+            }
+
+
+            promptInput.value =
+                prompt;
+
+
+            promptInput.focus();
+
+
+            promptInput.dispatchEvent(
+                new Event(
+                    "input"
+                )
+            );
+        }
+    );
+}
+
+
+/* =========================================================
    DARK MODE
-========================= */
+========================================================= */
 
-themeButton.addEventListener(
-  "click",
-  () => {
+if (themeButton) {
 
-    document.body.classList.toggle(
-      "dark"
+    themeButton.addEventListener(
+        "click",
+        () => {
+
+            document.body.classList.toggle(
+                "dark"
+            );
+
+
+            localStorage.setItem(
+                "conbot-theme",
+                document.body.classList.contains(
+                    "dark"
+                )
+                    ? "dark"
+                    : "light"
+            );
+        }
     );
+}
 
 
-    localStorage.setItem(
-      "conbot-theme",
-      document.body.classList.contains(
-        "dark"
-      )
-        ? "dark"
-        : "light"
-    );
-
-  }
-);
-
-
-/* =========================
+/* =========================================================
    RESTORE THEME
-========================= */
+========================================================= */
 
 const storedTheme =
-  localStorage.getItem(
-    "conbot-theme"
-  );
+    localStorage.getItem(
+        "conbot-theme"
+    );
 
 
 if (
-  storedTheme === "dark"
+    storedTheme === "dark"
 ) {
 
-  document.body.classList.add(
-    "dark"
-  );
-
+    document.body.classList.add(
+        "dark"
+    );
 }
 
 
-/* =========================
+/* =========================================================
+   FUTURE FEATURES
+========================================================= */
+
+/*
+   These controls are intentionally not wired yet.
+
+   File upload:
+   attachmentButton
+
+   Microphone:
+   microphoneButton
+
+   We will implement these properly in the next phase
+   instead of adding fake functionality.
+*/
+
+
+if (attachmentButton) {
+
+    attachmentButton.addEventListener(
+        "click",
+        () => {
+
+            /*
+               File upload will be implemented
+               in the document Q&A phase.
+            */
+
+            console.info(
+                "ConBOT file upload will be added next."
+            );
+        }
+    );
+}
+
+
+if (microphoneButton) {
+
+    microphoneButton.addEventListener(
+        "click",
+        () => {
+
+            /*
+               Microphone transcription will be implemented
+               after document upload.
+            */
+
+            console.info(
+                "ConBOT microphone will be added next."
+            );
+        }
+    );
+}
+
+
+/* =========================================================
    INITIAL FOCUS
-========================= */
+========================================================= */
 
 window.addEventListener(
-  "load",
-  () => {
+    "load",
+    () => {
 
-    /*
-     * Don't automatically focus on
-     * mobile because it would open
-     * the keyboard unexpectedly.
-     */
+        if (
+            window.innerWidth > 700 &&
+            promptInput
+        ) {
 
-    if (
-      window.innerWidth > 700
-    ) {
-
-      promptInput.focus();
-
+            promptInput.focus();
+        }
     }
-
-  }
 );
