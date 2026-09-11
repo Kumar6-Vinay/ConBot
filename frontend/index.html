@@ -4,62 +4,152 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Llama Chat</title>
+    <meta name="description" content="CONBOT — Ask anything.">
+
+    <title>CONBOT — Ask anything</title>
 
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-    <div class="chat-container">
+    <!-- Top Navigation -->
+    <header class="site-header">
 
-        <header class="chat-header">
-            <div>
-                <h1>Llama Chat</h1>
-                <p>Local AI Assistant</p>
-            </div>
+        <a href="/" class="brand">
+            CONBOT
+        </a>
 
-            <div class="status">
-                <span class="status-dot"></span>
-                Online
-            </div>
-        </header>
+        <nav class="top-nav">
 
-
-        <main id="chatMessages" class="chat-messages">
-
-            <div class="message assistant">
-                <div class="avatar">AI</div>
-
-                <div class="message-content">
-                    <div class="message-name">Llama</div>
-                    <div class="message-text">
-                        Hello! 👋 How can I help you?
-                    </div>
-                </div>
-            </div>
-
-        </main>
-
-
-        <form id="chatForm" class="chat-input-area">
-
-            <input
-                id="promptInput"
-                type="text"
-                placeholder="Ask Llama anything..."
-                autocomplete="off"
-            >
-
-            <button type="submit">
-                ➤
+            <button class="nav-link" id="imagineButton" type="button">
+                <span>✦</span>
+                Imagine
             </button>
 
-        </form>
+            <button
+                class="icon-button"
+                id="settingsButton"
+                type="button"
+                aria-label="Settings"
+            >
+                ⚙
+            </button>
 
-    </div>
-    
+            <button
+                class="auth-button secondary"
+                type="button"
+            >
+                Sign in
+            </button>
+
+            <button
+                class="auth-button primary"
+                type="button"
+            >
+                Sign up
+            </button>
+
+        </nav>
+
+    </header>
+
+
+    <!-- Main Content -->
+    <main class="landing">
+
+        <section class="hero">
+
+            <h1>
+                What should we explore?
+            </h1>
+
+
+            <!-- Chat Composer -->
+            <form id="chatForm" class="composer">
+
+                <!-- Chat Messages -->
+                <div
+                    id="chatMessages"
+                    class="chat-messages"
+                    aria-live="polite"
+                ></div>
+
+
+                <!-- Prompt Input -->
+                <textarea
+                    id="promptInput"
+                    rows="1"
+                    placeholder="Type / to use slash commands"
+                    autocomplete="off"
+                    aria-label="Message CONBOT"
+                ></textarea>
+
+
+                <!-- Composer Toolbar -->
+                <div class="composer-toolbar">
+
+                    <button
+                        type="button"
+                        class="tool-button"
+                        id="attachButton"
+                        aria-label="Add attachment"
+                    >
+                        +
+                    </button>
+
+
+                    <div class="composer-actions">
+
+                        <button
+                            type="button"
+                            class="model-button"
+                            id="modelButton"
+                        >
+                            Fast
+                            <span>⌄</span>
+                        </button>
+
+                        <button
+                            type="submit"
+                            class="send-button"
+                            aria-label="Send message"
+                        >
+                            ↑
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </form>
+
+        </section>
+
+    </main>
+
+
+    <!-- Footer -->
+    <footer class="site-footer">
+
+        <p>
+            By messaging CONBOT, you agree to our
+            <a href="#">Terms</a>
+            and
+            <a href="#">Privacy Policy</a>.
+        </p>
+
+        <a href="#">
+            Your privacy choices
+        </a>
+
+    </footer>
+
+
+    <!-- Markdown Rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- Application JavaScript -->
     <script src="app.js"></script>
 
 </body>

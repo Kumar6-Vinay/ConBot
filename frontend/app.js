@@ -1,11 +1,12 @@
 const chatForm = document.getElementById("chatForm");
 const promptInput = document.getElementById("promptInput");
 const chatMessages = document.getElementById("chatMessages");
+const sendButton = document.querySelector(".send-button");
 
 
 async function askLlama(prompt) {
 
-    const response = await fetch("http://127.0.0.1:8000/ask", {
+    const response = await fetch("/ask", {
         method: "POST",
 
         headers: {
@@ -81,19 +82,24 @@ function addMessage(text, sender) {
             <div class="avatar">AI</div>
 
             <div class="message-content">
-                <div class="message-name">Llama</div>
+                <div class="message-name">Conbot</div>
                 <div class="message-text"></div>
             </div>
         `;
     }
 
 
-    const messageText = message.querySelector(".message-text");
+    const messageText =
+        message.querySelector(".message-text");
 
 
-    if (sender === "assistant") {
+    if (
+        sender === "assistant" &&
+        typeof marked !== "undefined"
+    ) {
 
-        messageText.innerHTML = marked.parse(text);
+        messageText.innerHTML =
+            marked.parse(text);
 
     } else {
 
@@ -103,5 +109,6 @@ function addMessage(text, sender) {
 
     chatMessages.appendChild(message);
 
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    chatMessages.scrollTop =
+        chatMessages.scrollHeight;
 }

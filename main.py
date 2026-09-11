@@ -6,7 +6,11 @@ import requests
 app = FastAPI()
 
 OLLAMA_URL = "http://host.docker.internal:11434/api/generate"
-MODEL = "llama3:latest"
+DEFAULT_MODEL = "llama3:latest"
+AVAILABLE_MODELS = {
+    "llama3:latest",
+    "mistral:latest",
+}
 
 app.add_middleware(
     CORSMiddleware,
@@ -22,6 +26,7 @@ app.add_middleware(
 
 class ChatRequest(BaseModel):
     prompt: str
+    model: str = DEFAULT_MODEL
 
 
 @app.get("/")
@@ -37,8 +42,14 @@ def health():
 @app.post("/ask")
 def ask(request: ChatRequest):
 
+    if request.model not in AVAILABLE_MODELS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported model. Choose one of: {', '.join(sorted(AVAILABLE_MODELS))}"
+        )
+
     payload = {
-        "model": MODEL,
+        "model": request.model,
         "prompt": request.prompt,
         "stream": False
     }
