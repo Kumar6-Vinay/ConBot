@@ -1,420 +1,81 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <meta
-        name="description"
-        content="ConBOT — Ask. Learn. Understand. Your AI for everyday questions, learning, ideas and understanding."
-    >
-
-    <meta
-        name="theme-color"
-        content="#ffffff"
-    >
-
-    <title>ConBOT — Ask. Learn. Understand.</title>
-
-    <link
-        rel="stylesheet"
-        href="styles.css"
-    >
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="ConBOT — Ask. Learn. Understand.">
+<meta name="theme-color" content="#f5f5f7">
+<title>ConBOT — Ask. Learn. Understand.</title>
+<link rel="stylesheet" href="styles.css">
 </head>
-
 <body>
-
-    <!-- =========================
-         HEADER
-    ========================== -->
-
-    <header class="site-header">
-        <div class="header-inner">
-
-            <a
-                href="/"
-                class="brand"
-                aria-label="ConBOT home"
-            >
-                ConBOT
-            </a>
-
-            <nav
-                class="main-nav"
-                aria-label="Main navigation"
-            >
-                <a href="#why-conbot">
-                    Why ConBOT
-                </a>
-            </nav>
-
-            <button
-                type="button"
-                class="theme-button"
-                id="themeButton"
-                aria-label="Toggle dark mode"
-                title="Toggle appearance"
-            >
-                <span aria-hidden="true">☼</span>
-            </button>
-
-        </div>
-    </header>
-
-
-    <!-- =========================
-         MAIN
-    ========================== -->
-
-    <main>
-
-        <!-- =========================
-             HERO
-        ========================== -->
-
-        <section class="hero">
-
-            <div class="hero-content">
-
-                <div class="hero-orb" aria-hidden="true">
-                    <div class="orb-core"></div>
-                </div>
-
-                <p class="eyebrow">
-                    ConBOT
-                </p>
-
-                <h1>
-                    Ask. Learn.<br>
-                    Understand.
-                </h1>
-
-                <p class="hero-description">
-                    Your AI for everyday questions,
-                    learning, ideas and understanding.
-                </p>
-
-
-                <!-- =========================
-                     CHAT AREA
-                ========================== -->
-
-                <section
-                    class="chat-section"
-                    aria-label="Chat with ConBOT"
-                >
-
-                    <div
-                        class="chat-messages"
-                        id="chatMessages"
-                        aria-live="polite"
-                        aria-atomic="false"
-                    >
-
-                        <div
-                            class="welcome-state"
-                            id="welcomeState"
-                        >
-
-                            <h2>
-                                What would you like to know?
-                            </h2>
-
-                            <p>
-                                Ask naturally. Learn something new.
-                                Understand things more clearly.
-                            </p>
-
-                        </div>
-
-                    </div>
-
-
-                    <!-- =========================
-                         COMPOSER
-                    ========================== -->
-
-                    <form
-                        class="chat-form"
-                        id="chatForm"
-                    >
-
-                        <div class="composer">
-
-                            <label
-                                for="promptInput"
-                                class="sr-only"
-                            >
-                                Ask ConBOT a question
-                            </label>
-
-                            <textarea
-                                id="promptInput"
-                                name="prompt"
-                                class="prompt-input"
-                                rows="1"
-                                maxlength="4000"
-                                placeholder="What would you like to know?"
-                                autocomplete="off"
-                                spellcheck="true"
-                            ></textarea>
-
-
-                            <div class="composer-footer">
-
-                                <div class="composer-left">
-
-                                    <button
-                                        type="button"
-                                        class="composer-button"
-                                        id="attachmentButton"
-                                        aria-label="Add a file"
-                                        title="Add a file"
-                                    >
-                                        <span aria-hidden="true">+</span>
-                                    </button>
-
-                                </div>
-
-
-                                <div class="composer-right">
-
-                                    <button
-                                        type="button"
-                                        class="composer-button microphone-button"
-                                        id="microphoneButton"
-                                        aria-label="Use microphone"
-                                        title="Use microphone"
-                                    >
-                                        <span aria-hidden="true">⌕</span>
-                                    </button>
-
-                                    <button
-                                        type="submit"
-                                        class="send-button"
-                                        aria-label="Send question"
-                                        title="Send question"
-                                    >
-                                        <span aria-hidden="true">↑</span>
-                                    </button>
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                    </form>
-
-
-                    <!-- =========================
-                         SUGGESTIONS
-                    ========================== -->
-
-                    <div
-                        class="suggestions"
-                        id="suggestions"
-                    >
-
-                        <p class="suggestions-label">
-                            Try asking
-                        </p>
-
-                        <div class="suggestion-list">
-
-                            <button
-                                type="button"
-                                class="suggestion"
-                                data-prompt="Explain GST simply"
-                            >
-                                Explain GST simply
-                            </button>
-
-                            <button
-                                type="button"
-                                class="suggestion"
-                                data-prompt="Plan a Jaipur trip"
-                            >
-                                Plan a Jaipur trip
-                            </button>
-
-                            <button
-                                type="button"
-                                class="suggestion"
-                                data-prompt="What should I cook today?"
-                            >
-                                What should I cook?
-                            </button>
-
-                            <button
-                                type="button"
-                                class="suggestion"
-                                data-prompt="Why is the price of gold changing?"
-                            >
-                                Why is gold price changing?
-                            </button>
-
-                        </div>
-
-                    </div>
-
-                </section>
-
-            </div>
-
-        </section>
-
-
-        <!-- =========================
-             TRUST
-        ========================== -->
-
-        <section class="trust-section">
-
-            <p>
-                ConBOT can make mistakes.
-                Check important information.
-            </p>
-
-        </section>
-
-
-        <!-- =========================
-             WHY CONBOT
-        ========================== -->
-
-        <section
-            class="why-section"
-            id="why-conbot"
-        >
-
-            <div class="section-inner">
-
-                <div class="section-heading">
-
-                    <p class="section-eyebrow">
-                        Why ConBOT
-                    </p>
-
-                    <h2>
-                        Made for understanding.
-                    </h2>
-
-                    <p>
-                        Simple by design.
-                        Helpful when you need it.
-                    </p>
-
-                </div>
-
-
-                <div class="principles">
-
-                    <article class="principle">
-
-                        <span class="principle-number">
-                            01
-                        </span>
-
-                        <h3>
-                            Ask naturally
-                        </h3>
-
-                        <p>
-                            Ask questions the way you would
-                            ask another person.
-                        </p>
-
-                    </article>
-
-
-                    <article class="principle">
-
-                        <span class="principle-number">
-                            02
-                        </span>
-
-                        <h3>
-                            Understand clearly
-                        </h3>
-
-                        <p>
-                            Get useful explanations without
-                            unnecessary complexity.
-                        </p>
-
-                    </article>
-
-
-                    <article class="principle">
-
-                        <span class="principle-number">
-                            03
-                        </span>
-
-                        <h3>
-                            Stay in control
-                        </h3>
-
-                        <p>
-                            You decide what to ask,
-                            what to use and what to trust.
-                        </p>
-
-                    </article>
-
-                </div>
-
-            </div>
-
-        </section>
-
-    </main>
-
-
-    <!-- =========================
-         FOOTER
-    ========================== -->
-
-    <footer class="site-footer">
-
-        <div class="footer-inner">
-
-            <p>
-                © 2026 ConBOT
-            </p>
-
-            <nav
-                class="footer-nav"
-                aria-label="Footer navigation"
-            >
-                <a href="#">
-                    Privacy
-                </a>
-
-                <a href="#">
-                    Terms
-                </a>
-
-                <a href="#why-conbot">
-                    About
-                </a>
-            </nav>
-
-        </div>
-
-    </footer>
-
-
-    <!-- =========================
-         JAVASCRIPT
-    ========================== -->
-
-    <script src="app.js"></script>
-
+<div class="app">
+<aside class="sidebar" id="sidebar">
+  <div class="side-head">
+    <a class="brand" href="/">ConBOT<span>Ask. Learn. Understand.</span></a>
+    <button class="round" id="newChatTop" aria-label="New chat">↗</button>
+  </div>
+  <button class="new-chat" id="newChat">＋ <span>New Chat</span><kbd>⌘ N</kbd></button>
+  <button class="search-chat" id="searchChats">⌕ <span>Search chats</span><kbd>⌘ K</kbd></button>
+  <div class="history">
+    <section><p>Today</p><div id="todayHistory"></div></section>
+    <section><p>Yesterday</p><div id="yesterdayHistory"></div></section>
+  </div>
+  <div class="side-bottom">
+    <button class="side-link" id="settings">⚙ <span>Settings</span></button>
+    <button class="side-link" id="help">? <span>Help & Feedback</span></button>
+    <button class="side-link" id="theme">☾ <span id="themeLabel">Dark Mode</span></button>
+  </div>
+</aside>
+<button class="overlay" id="overlay" aria-label="Close menu"></button>
+
+<main class="main">
+<header class="topbar">
+  <div class="mobile-left">
+    <button class="round" id="menu" aria-label="Open menu">☰</button>
+    <strong>ConBOT</strong>
+  </div>
+  <div class="chat-title" id="chatTitle">New conversation</div>
+  <div class="top-actions">
+    <button class="round" id="more" aria-label="More options">•••</button>
+    <button class="avatar" aria-label="Profile">V</button>
+  </div>
+</header>
+
+<section class="workspace">
+<div class="messages" id="chatMessages" aria-live="polite">
+<div class="welcome" id="welcome">
+  <div class="mark">◈</div>
+  <h1>Ask. Learn. <span>Understand.</span></h1>
+  <p>Your AI for everyday questions, learning, ideas and understanding.</p>
+  <div class="suggestions" id="suggestions">
+    <button data-prompt="Explain GST simply"><b>▧</b><span>Explain GST simply</span><i>→</i></button>
+    <button data-prompt="Plan a 3-day Jaipur trip"><b>⌁</b><span>Plan a 3-day Jaipur trip</span><i>→</i></button>
+    <button data-prompt="What should I cook today?"><b>♜</b><span>What should I cook?</span><i>→</i></button>
+    <button data-prompt="Why is the price of gold changing?"><b>↗</b><span>Why is gold price changing?</span><i>→</i></button>
+  </div>
+</div>
+</div>
+
+<div class="composer-area">
+<form id="chatForm">
+<div class="composer">
+<label class="sr" for="promptInput">Ask ConBOT a question</label>
+<textarea id="promptInput" maxlength="4000" rows="1" placeholder="What would you like to know?" autocomplete="off" spellcheck="true"></textarea>
+<div class="composer-footer">
+  <button type="button" class="tool" id="attachment" aria-label="Add a file" title="File upload — coming soon">+</button>
+  <div>
+    <button type="button" class="tool" id="microphone" aria-label="Use microphone" title="Voice input — coming soon">⌁</button>
+    <button class="send" type="submit" aria-label="Send question">↑</button>
+  </div>
+</div>
+</div>
+</form>
+<p class="trust">ConBOT can make mistakes. Check important information.</p>
+</div>
+</section>
+</main>
+</div>
+<script src="app.js"></script>
 </body>
 </html>
