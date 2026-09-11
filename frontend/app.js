@@ -16,6 +16,9 @@ const themeButton =
 const suggestions =
   document.getElementById("suggestions");
 
+const sendButton =
+  document.querySelector(".send-button");
+
 
 /* =========================
    API CONFIGURATION
@@ -29,6 +32,22 @@ const API_BASE_URL =
 
 
 /* =========================
+   SECURITY / REQUEST LIMITS
+========================= */
+
+const MAX_PROMPT_LENGTH = 4000;
+
+/*
+ * Client-side timeout.
+ *
+ * Fast enough to avoid leaving the
+ * interface stuck indefinitely, while
+ * allowing Ollama enough time to respond.
+ */
+const REQUEST_TIMEOUT = 125000;
+
+
+/* =========================
    INITIAL WELCOME STATE
 ========================= */
 
@@ -39,9 +58,7 @@ const initialWelcomeMarkup = `
   >
 
     <div class="welcome-orb">
-
       <div class="orb-core"></div>
-
     </div>
 
     <h2>
@@ -59,70 +76,315 @@ const initialWelcomeMarkup = `
 
 
 /* =========================
+   API ERROR
+========================= */
+
+class ConbotError extends Error {
+
+  constructor(
+    type,
+    message
+  ) {
+
+    super(message);
+
+    this.name =
+      "ConbotError";
+
+    this.type =
+      type;
+
+  }
+
+}
+
+
+/* =========================
    ASK CONBOT
 ========================= */
 
 async function askConbot(prompt) {
 
-  const response =
-    await fetch(
-      `${API_BASE_URL}/ask`,
-      {
-        method: "POST",
+  /*
+   * AbortController allows us to
+   * stop a request that takes too long.
+   */
 
-        headers: {
-          "Content-Type": "application/json"
-        },
+  const controller =
+    new AbortController();
 
-        body: JSON.stringify({
-          prompt: prompt
-        })
-      }
+
+  const timeoutId =
+    setTimeout(
+      () => controller.abort(),
+      REQUEST_TIMEOUT
     );
 
 
-  if (!response.ok) {
+  try {
 
-    let detail = "";
+    const response =
+      await fetch(
+        `${API_BASE_URL}/ask`,
+        {
+          method: "POST",
 
-    try {
+          headers: {
+            "Content-Type": "application/json"
+          },
 
-      const errorData =
-        await response.json();
+          body: JSON.stringify({
+            prompt: prompt
+          }),
 
-      if (errorData?.detail) {
+          signal:
+            controller.signal
+        }
+      );
 
-        detail =
-          `: ${errorData.detail}`;
+
+    /* =========================
+       HTTP ERROR HANDLING
+    ========================= */
+
+    if (!response.ok) {
+
+      switch (response.status) {
+
+        case 400:
+
+          throw new ConbotError(
+            "INVALID_REQUEST",
+            "The request could not be processed."
+          );
+
+
+        case 429:
+
+          throw new ConbotError(
+            "RATE_LIMITED",
+            "Too many requests."
+          );
+
+
+        case 503:
+
+          throw new ConbotError(
+            "SERVICE_UNAVAILABLE",
+            "The AI service is temporarily unavailable."
+          );
+
+
+        case 504:
+
+          throw new ConbotError(
+            "SERVICE_TIMEOUT",
+            "The AI service took too long to respond."
+          );
+
+
+        default:
+
+          if (response.status >= 500) {
+
+            throw new ConbotError(
+              "SERVER_ERROR",
+              "The server is temporarily unavailable."
+            );
+
+          }
+
+
+          throw new ConbotError(
+            "REQUEST_FAILED",
+            "The request could not be completed."
+          );
 
       }
 
-    } catch (_) {
-      // Ignore invalid error responses.
     }
 
 
-    throw new Error(
-      `API request failed (${response.status})${detail}`
+    /* =========================
+       RESPONSE VALIDATION
+    ========================= */
+
+    let data;
+
+    try {
+
+      data =
+        await response.json();
+
+    }
+
+    catch (_) {
+
+      throw new ConbotError(
+        "INVALID_RESPONSE",
+        "The server returned an invalid response."
+      );
+
+    }
+
+
+    /*
+     * Never trust the response shape.
+     */
+
+    if (
+      !data ||
+      typeof data.answer !== "string" ||
+      !data.answer.trim()
+    ) {
+
+      throw new ConbotError(
+        "INVALID_RESPONSE",
+        "The AI service returned an invalid answer."
+      );
+
+    }
+
+
+    return data.answer;
+
+  }
+
+
+  catch (error) {
+
+    /*
+     * AbortController timeout.
+     */
+
+    if (
+      error.name === "AbortError"
+    ) {
+
+      throw new ConbotError(
+        "SERVICE_TIMEOUT",
+        "The request timed out."
+      );
+
+    }
+
+
+    /*
+     * Preserve our controlled
+     * application errors.
+     */
+
+    if (
+      error instanceof ConbotError
+    ) {
+
+      throw error;
+
+    }
+
+
+    /*
+     * Network errors can happen when:
+     *
+     * - Cloudflare cannot reach tunnel
+     * - cloudflared is stopped
+     * - FastAPI is unavailable
+     * - browser loses connectivity
+     */
+
+    throw new ConbotError(
+      "NETWORK_ERROR",
+      "Unable to connect to CONBOT."
     );
 
   }
 
 
-  const data =
-    await response.json();
+  finally {
 
-
-  if (!data.answer) {
-
-    throw new Error(
-      "The AI service returned no answer."
+    clearTimeout(
+      timeoutId
     );
 
   }
 
+}
 
-  return data.answer;
+
+/* =========================
+   USER-FRIENDLY ERROR MESSAGE
+========================= */
+
+function getErrorMessage(
+  error
+) {
+
+  switch (error?.type) {
+
+    case "RATE_LIMITED":
+
+      return (
+        "You're sending questions a little too quickly. " +
+        "Please wait a moment and try again."
+      );
+
+
+    case "SERVICE_TIMEOUT":
+
+      return (
+        "CONBOT is taking longer than expected. " +
+        "Please try again."
+      );
+
+
+    case "SERVICE_UNAVAILABLE":
+
+      return (
+        "CONBOT is temporarily unavailable. " +
+        "Please try again in a few minutes."
+      );
+
+
+    case "INVALID_REQUEST":
+
+      return (
+        "We couldn't process that question. " +
+        "Please check it and try again."
+      );
+
+
+    case "INVALID_RESPONSE":
+
+      return (
+        "CONBOT couldn't complete that answer. " +
+        "Please try again."
+      );
+
+
+    case "NETWORK_ERROR":
+
+      return (
+        "We're having trouble connecting to CONBOT right now. " +
+        "Please try again in a moment."
+      );
+
+
+    case "SERVER_ERROR":
+
+      return (
+        "CONBOT is temporarily unavailable. " +
+        "Please try again in a few minutes."
+      );
+
+
+    default:
+
+      return (
+        "Something went wrong. " +
+        "Please try again in a moment."
+      );
+
+  }
 
 }
 
@@ -159,7 +421,9 @@ function addMessage(
     `message ${sender}`;
 
 
-  /* USER */
+  /* =========================
+     USER MESSAGE
+  ========================= */
 
   if (sender === "user") {
 
@@ -172,7 +436,9 @@ function addMessage(
   }
 
 
-  /* ASSISTANT */
+  /* =========================
+     ASSISTANT MESSAGE
+  ========================= */
 
   else {
 
@@ -202,11 +468,17 @@ function addMessage(
 
 
   /*
-   * textContent is deliberately used
-   * for safe output.
+   * SECURITY:
    *
-   * This prevents user/model text
-   * from being treated as HTML.
+   * AI output and user input are
+   * always inserted as plain text.
+   *
+   * NEVER change this to:
+   *
+   * messageText.innerHTML = text;
+   *
+   * This prevents model/user content
+   * from being interpreted as HTML.
    */
 
   messageText.textContent =
@@ -310,9 +582,26 @@ async function handleSubmit(
   event.preventDefault();
 
 
+  /*
+   * Prevent duplicate submissions.
+   */
+
+  if (
+    promptInput.disabled
+  ) {
+
+    return;
+
+  }
+
+
   const prompt =
     promptInput.value.trim();
 
+
+  /* =========================
+     EMPTY PROMPT
+  ========================= */
 
   if (!prompt) {
 
@@ -322,6 +611,47 @@ async function handleSubmit(
 
   }
 
+
+  /* =========================
+     PROMPT LENGTH
+  ========================= */
+
+  if (
+    prompt.length >
+    MAX_PROMPT_LENGTH
+  ) {
+
+    addMessage(
+      "Your question is too long. Please keep it under 4,000 characters.",
+      "assistant"
+    );
+
+    promptInput.focus();
+
+    return;
+
+  }
+
+
+  /* =========================
+     DISABLE INPUT
+  ========================= */
+
+  promptInput.disabled =
+    true;
+
+
+  if (sendButton) {
+
+    sendButton.disabled =
+      true;
+
+  }
+
+
+  /* =========================
+     ADD USER MESSAGE
+  ========================= */
 
   addMessage(
     prompt,
@@ -357,6 +687,14 @@ async function handleSubmit(
 
   catch (error) {
 
+    /*
+     * Detailed errors stay in the
+     * browser console for development.
+     *
+     * Users receive only a safe,
+     * friendly message.
+     */
+
     console.error(
       "CONBOT request failed:",
       error
@@ -364,7 +702,7 @@ async function handleSubmit(
 
 
     addMessage(
-      "CONBOT is having trouble connecting right now. Please try again in a moment.",
+      getErrorMessage(error),
       "assistant"
     );
 
@@ -374,6 +712,19 @@ async function handleSubmit(
   finally {
 
     setLoading(false);
+
+
+    promptInput.disabled =
+      false;
+
+
+    if (sendButton) {
+
+      sendButton.disabled =
+        false;
+
+    }
+
 
     promptInput.focus();
 
@@ -386,138 +737,196 @@ async function handleSubmit(
    FORM SUBMIT
 ========================= */
 
-chatForm.addEventListener(
-  "submit",
-  handleSubmit
-);
+if (chatForm) {
+
+  chatForm.addEventListener(
+    "submit",
+    handleSubmit
+  );
+
+}
 
 
 /* =========================
    AUTO-RESIZE TEXTAREA
 ========================= */
 
-promptInput.addEventListener(
-  "input",
-  () => {
+if (promptInput) {
 
-    promptInput.style.height =
-      "auto";
+  promptInput.addEventListener(
+    "input",
+    () => {
+
+      promptInput.style.height =
+        "auto";
 
 
-    promptInput.style.height =
-      `${Math.min(
-        promptInput.scrollHeight,
-        190
-      )}px`;
+      promptInput.style.height =
+        `${Math.min(
+          promptInput.scrollHeight,
+          190
+        )}px`;
 
-  }
-);
+    }
+  );
+
+}
 
 
 /* =========================
    ENTER TO SEND
 ========================= */
 
-promptInput.addEventListener(
-  "keydown",
-  (event) => {
+if (promptInput) {
 
-    if (
-      event.key === "Enter" &&
-      !event.shiftKey
-    ) {
+  promptInput.addEventListener(
+    "keydown",
+    (event) => {
 
-      event.preventDefault();
+      if (
+        event.key === "Enter" &&
+        !event.shiftKey
+      ) {
 
-      chatForm.requestSubmit();
+        event.preventDefault();
+
+        if (chatForm) {
+
+          chatForm.requestSubmit();
+
+        }
+
+      }
 
     }
+  );
 
-  }
-);
+}
 
 
 /* =========================
    CLEAR CHAT
 ========================= */
 
-clearButton.addEventListener(
-  "click",
-  () => {
+if (clearButton) {
 
-    chatMessages.innerHTML =
-      initialWelcomeMarkup;
+  clearButton.addEventListener(
+    "click",
+    () => {
 
-    promptInput.value =
-      "";
+      chatMessages.innerHTML =
+        initialWelcomeMarkup;
 
-    promptInput.style.height =
-      "auto";
 
-    promptInput.focus();
+      promptInput.value =
+        "";
 
-  }
-);
+      promptInput.style.height =
+        "auto";
+
+      promptInput.disabled =
+        false;
+
+
+      if (sendButton) {
+
+        sendButton.disabled =
+          false;
+
+      }
+
+
+      promptInput.focus();
+
+    }
+  );
+
+}
 
 
 /* =========================
    EXAMPLE PROMPTS
 ========================= */
 
-suggestions.addEventListener(
-  "click",
-  (event) => {
+if (suggestions) {
 
-    const button =
-      event.target.closest(
-        "[data-prompt]"
+  suggestions.addEventListener(
+    "click",
+    (event) => {
+
+      const button =
+        event.target.closest(
+          "[data-prompt]"
+        );
+
+
+      if (!button) {
+
+        return;
+
+      }
+
+
+      const prompt =
+        button.dataset.prompt;
+
+
+      if (
+        !prompt ||
+        prompt.length >
+        MAX_PROMPT_LENGTH
+      ) {
+
+        return;
+
+      }
+
+
+      promptInput.value =
+        prompt;
+
+
+      promptInput.focus();
+
+
+      promptInput.dispatchEvent(
+        new Event("input")
       );
 
-
-    if (!button) {
-      return;
     }
+  );
 
-
-    promptInput.value =
-      button.dataset.prompt;
-
-
-    promptInput.focus();
-
-
-    promptInput.dispatchEvent(
-      new Event("input")
-    );
-
-  }
-);
+}
 
 
 /* =========================
    DARK MODE
 ========================= */
 
-themeButton.addEventListener(
-  "click",
-  () => {
+if (themeButton) {
 
-    document.body.classList.toggle(
-      "dark"
-    );
+  themeButton.addEventListener(
+    "click",
+    () => {
 
-
-    localStorage.setItem(
-      "conbot-theme",
-      document.body.classList.contains(
+      document.body.classList.toggle(
         "dark"
-      )
-        ? "dark"
-        : "light"
-    );
+      );
 
-  }
-);
+
+      localStorage.setItem(
+        "conbot-theme",
+        document.body.classList.contains(
+          "dark"
+        )
+          ? "dark"
+          : "light"
+      );
+
+    }
+  );
+
+}
 
 
 /* =========================
@@ -550,13 +959,14 @@ window.addEventListener(
   () => {
 
     /*
-     * Don't automatically focus on
-     * mobile because it would open
-     * the keyboard unexpectedly.
+     * Don't automatically focus
+     * on mobile because this can
+     * open the keyboard.
      */
 
     if (
-      window.innerWidth > 700
+      window.innerWidth > 700 &&
+      promptInput
     ) {
 
       promptInput.focus();
