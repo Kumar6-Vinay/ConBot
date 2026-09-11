@@ -1,156 +1,661 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
 
-    <meta name="description" content="CONBOT — Ask anything.">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
 
-    <title>CONBOT — Ask anything</title>
+  <meta
+    name="theme-color"
+    content="#f7f7f5"
+  />
 
-    <link rel="stylesheet" href="style.css">
+  <title>
+    CONBOT — Ask. Learn. Understand.
+  </title>
+
+  <meta
+    name="description"
+    content="CONBOT is your everyday AI for questions, learning, ideas and things you want to understand."
+  />
+
+  <link
+    rel="preconnect"
+    href="https://fonts.googleapis.com"
+  />
+
+  <link
+    rel="preconnect"
+    href="https://fonts.gstatic.com"
+    crossorigin
+  />
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+    rel="stylesheet"
+  />
+
+  <link
+    rel="stylesheet"
+    href="./styles.css"
+  />
 </head>
 
 <body>
 
-    <!-- Top Navigation -->
-    <header class="site-header">
+  <div class="app-shell">
 
-        <a href="/" class="brand">
-            CONBOT
+    <!-- =========================
+         HEADER
+    ========================== -->
+
+    <header class="topbar">
+
+      <a
+        href="/"
+        class="brand"
+        aria-label="CONBOT home"
+      >
+
+        <span
+          class="brand-mark"
+          aria-hidden="true"
+        ></span>
+
+        <span>
+          CONBOT
+        </span>
+
+      </a>
+
+
+      <nav
+        class="topnav"
+        aria-label="Primary navigation"
+      >
+
+        <a href="#chat">
+          Chat
         </a>
 
-        <nav class="top-nav">
+        <a href="#features">
+          Why CONBOT
+        </a>
 
-            <button class="nav-link" id="imagineButton" type="button">
-                <span>✦</span>
-                Imagine
-            </button>
+      </nav>
 
-            <button
-                class="icon-button"
-                id="settingsButton"
-                type="button"
-                aria-label="Settings"
-            >
-                ⚙
-            </button>
 
-            <button
-                class="auth-button secondary"
-                type="button"
-            >
-                Sign in
-            </button>
+      <div class="top-actions">
 
-            <button
-                class="auth-button primary"
-                type="button"
-            >
-                Sign up
-            </button>
+        <button
+          class="icon-button"
+          id="themeButton"
+          type="button"
+          aria-label="Toggle appearance"
+          title="Toggle appearance"
+        >
 
-        </nav>
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+
+            <path
+              d="M12 3v2M12 19v2M3 12h2M19 12h2M5.64 5.64l1.42 1.42M16.94 16.94l1.42 1.42M18.36 5.64l-1.42 1.42M7.06 16.94l1.42-1.42"
+            />
+
+            <circle
+              cx="12"
+              cy="12"
+              r="3.5"
+            />
+
+          </svg>
+
+        </button>
+
+
+        <a
+          class="button button-dark"
+          href="#chat"
+        >
+          Try CONBOT
+        </a>
+
+      </div>
 
     </header>
 
 
-    <!-- Main Content -->
-    <main class="landing">
+    <!-- =========================
+         MAIN
+    ========================== -->
 
-        <section class="hero">
-
-            <h1>
-                What should we explore?
-            </h1>
+    <main>
 
 
-            <!-- Chat Composer -->
-            <form id="chatForm" class="composer">
+      <!-- =========================
+           HERO
+      ========================== -->
 
-                <!-- Chat Messages -->
-                <div
-                    id="chatMessages"
-                    class="chat-messages"
-                    aria-live="polite"
-                ></div>
+      <section
+        class="hero"
+        id="chat"
+      >
+
+        <div class="hero-copy">
+
+          <div class="eyebrow">
+
+            <span
+              class="eyebrow-dot"
+            ></span>
+
+            Your everyday AI companion
+
+          </div>
 
 
-                <!-- Prompt Input -->
-                <textarea
-                    id="promptInput"
-                    rows="1"
-                    placeholder="Type / to use slash commands"
-                    autocomplete="off"
-                    aria-label="Message CONBOT"
-                ></textarea>
+          <h1>
+
+            Ask. Learn.<br />
+
+            <span class="gradient-text">
+              Understand.
+            </span>
+
+          </h1>
 
 
-                <!-- Composer Toolbar -->
-                <div class="composer-toolbar">
+          <p class="hero-subtitle">
 
-                    <button
-                        type="button"
-                        class="tool-button"
-                        id="attachButton"
-                        aria-label="Add attachment"
+            Your simple AI for everyday questions,
+            learning, ideas and things you want
+            to understand.
+
+          </p>
+
+
+          <div class="hero-proof">
+
+            <span>
+              <span class="proof-dot"></span>
+              Simple to use
+            </span>
+
+            <span>
+              <span class="proof-dot"></span>
+              Clear answers
+            </span>
+
+            <span>
+              <span class="proof-dot"></span>
+              For everyone
+            </span>
+
+          </div>
+
+        </div>
+
+
+        <!-- =========================
+             CHAT CARD
+        ========================== -->
+
+        <div
+          class="chat-card"
+          id="chatCard"
+        >
+
+
+          <!-- CHAT HEADER -->
+
+          <div class="chat-head">
+
+            <div class="chat-title-group">
+
+              <div class="ai-badge">
+                AI
+              </div>
+
+              <div>
+
+                <strong>
+                  CONBOT
+                </strong>
+
+                <span>
+                  Ready to answer
+                </span>
+
+              </div>
+
+            </div>
+
+
+            <div class="status-pill">
+
+              <span class="status-dot"></span>
+
+              Ready
+
+            </div>
+
+          </div>
+
+
+          <!-- EXAMPLE PROMPTS -->
+
+          <div
+            class="suggestion-row"
+            id="suggestions"
+          >
+
+            <button
+              class="suggestion"
+              type="button"
+              data-prompt="Explain GST in simple words."
+            >
+              Explain GST simply
+            </button>
+
+
+            <button
+              class="suggestion"
+              type="button"
+              data-prompt="What should I cook today?"
+            >
+              What should I cook?
+            </button>
+
+
+            <button
+              class="suggestion"
+              type="button"
+              data-prompt="Plan a 3-day trip to Jaipur."
+            >
+              Plan a Jaipur trip
+            </button>
+
+
+            <button
+              class="suggestion"
+              type="button"
+              data-prompt="Why is gold price changing?"
+            >
+              Why is gold price changing?
+            </button>
+
+          </div>
+
+
+          <!-- CHAT MESSAGES -->
+
+          <div
+            class="messages"
+            id="chatMessages"
+            aria-live="polite"
+            aria-label="Conversation"
+          >
+
+            <div
+              class="welcome-state"
+              id="welcomeState"
+            >
+
+              <div class="welcome-orb">
+                <div class="orb-core"></div>
+              </div>
+
+
+              <h2>
+                What would you like to know?
+              </h2>
+
+
+              <p>
+
+                Ask naturally.
+                Learn something new.
+                Understand things more clearly.
+
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <!-- =========================
+               COMPOSER
+          ========================== -->
+
+          <div class="composer-wrap">
+
+            <form
+              class="composer"
+              id="chatForm"
+            >
+
+              <textarea
+                id="promptInput"
+                rows="1"
+                autocomplete="off"
+                placeholder="Ask CONBOT anything..."
+                aria-label="Message CONBOT"
+              ></textarea>
+
+
+              <div class="composer-bottom">
+
+
+                <div class="composer-tools">
+
+                  <button
+                    class="tool-button"
+                    type="button"
+                    id="clearButton"
+                    title="Clear chat"
+                    aria-label="Clear chat"
+                  >
+
+                    <svg
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
                     >
-                        +
-                    </button>
+
+                      <path
+                        d="M7 7h10M9 7v10M15 7v10M6 7l1-2h10l1 2M7 17h10"
+                      />
+
+                    </svg>
+
+                  </button>
 
 
-                    <div class="composer-actions">
+                  <span class="privacy-note">
 
-                        <button
-                            type="button"
-                            class="model-button"
-                            id="modelButton"
-                        >
-                            Fast
-                            <span>⌄</span>
-                        </button>
+                    <span class="lock-dot"></span>
 
-                        <button
-                            type="submit"
-                            class="send-button"
-                            aria-label="Send message"
-                        >
-                            ↑
-                        </button>
+                    Designed with privacy in mind
 
-                    </div>
+                  </span>
 
                 </div>
 
+
+                <div class="composer-submit">
+
+                  <button
+                    class="send-button"
+                    type="submit"
+                    aria-label="Send message"
+                  >
+
+                    <svg
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+
+                      <path
+                        d="M5 12h13M13 6l6 6-6 6"
+                      />
+
+                    </svg>
+
+                  </button>
+
+                </div>
+
+              </div>
+
             </form>
 
+
+            <div class="composer-hint">
+
+              Enter to send ·
+              Shift + Enter for a new line
+
+            </div>
+
+
+            <div class="composer-disclaimer">
+
+              CONBOT can make mistakes.
+              Check important information.
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- =========================
+             TRUST STRIP
+        ========================== -->
+
+        <section class="trust-strip">
+
+          <div class="trust-item">
+
+            <strong>
+              Ask naturally
+            </strong>
+
+            <span>
+              Ask your question the way it comes to mind.
+            </span>
+
+          </div>
+
+
+          <div class="trust-item">
+
+            <strong>
+              Clear answers
+            </strong>
+
+            <span>
+              Get useful explanations without technical language.
+            </span>
+
+          </div>
+
+
+          <div class="trust-item">
+
+            <strong>
+              Honest AI
+            </strong>
+
+            <span>
+              AI can make mistakes, so important facts should be checked.
+            </span>
+
+          </div>
+
         </section>
+
+      </section>
+
+
+
+      <!-- =========================
+           FEATURES
+      ========================== -->
+
+      <section
+        class="feature-section"
+        id="features"
+      >
+
+        <div class="section-intro">
+
+          <div class="eyebrow">
+            Made for everyday questions
+          </div>
+
+
+          <h2>
+            Ask. Learn. Understand.
+          </h2>
+
+
+          <p>
+
+            CONBOT keeps things simple so
+            you can ask naturally, learn something
+            new and understand what matters to you.
+
+          </p>
+
+        </div>
+
+
+        <div class="feature-grid">
+
+
+          <!-- FEATURE 1 -->
+
+          <article
+            class="feature-card feature-large"
+          >
+
+            <div class="feature-icon">
+              ?
+            </div>
+
+
+            <h3>
+              Ask naturally
+            </h3>
+
+
+            <p>
+
+              Ask your question the way
+              you would ask a person.
+              No special prompts required.
+
+            </p>
+
+          </article>
+
+
+          <!-- FEATURE 2 -->
+
+          <article
+            class="feature-card"
+          >
+
+            <div class="feature-icon">
+              ◉
+            </div>
+
+
+            <h3>
+              Understand simply
+            </h3>
+
+
+            <p>
+
+              Get clear explanations without
+              unnecessary technical language.
+
+            </p>
+
+          </article>
+
+
+          <!-- FEATURE 3 -->
+
+          <article
+            class="feature-card"
+          >
+
+            <div class="feature-icon">
+              +
+            </div>
+
+
+            <h3>
+              Learn something new
+            </h3>
+
+
+            <p>
+
+              Explore everyday questions,
+              ideas, subjects and things
+              you've always wondered about.
+
+            </p>
+
+          </article>
+
+
+        </div>
+
+      </section>
 
     </main>
 
 
-    <!-- Footer -->
-    <footer class="site-footer">
+    <!-- =========================
+         FOOTER
+    ========================== -->
 
-        <p>
-            By messaging CONBOT, you agree to our
-            <a href="#">Terms</a>
-            and
-            <a href="#">Privacy Policy</a>.
-        </p>
+    <footer
+      id="footer"
+      class="footer"
+    >
 
-        <a href="#">
-            Your privacy choices
+      <div class="footer-brand">
+
+        <span
+          class="brand-mark"
+        ></span>
+
+        <span>
+          CONBOT
+        </span>
+
+      </div>
+
+
+      <p>
+        Ask. Learn. Understand.
+      </p>
+
+
+      <div class="footer-meta">
+
+        <span>
+          © 2026 CONBOT
+        </span>
+
+        <a href="/privacy">
+          Privacy
         </a>
+
+        <a href="/terms">
+          Terms
+        </a>
+
+      </div>
 
     </footer>
 
+  </div>
 
-    <!-- Markdown Rendering -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-    <!-- Application JavaScript -->
-    <script src="app.js"></script>
+  <script src="./app.js"></script>
 
 </body>
 </html>
