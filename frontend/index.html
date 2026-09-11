@@ -8,74 +8,287 @@
 <title>ConBOT — Ask. Learn. Understand.</title>
 <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
+
 <div class="app">
-<aside class="sidebar" id="sidebar">
-  <div class="side-head">
-    <a class="brand" href="/">ConBOT<span>Ask. Learn. Understand.</span></a>
-    <button class="round" id="newChatTop" aria-label="New chat">↗</button>
-  </div>
-  <button class="new-chat" id="newChat">＋ <span>New Chat</span><kbd>⌘ N</kbd></button>
-  <button class="search-chat" id="searchChats">⌕ <span>Search chats</span><kbd>⌘ K</kbd></button>
-  <div class="history">
-    <section><p>Today</p><div id="todayHistory"></div></section>
-    <section><p>Yesterday</p><div id="yesterdayHistory"></div></section>
-  </div>
-  <div class="side-bottom">
-    <button class="side-link" id="settings">⚙ <span>Settings</span></button>
-    <button class="side-link" id="help">? <span>Help & Feedback</span></button>
-    <button class="side-link" id="theme">☾ <span id="themeLabel">Dark Mode</span></button>
-  </div>
-</aside>
-<button class="overlay" id="overlay" aria-label="Close menu"></button>
 
-<main class="main">
-<header class="topbar">
-  <div class="mobile-left">
-    <button class="round" id="menu" aria-label="Open menu">☰</button>
-    <strong>ConBOT</strong>
-  </div>
-  <div class="chat-title" id="chatTitle">New conversation</div>
-  <div class="top-actions">
-    <button class="round" id="more" aria-label="More options">•••</button>
-    <button class="avatar" aria-label="Profile">V</button>
-  </div>
-</header>
+  <aside class="sidebar" id="sidebar">
 
-<section class="workspace">
-<div class="messages" id="chatMessages" aria-live="polite">
-<div class="welcome" id="welcome">
-  <div class="mark">◈</div>
-  <h1>Ask. Learn. <span>Understand.</span></h1>
-  <p>Your AI for everyday questions, learning, ideas and understanding.</p>
-  <div class="suggestions" id="suggestions">
-    <button data-prompt="Explain GST simply"><b>▧</b><span>Explain GST simply</span><i>→</i></button>
-    <button data-prompt="Plan a 3-day Jaipur trip"><b>⌁</b><span>Plan a 3-day Jaipur trip</span><i>→</i></button>
-    <button data-prompt="What should I cook today?"><b>♜</b><span>What should I cook?</span><i>→</i></button>
-    <button data-prompt="Why is the price of gold changing?"><b>↗</b><span>Why is gold price changing?</span><i>→</i></button>
-  </div>
-</div>
+    <div class="side-head">
+      <a class="brand" href="/">
+        ConBOT
+        <span>Ask. Learn. Understand.</span>
+      </a>
+
+      <button
+        class="round"
+        id="newChatTop"
+        aria-label="New chat">
+        ↗
+      </button>
+    </div>
+
+    <button class="new-chat" id="newChat">
+      ＋
+      <span>New Chat</span>
+      <kbd>⌘ N</kbd>
+    </button>
+
+    <button class="search-chat" id="searchChats">
+      ⌕
+      <span>Search chats</span>
+      <kbd>⌘ K</kbd>
+    </button>
+
+    <div class="history">
+
+      <section>
+        <p>Today</p>
+        <div id="todayHistory"></div>
+      </section>
+
+      <section>
+        <p>Yesterday</p>
+        <div id="yesterdayHistory"></div>
+      </section>
+
+    </div>
+
+    <div class="side-bottom">
+
+      <button class="side-link" id="settings">
+        ⚙
+        <span>Settings</span>
+      </button>
+
+      <button class="side-link" id="help">
+        ?
+        <span>Help & Feedback</span>
+      </button>
+
+      <button class="side-link" id="theme">
+        ☾
+        <span id="themeLabel">Dark Mode</span>
+      </button>
+
+    </div>
+
+  </aside>
+
+  <button
+    class="overlay"
+    id="overlay"
+    aria-label="Close menu">
+  </button>
+
+
+  <main class="main">
+
+    <header class="topbar">
+
+      <div class="mobile-left">
+
+        <button
+          class="round"
+          id="menu"
+          aria-label="Open menu">
+          ☰
+        </button>
+
+        <strong>ConBOT</strong>
+
+      </div>
+
+      <div
+        class="chat-title"
+        id="chatTitle">
+        New conversation
+      </div>
+
+      <div class="top-actions">
+
+        <button
+          class="round"
+          id="more"
+          aria-label="More options">
+          •••
+        </button>
+
+        <button
+          class="avatar"
+          aria-label="Profile">
+          V
+        </button>
+
+      </div>
+
+    </header>
+
+
+    <section class="workspace">
+
+      <div
+        class="messages"
+        id="chatMessages"
+        aria-live="polite">
+
+        <div
+          class="welcome"
+          id="welcome">
+
+          <div class="mark">
+            ◈
+          </div>
+
+          <h1>
+            Ask. Learn.
+            <span>Understand.</span>
+          </h1>
+
+          <p>
+            Your AI for everyday questions, learning, ideas and understanding.
+          </p>
+
+          <div
+            class="suggestions"
+            id="suggestions">
+
+            <button
+              data-prompt="Explain GST simply">
+              <b>▧</b>
+              <span>Explain GST simply</span>
+              <i>→</i>
+            </button>
+
+            <button
+              data-prompt="Plan a 3-day Jaipur trip">
+              <b>⌁</b>
+              <span>Plan a 3-day Jaipur trip</span>
+              <i>→</i>
+            </button>
+
+            <button
+              data-prompt="What should I cook today?">
+              <b>♜</b>
+              <span>What should I cook?</span>
+              <i>→</i>
+            </button>
+
+            <button
+              data-prompt="Why is the price of gold changing?">
+              <b>↗</b>
+              <span>Why is gold price changing?</span>
+              <i>→</i>
+            </button>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div class="composer-area">
+
+        <form id="chatForm">
+
+          <div class="composer">
+
+            <label
+              class="sr"
+              for="promptInput">
+              Ask ConBOT a question
+            </label>
+
+            <textarea
+              id="promptInput"
+              maxlength="4000"
+              rows="1"
+              placeholder="What would you like to know?"
+              autocomplete="off"
+              spellcheck="true"></textarea>
+
+
+            <div class="composer-footer">
+
+              <button
+                type="button"
+                class="tool"
+                id="attachment"
+                aria-label="Add a file"
+                title="File upload — coming soon">
+                +
+              </button>
+
+
+              <div class="composer-actions">
+
+                <button
+                  type="button"
+                  class="tool microphone"
+                  id="microphone"
+                  aria-label="Use microphone"
+                  aria-pressed="false"
+                  title="Voice input">
+
+                  <svg
+                    class="mic-icon"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true">
+
+                    <path
+                      d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Z"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round">
+                    </path>
+
+                    <path
+                      d="M19 11a7 7 0 0 1-14 0M12 18v3M9 21h6"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round">
+                    </path>
+
+                  </svg>
+
+                </button>
+
+
+                <button
+                  class="send"
+                  type="submit"
+                  aria-label="Send question">
+                  ↑
+                </button>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </form>
+
+        <p class="trust">
+          ConBOT can make mistakes. Check important information.
+        </p>
+
+      </div>
+
+    </section>
+
+  </main>
+
 </div>
 
-<div class="composer-area">
-<form id="chatForm">
-<div class="composer">
-<label class="sr" for="promptInput">Ask ConBOT a question</label>
-<textarea id="promptInput" maxlength="4000" rows="1" placeholder="What would you like to know?" autocomplete="off" spellcheck="true"></textarea>
-<div class="composer-footer">
-  <button type="button" class="tool" id="attachment" aria-label="Add a file" title="File upload — coming soon">+</button>
-  <div>
-    <button type="button" class="tool" id="microphone" aria-label="Use microphone" title="Voice input — coming soon">⌁</button>
-    <button class="send" type="submit" aria-label="Send question">↑</button>
-  </div>
-</div>
-</div>
-</form>
-<p class="trust">ConBOT can make mistakes. Check important information.</p>
-</div>
-</section>
-</main>
-</div>
+
 <script src="app.js"></script>
+
 </body>
 </html>
