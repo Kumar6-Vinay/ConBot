@@ -6,7 +6,7 @@ const sendButton = document.querySelector(".send-button");
 
 async function askLlama(prompt) {
 
-    const response = await fetch("/ask", {
+    const response = await fetch("http://localhost:8000/ask", {
         method: "POST",
 
         headers: {
