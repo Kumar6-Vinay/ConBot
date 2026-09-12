@@ -37,7 +37,7 @@ button {
 
 button:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid rgba(0, 113, 227, 0.25);
+  outline: 3px solid rgba(0, 113, 227, 0.24);
   outline-offset: 2px;
 }
 
@@ -49,7 +49,6 @@ textarea:focus-visible {
   clip: rect(0, 0, 0, 0);
 }
 
-
 /* =========================================================
    App
 ========================================================= */
@@ -59,7 +58,6 @@ textarea:focus-visible {
   width: 100%;
   height: 100vh;
 }
-
 
 /* =========================================================
    Sidebar
@@ -73,7 +71,6 @@ textarea:focus-visible {
   padding: 24px 16px 18px;
 
   background: rgba(248, 248, 250, 0.94);
-
   border-right: 1px solid rgba(0, 0, 0, 0.07);
 
   display: flex;
@@ -86,19 +83,15 @@ textarea:focus-visible {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-
   padding: 0 8px 22px;
 }
 
 .brand {
   color: #111;
   text-decoration: none;
-
   font-size: 25px;
   font-weight: 650;
-
   letter-spacing: -0.055em;
-
   display: flex;
   flex-direction: column;
 }
@@ -106,14 +99,10 @@ textarea:focus-visible {
 .brand span {
   font-size: 12px;
   font-weight: 400;
-
   color: #777;
-
   margin-top: 7px;
-
   letter-spacing: -0.01em;
 }
-
 
 /* =========================================================
    Buttons
@@ -122,13 +111,12 @@ textarea:focus-visible {
 .round {
   width: 38px;
   height: 38px;
-
   border-radius: 50%;
-
   background: transparent;
   color: #6e6e73;
-
   cursor: pointer;
+  display: inline-grid;
+  place-items: center;
 }
 
 .round:hover {
@@ -136,41 +124,30 @@ textarea:focus-visible {
   color: #1d1d1f;
 }
 
-
 .new-chat,
-.search-chat,
-.side-link {
+.search-chat {
   width: 100%;
   min-height: 44px;
-
   border-radius: 12px;
-
   background: transparent;
   color: #5d5e63;
-
   text-align: left;
-
   padding: 0 12px;
-
   display: flex;
   align-items: center;
   gap: 12px;
-
   cursor: pointer;
 }
 
 .new-chat {
   background: #e9e9ed;
   color: #1d1d1f;
-
   font-weight: 550;
-
   margin-bottom: 4px;
 }
 
 .new-chat:hover,
-.search-chat:hover,
-.side-link:hover {
+.search-chat:hover {
   background: #e7e7ea;
   color: #111;
 }
@@ -178,14 +155,10 @@ textarea:focus-visible {
 .new-chat kbd,
 .search-chat kbd {
   margin-left: auto;
-
   color: #999;
-
   font-size: 10px;
-
   background: transparent;
 }
-
 
 /* =========================================================
    History
@@ -193,9 +166,7 @@ textarea:focus-visible {
 
 .history {
   flex: 1;
-
   overflow: auto;
-
   margin-top: 18px;
 }
 
@@ -205,30 +176,20 @@ textarea:focus-visible {
 
 .history p {
   margin: 0 10px 7px;
-
   color: #9a9aa0;
-
   font-size: 11px;
   font-weight: 600;
 }
 
 .history-item {
   width: 100%;
-
   border-radius: 10px;
-
   background: transparent;
-
   text-align: left;
-
   color: #424245;
-
   padding: 9px 10px;
-
   font-size: 13px;
-
   cursor: pointer;
-
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -240,21 +201,9 @@ textarea:focus-visible {
 
 .history-empty {
   padding: 10px;
-
   color: #9a9aa0;
-
   font-size: 12px;
 }
-
-.side-bottom {
-  display: flex;
-  flex-direction: column;
-
-  gap: 2px;
-
-  padding-top: 14px;
-}
-
 
 /* =========================================================
    Main
@@ -262,17 +211,12 @@ textarea:focus-visible {
 
 .main {
   min-width: 0;
-
   flex: 1;
-
   height: 100vh;
-
   background: #fff;
-
   display: flex;
   flex-direction: column;
 }
-
 
 /* =========================================================
    Top bar
@@ -281,24 +225,20 @@ textarea:focus-visible {
 .topbar {
   height: 64px;
   flex: none;
-
   border-bottom: 1px solid rgba(0, 0, 0, 0.07);
-
   display: flex;
   align-items: center;
   justify-content: space-between;
-
   padding: 0 22px 0 28px;
-
   background: rgba(255, 255, 255, 0.9);
-
   backdrop-filter: blur(20px);
+  position: relative;
+  z-index: 20;
 }
 
 .chat-title {
   font-size: 14px;
   font-weight: 550;
-
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -310,15 +250,38 @@ textarea:focus-visible {
   align-items: center;
 }
 
+
+.theme-toggle {
+  min-height: 36px;
+  padding: 0 11px;
+  border-radius: 999px;
+  background: transparent;
+  color: #6e6e73;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.theme-toggle:hover {
+  background: #f0f0f2;
+  color: #1d1d1f;
+}
+
+.theme-icon {
+  font-size: 17px;
+  line-height: 1;
+}
+
+
 .avatar {
   width: 36px;
   height: 36px;
-
   border-radius: 50%;
-
   background: #25272b;
   color: #fff;
-
   font-size: 13px;
   font-weight: 600;
 }
@@ -327,6 +290,50 @@ textarea:focus-visible {
   display: none;
 }
 
+.more-wrap {
+  position: relative;
+}
+
+.more-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 220px;
+  padding: 7px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(20px);
+}
+
+.more-menu[hidden] {
+  display: none;
+}
+
+.menu-action {
+  width: 100%;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 11px;
+  border-radius: 10px;
+  background: transparent;
+  color: #3d3d42;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-action:hover {
+  background: #f0f0f2;
+}
+
+.menu-action span:first-child {
+  width: 18px;
+  text-align: center;
+  color: #777;
+}
 
 /* =========================================================
    Workspace
@@ -334,64 +341,46 @@ textarea:focus-visible {
 
 .workspace {
   position: relative;
-
   min-height: 0;
-
   flex: 1;
 }
 
 .messages {
   height: 100%;
-
   overflow: auto;
 }
 
-
 /* =========================================================
-   Welcome
+   Welcome / first question
 ========================================================= */
 
 .welcome {
   min-height: 100%;
-
   display: flex;
   flex-direction: column;
-
   align-items: center;
-  justify-content: center;
-
+  justify-content: flex-start;
   text-align: center;
-
-  padding: 40px 24px 175px;
+  padding: 58px 24px 110px;
 }
 
 .mark {
-  width: 58px;
-  height: 58px;
-
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
-
   background: #f0f3f9;
-
   display: grid;
   place-items: center;
-
   color: #3d4a60;
-
-  font-size: 25px;
-
-  margin-bottom: 24px;
+  font-size: 24px;
+  margin-bottom: 22px;
 }
 
 .welcome h1 {
   margin: 0;
-
-  font-size: clamp(44px, 5.4vw, 72px);
-
+  font-size: clamp(46px, 4.2vw, 50px);
   line-height: 0.98;
-
   letter-spacing: -0.067em;
-
   font-weight: 650;
 }
 
@@ -399,110 +388,100 @@ textarea:focus-visible {
   color: #8a8e98;
 }
 
-.welcome > p {
+.hero-subtitle {
   max-width: 600px;
-
-  margin: 22px 0 0;
-
+  margin: 17px 0 0;
   color: #6e6e73;
-
   font-size: 18px;
-
   line-height: 1.45;
-
   letter-spacing: -0.02em;
 }
 
-
 /* =========================================================
-   Suggestions
+   Hero composer
 ========================================================= */
 
+.hero-composer {
+  width: min(780px, 100%);
+  margin: 32px auto 0;
+}
+
+.hero-composer form {
+  min-height: 104px;
+  padding: 17px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.055);
+  text-align: left;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hero-composer form:focus-within {
+  border-color: rgba(0, 0, 0, 0.2);
+  box-shadow: 0 20px 55px rgba(0, 0, 0, 0.08);
+}
+
+#promptInput {
+  display: block;
+  width: 100%;
+  min-height: 46px;
+  max-height: 190px;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: #1d1d1f;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+#promptInput::placeholder {
+  color: #9b9da4;
+}
+
+/* =========================================================
+   Try asking
+========================================================= */
+
+.try-section {
+  width: min(780px, 100%);
+  margin-top: 19px;
+}
+
+.try-label {
+  display: block;
+  margin-bottom: 10px;
+  color: #9a9aa0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
 .suggestions {
-  width: min(900px, 100%);
-
-  display: grid;
-
-  grid-template-columns:
-    repeat(4, 1fr);
-
-  gap: 12px;
-
-  margin-top: 46px;
+  display: flex;
+  justify-content: center;
+  gap: 9px;
+  flex-wrap: wrap;
 }
 
 .suggestions button {
-  min-height: 120px;
-
-  padding: 15px;
-
-  border: 1px solid rgba(0, 0, 0, 0.07);
-
-  border-radius: 18px;
-
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
   background: #fff;
-
-  box-shadow:
-    0 6px 20px rgba(0, 0, 0, 0.025);
-
-  display: grid;
-
-  grid-template-columns:
-    32px 1fr 15px;
-
-  align-items: center;
-
-  gap: 10px;
-
-  text-align: left;
-
-  color: #1d1d1f;
-
+  color: #45454d;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.025);
   cursor: pointer;
-
-  transition: 0.2s;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .suggestions button:hover {
-  transform: translateY(-2px);
-
-  box-shadow:
-    0 12px 30px rgba(0, 0, 0, 0.06);
-
-  border-color:
-    rgba(0, 0, 0, 0.13);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.13);
 }
-
-.suggestions b {
-  width: 32px;
-  height: 32px;
-
-  border-radius: 9px;
-
-  background: #f1f5fd;
-
-  color: #286bdc;
-
-  display: grid;
-  place-items: center;
-
-  font-weight: 500;
-}
-
-.suggestions span {
-  font-size: 14px;
-
-  line-height: 1.25;
-
-  font-weight: 500;
-}
-
-.suggestions i {
-  font-style: normal;
-
-  color: #777;
-}
-
 
 /* =========================================================
    Messages
@@ -510,28 +489,16 @@ textarea:focus-visible {
 
 .message {
   width: min(900px, calc(100% - 48px));
-
   margin: auto;
-
   display: flex;
-
   gap: 14px;
-
   padding: 22px 0;
-
   animation: in 0.22s ease;
 }
 
 @keyframes in {
-  from {
-    opacity: 0;
-    transform: translateY(5px);
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: none; }
 }
 
 .message.user {
@@ -540,55 +507,39 @@ textarea:focus-visible {
 
 .message.user .message-content {
   max-width: 72%;
-
   padding: 13px 17px;
-
-  border-radius:
-    19px 19px 5px 19px;
-
+  border-radius: 19px 19px 5px 19px;
   background: #eef0f3;
 }
 
 .message.assistant .message-content {
   max-width: 760px;
-
   flex: 1;
 }
 
 .avatar-ai {
   width: 30px;
   height: 30px;
-
   flex: none;
-
   border-radius: 50%;
-
   background: #24262a;
-
   color: #fff;
-
   display: grid;
   place-items: center;
-
   font-size: 8px;
   font-weight: 700;
 }
 
 .message-name {
   font-size: 12px;
-
   font-weight: 600;
-
   color: #6e6e73;
-
   margin: 2px 0 7px;
 }
 
 .message-text {
   font-size: 16px;
-
   line-height: 1.65;
-
   overflow-wrap: anywhere;
 }
 
@@ -603,7 +554,6 @@ textarea:focus-visible {
 .message-text ul,
 .message-text ol {
   margin: 10px 0 14px;
-
   padding-left: 24px;
 }
 
@@ -615,6 +565,40 @@ textarea:focus-visible {
   font-weight: 650;
 }
 
+.message-text h2,
+.message-text h3,
+.message-text h4 {
+  margin: 18px 0 8px;
+  line-height: 1.2;
+}
+
+/* =========================================================
+   Understanding actions
+========================================================= */
+
+.understand-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.understand-action {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
+  background: #fff;
+  color: #53535a;
+  font-size: 12px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.understand-action:hover {
+  background: #f4f4f6;
+  border-color: rgba(0, 0, 0, 0.13);
+}
 
 /* =========================================================
    Message actions
@@ -622,31 +606,23 @@ textarea:focus-visible {
 
 .message-actions {
   display: flex;
-
   gap: 2px;
-
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .message-action {
   background: transparent;
-
   color: #999;
-
   width: 30px;
   height: 30px;
-
   border-radius: 50%;
-
   cursor: pointer;
 }
 
 .message-action:hover {
   background: #f0f0f2;
-
   color: #222;
 }
-
 
 /* =========================================================
    Thinking
@@ -654,151 +630,86 @@ textarea:focus-visible {
 
 .typing {
   color: #777;
-
-  animation:
-    pulse 1.5s infinite;
+  animation: pulse 1.5s infinite;
 }
 
 @keyframes pulse {
-  50% {
-    opacity: 0.4;
-  }
+  50% { opacity: 0.4; }
 }
 
-
 /* =========================================================
-   Composer
+   Composer for active chats
 ========================================================= */
 
 .composer-area {
   position: absolute;
-
   z-index: 5;
-
   left: 50%;
-
   bottom: 0;
-
   width: min(900px, calc(100% - 48px));
-
   transform: translateX(-50%);
-
   padding-bottom: 20px;
-
-  background:
-    linear-gradient(
-      to bottom,
-      rgba(255, 255, 255, 0),
-      rgba(255, 255, 255, 0.94) 25%,
-      #fff 48%
-    );
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0.94) 25%,
+    #fff 48%
+  );
+  pointer-events: none;
 }
 
-.composer {
-  min-height: 124px;
-
-  padding: 17px;
-
-  border:
-    1px solid rgba(0, 0, 0, 0.12);
-
-  border-radius: 24px;
-
-  background:
-    rgba(255, 255, 255, 0.97);
-
-  box-shadow:
-    0 18px 50px rgba(0, 0, 0, 0.055);
+.composer-area .hero-composer.active-composer {
+  display: block;
+  width: min(900px, 100%);
+  margin: 0 auto;
+  pointer-events: auto;
 }
 
-.composer:focus-within {
-  border-color:
-    rgba(0, 0, 0, 0.2);
-
-  box-shadow:
-    0 20px 55px rgba(0, 0, 0, 0.08);
+.composer-area .hero-composer.active-composer form {
+  min-height: 104px;
 }
 
-textarea {
-  width: 100%;
-
-  min-height: 54px;
-
-  max-height: 190px;
-
-  border: 0;
-
-  outline: 0;
-
-  resize: none;
-
-  background: transparent;
-
-  color: #1d1d1f;
-
-  font-size: 16px;
-
-  line-height: 1.5;
+.composer-area .trust {
+  display: block;
 }
-
-textarea::placeholder {
-  color: #9b9da4;
-}
-
-.composer-footer {
-  display: flex;
-
-  justify-content: space-between;
-
-  align-items: center;
-
-  margin-top: auto;
-}
-
-.composer-actions {
-  display: flex;
-
-  align-items: center;
-
-  gap: 6px;
-}
-
 
 /* =========================================================
    Composer buttons
 ========================================================= */
 
+.composer-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .tool,
 .send {
   display: inline-grid;
-
   place-items: center;
-
   border-radius: 50%;
-
   cursor: pointer;
 }
 
 .tool {
   width: 38px;
   height: 38px;
-
   background: #f2f2f4;
-
   color: #555;
-
-  transition:
-    background-color 0.2s ease,
-    color 0.2s ease,
-    transform 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
 .tool:hover {
   background: #e8e8eb;
-
   color: #111;
 }
-
 
 /* =========================================================
    Microphone
@@ -811,78 +722,35 @@ textarea::placeholder {
 .mic-icon {
   width: 19px;
   height: 19px;
-
   display: block;
 }
 
-
-/*
- * Active listening state.
- *
- * Kept intentionally subtle.
- */
 .microphone.is-listening {
   background: #1d1d1f;
-
   color: #fff;
-
   transform: scale(1.04);
 }
 
-
-/*
- * Soft Apple-style pulse.
- */
 .microphone.is-listening::after {
   content: "";
-
   position: absolute;
-
   inset: -4px;
-
-  border:
-    1px solid rgba(29, 29, 31, 0.16);
-
+  border: 1px solid rgba(29, 29, 31, 0.16);
   border-radius: 50%;
-
-  animation:
-    mic-pulse 1.6s ease-out infinite;
+  animation: mic-pulse 1.6s ease-out infinite;
 }
 
 @keyframes mic-pulse {
-
-  0% {
-    transform: scale(0.9);
-
-    opacity: 0.7;
-  }
-
-  70% {
-    transform: scale(1.18);
-
-    opacity: 0;
-  }
-
-  100% {
-    transform: scale(1.18);
-
-    opacity: 0;
-  }
+  0% { transform: scale(0.9); opacity: 0.7; }
+  70% { transform: scale(1.18); opacity: 0; }
+  100% { transform: scale(1.18); opacity: 0; }
 }
-
-
-/* =========================================================
-   Send
-========================================================= */
 
 .send {
   width: 42px;
   height: 42px;
-
   background: #1d1d1f;
-
   color: #fff;
-
   font-size: 21px;
 }
 
@@ -892,10 +760,8 @@ textarea::placeholder {
 
 .send:disabled {
   opacity: 0.3;
-
   cursor: default;
 }
-
 
 /* =========================================================
    Trust
@@ -903,14 +769,10 @@ textarea::placeholder {
 
 .trust {
   margin: 9px 0 0;
-
   text-align: center;
-
   color: #9a9aa0;
-
   font-size: 11px;
 }
-
 
 /* =========================================================
    Dark mode
@@ -918,167 +780,131 @@ textarea::placeholder {
 
 body.dark {
   background: #111214;
-
   color: #f5f5f7;
 }
 
 .dark .sidebar {
   background: #18191b;
-
-  border-color:
-    rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
-.dark .brand {
-  color: #f5f5f7;
-}
+.dark .brand { color: #f5f5f7; }
 
 .dark .brand span,
 .dark .history p,
-.dark .history-empty {
-  color: #777;
-}
+.dark .history-empty { color: #777; }
 
-.dark .main {
-  background: #18191b;
-}
+.dark .main { background: #18191b; }
 
 .dark .topbar {
-  background:
-    rgba(24, 25, 27, 0.9);
-
-  border-color:
-    rgba(255, 255, 255, 0.08);
+  background: rgba(24, 25, 27, 0.9);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .dark .round,
-.dark .search-chat,
-.dark .side-link {
+.dark .search-chat { color: #aaa; }
+
+
+.dark .theme-toggle {
   color: #aaa;
 }
 
+.dark .theme-toggle:hover {
+  background: #292a2e;
+  color: #f5f5f7;
+}
+
+
 .dark .new-chat {
   background: #2b2c30;
-
   color: #f5f5f7;
 }
 
 .dark .new-chat:hover,
 .dark .search-chat:hover,
-.dark .side-link:hover,
 .dark .history-item:hover {
   background: #292a2e;
 }
 
-.dark .history-item {
-  color: #ddd;
-}
-
-.dark .welcome h1 {
-  color: #f5f5f7;
-}
-
+.dark .history-item { color: #ddd; }
+.dark .welcome h1 { color: #f5f5f7; }
 .dark .welcome h1 span,
-.dark .welcome > p,
-.dark .chat-title {
-  color: #a1a1a6;
-}
+.dark .hero-subtitle,
+.dark .chat-title { color: #a1a1a6; }
 
 .dark .mark {
   background: #252a33;
-
   color: #c8d6ef;
 }
 
-.dark .suggestions button {
+.dark .hero-composer form {
   background: #1d1e21;
+  border-color: rgba(255, 255, 255, 0.13);
+  box-shadow: 0 20px 55px rgba(0, 0, 0, 0.35);
+}
 
+.dark #promptInput { color: #f5f5f7; }
+.dark #promptInput::placeholder { color: #7f828a; }
+
+.dark .suggestions button,
+.dark .understand-action {
+  background: #1d1e21;
   color: #f5f5f7;
-
-  border-color:
-    rgba(255, 255, 255, 0.08);
-
+  border-color: rgba(255, 255, 255, 0.08);
   box-shadow: none;
 }
 
-.dark .suggestions button:hover {
+.dark .suggestions button:hover,
+.dark .understand-action:hover {
   background: #232428;
 }
 
-.dark .suggestions b {
-  background: #202a3b;
+.dark .message.user .message-content { background: #2a2b2f; }
+.dark .message-name { color: #a1a1a6; }
 
-  color: #8db8ff;
+.dark .more-menu {
+  background: #1d1e21;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.4);
 }
 
-.dark .message.user .message-content {
-  background: #2a2b2f;
-}
-
-.dark .message-name {
-  color: #a1a1a6;
-}
+.dark .menu-action { color: #e5e5e7; }
+.dark .menu-action:hover { background: #292a2e; }
+.dark .menu-action span:first-child { color: #999; }
 
 .dark .composer-area {
-  background:
-    linear-gradient(
-      to bottom,
-      rgba(24, 25, 27, 0),
-      rgba(24, 25, 27, 0.94) 25%,
-      #18191b 48%
-    );
+  background: linear-gradient(
+    to bottom,
+    rgba(24, 25, 27, 0),
+    rgba(24, 25, 27, 0.94) 25%,
+    #18191b 48%
+  );
 }
 
-.dark .composer {
-  background: #1d1e21;
-
-  border-color:
-    rgba(255, 255, 255, 0.13);
-
-  box-shadow:
-    0 20px 55px rgba(0, 0, 0, 0.35);
-}
-
-.dark textarea,
-.dark .message-text {
-  color: #f5f5f7;
-}
+.dark .message-text { color: #f5f5f7; }
 
 .dark .tool {
   background: #2b2c30;
-
   color: #ccc;
 }
 
-.dark .tool:hover {
-  background: #35363a;
-}
+.dark .tool:hover { background: #35363a; }
 
 .dark .send {
   background: #f5f5f7;
-
   color: #111;
 }
 
-.dark .trust {
-  color: #777;
-}
+.dark .trust { color: #777; }
 
-
-/*
- * Dark-mode microphone listening state.
- */
 .dark .microphone.is-listening {
   background: #f5f5f7;
-
   color: #111;
 }
 
 .dark .microphone.is-listening::after {
-  border-color:
-    rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.18);
 }
-
 
 /* =========================================================
    Mobile sidebar
@@ -1088,193 +914,154 @@ body.dark {
   display: none;
 }
 
-
 /* =========================================================
    Tablet
 ========================================================= */
 
 @media (max-width: 980px) {
-
-  .sidebar {
-    width: 250px;
-  }
-
-  .suggestions {
-    grid-template-columns:
-      repeat(2, 1fr);
-
-    max-width: 650px;
-  }
+  .sidebar { width: 250px; }
+  .welcome { padding-left: 18px; padding-right: 18px; }
 }
-
 
 /* =========================================================
    Mobile
 ========================================================= */
 
 @media (max-width: 760px) {
-
   .sidebar {
     position: fixed;
-
     z-index: 30;
-
     left: 0;
     top: 0;
-
-    transform:
-      translateX(-102%);
-
+    transform: translateX(-102%);
     width: min(310px, 88vw);
-
-    transition:
-      transform 0.25s;
+    transition: transform 0.25s;
   }
 
-  .sidebar-open .sidebar {
-    transform:
-      translateX(0);
-  }
-
+  .sidebar-open .sidebar { transform: translateX(0); }
 
   .overlay {
     position: fixed;
-
     z-index: 25;
-
     inset: 0;
-
-    background:
-      rgba(0, 0, 0, 0.25);
-
+    background: rgba(0, 0, 0, 0.25);
     opacity: 0;
-
     visibility: hidden;
-
     pointer-events: none;
-
     display: block;
   }
 
   .sidebar-open .overlay {
     opacity: 1;
-
     visibility: visible;
-
     pointer-events: auto;
   }
 
-
   .mobile-left {
     display: flex;
-
     align-items: center;
-
     gap: 5px;
   }
 
-  .mobile-left strong {
-    font-size: 16px;
-  }
-
-  .chat-title {
-    display: none;
-  }
+  .mobile-left strong { font-size: 16px; }
+  .chat-title { display: none; }
 
   .topbar {
     height: 58px;
-
     padding: 0 10px;
   }
 
-
   .welcome {
     justify-content: flex-start;
+    padding: 42px 16px 70px;
+  }
 
-    padding:
-      65px 16px 190px;
+  .mark {
+    width: 52px;
+    height: 52px;
+    margin-bottom: 18px;
   }
 
   .welcome h1 {
-    font-size:
-      clamp(43px, 13vw, 60px);
+    font-size: clamp(32px, 9vw, 36px);
   }
 
-  .welcome > p {
+  .hero-subtitle {
     font-size: 16px;
-
     max-width: 350px;
+    margin-top: 15px;
   }
 
-
-  .suggestions {
+  .hero-composer {
     width: 100%;
-
-    grid-template-columns: 1fr;
-
-    gap: 8px;
-
-    margin-top: 32px;
+    margin-top: 27px;
   }
 
-  .suggestions button {
-    min-height: 60px;
-
-    border-radius: 15px;
-  }
-
-
-  .message {
-    width:
-      calc(100% - 28px);
-
-    padding: 15px 0;
-  }
-
-  .message.user .message-content {
-    max-width: 88%;
-  }
-
-  .message-text {
-    font-size: 15px;
-  }
-
-
-  .composer-area {
-    width:
-      calc(100% - 14px);
-
-    padding-bottom: 8px;
-  }
-
-  .composer {
-    min-height: 112px;
-
+  .hero-composer form {
+    min-height: 96px;
     border-radius: 21px;
-
     padding: 14px;
   }
 
-  .trust {
-    font-size: 10px;
+  .suggestions {
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 2px 0 4px;
+    scrollbar-width: none;
+  }
+
+  .suggestions::-webkit-scrollbar { display: none; }
+
+  .suggestions button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .try-section {
+    width: 100%;
+  }
+
+  .composer-area {
+    width: calc(100% - 14px);
+    padding-bottom: 8px;
+  }
+
+  .composer-area .hero-composer.active-composer {
+    width: 100%;
+  }
+
+  .composer-area .hero-composer.active-composer form {
+    min-height: 96px;
+    border-radius: 21px;
+    padding: 14px;
+  }
+
+  .message {
+    width: calc(100% - 28px);
+    padding: 15px 0;
+  }
+
+  .message.user .message-content { max-width: 88%; }
+  .message-text { font-size: 15px; }
+
+  .understand-actions {
+    gap: 6px;
+  }
+
+  .understand-action {
+    font-size: 11px;
+    padding: 0 10px;
   }
 }
-
 
 /* =========================================================
    Reduced motion
 ========================================================= */
 
 @media (prefers-reduced-motion: reduce) {
-
-  *,
-  *:before,
-  *:after {
-
-    animation-duration:
-      0.01ms !important;
-
-    transition-duration:
-      0.01ms !important;
+  *, *:before, *:after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

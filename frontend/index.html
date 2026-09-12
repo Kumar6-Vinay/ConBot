@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="ConBOT — Ask. Learn. Understand.">
-<meta name="theme-color" content="#f5f5f7">
+<meta name="theme-color" content="#ffffff">
 <title>ConBOT — Ask. Learn. Understand.</title>
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -24,7 +24,8 @@
       <button
         class="round"
         id="newChatTop"
-        aria-label="New chat">
+        aria-label="New chat"
+        title="New chat">
         ↗
       </button>
     </div>
@@ -42,7 +43,6 @@
     </button>
 
     <div class="history">
-
       <section>
         <p>Today</p>
         <div id="todayHistory"></div>
@@ -52,233 +52,191 @@
         <p>Yesterday</p>
         <div id="yesterdayHistory"></div>
       </section>
-
     </div>
-
-    <div class="side-bottom">
-
-      <button class="side-link" id="settings">
-        ⚙
-        <span>Settings</span>
-      </button>
-
-      <button class="side-link" id="help">
-        ?
-        <span>Help & Feedback</span>
-      </button>
-
-      <button class="side-link" id="theme">
-        ☾
-        <span id="themeLabel">Dark Mode</span>
-      </button>
-
-    </div>
-
   </aside>
 
-  <button
-    class="overlay"
-    id="overlay"
-    aria-label="Close menu">
-  </button>
-
+  <button class="overlay" id="overlay" aria-label="Close menu"></button>
 
   <main class="main">
 
     <header class="topbar">
 
       <div class="mobile-left">
-
         <button
           class="round"
           id="menu"
-          aria-label="Open menu">
+          aria-label="Open menu"
+          title="Open menu">
           ☰
         </button>
-
         <strong>ConBOT</strong>
-
       </div>
 
-      <div
-        class="chat-title"
-        id="chatTitle">
+      <div class="chat-title" id="chatTitle">
         New conversation
       </div>
 
       <div class="top-actions">
 
+        <!-- Visible Dark Mode control -->
         <button
-          class="round"
-          id="more"
-          aria-label="More options">
-          •••
+          class="theme-toggle"
+          id="themeTop"
+          type="button"
+          aria-label="Toggle dark mode"
+          title="Dark Mode">
+          <span class="theme-icon" aria-hidden="true">☾</span>
+          <span id="themeTopLabel">Dark Mode</span>
         </button>
 
-        <button
-          class="avatar"
-          aria-label="Profile">
-          V
-        </button>
+        <div class="more-wrap">
+          <button
+            class="round"
+            id="more"
+            aria-label="More options"
+            aria-expanded="false"
+            title="More options">
+            •••
+          </button>
+
+          <div class="more-menu" id="moreMenu" hidden>
+            <button class="menu-action" id="settings">
+              <span>⚙</span>
+              <span>Settings</span>
+            </button>
+
+            <button class="menu-action" id="help">
+              <span>?</span>
+              <span>Help & Feedback</span>
+            </button>
+          </div>
+        </div>
 
       </div>
 
     </header>
 
-
     <section class="workspace">
 
-      <div
-        class="messages"
-        id="chatMessages"
-        aria-live="polite">
+      <div class="messages" id="chatMessages" aria-live="polite">
 
-        <div
-          class="welcome"
-          id="welcome">
+        <div class="welcome" id="welcome">
 
-          <div class="mark">
-            ◈
-          </div>
 
           <h1>
             Ask. Learn.
             <span>Understand.</span>
           </h1>
 
-          <p>
-            Your AI for everyday questions, learning, ideas and understanding.
+          <p class="hero-subtitle">
+            Your questions. Made clear.
           </p>
 
-          <div
-            class="suggestions"
-            id="suggestions">
+          <div class="hero-composer">
+            <form id="chatForm">
 
-            <button
-              data-prompt="Explain GST simply">
-              <b>▧</b>
-              <span>Explain GST simply</span>
-              <i>→</i>
-            </button>
+              <label class="sr" for="promptInput">
+                Ask ConBOT a question
+              </label>
 
-            <button
-              data-prompt="Plan a 3-day Jaipur trip">
-              <b>⌁</b>
-              <span>Plan a 3-day Jaipur trip</span>
-              <i>→</i>
-            </button>
+              <textarea
+                id="promptInput"
+                maxlength="4000"
+                rows="1"
+                placeholder="What are you curious about?"
+                autocomplete="off"
+                spellcheck="true"></textarea>
 
-            <button
-              data-prompt="What should I cook today?">
-              <b>♜</b>
-              <span>What should I cook?</span>
-              <i>→</i>
-            </button>
+              <div class="composer-footer">
 
-            <button
-              data-prompt="Why is the price of gold changing?">
-              <b>↗</b>
-              <span>Why is gold price changing?</span>
-              <i>→</i>
-            </button>
+                <button
+                  type="button"
+                  class="tool"
+                  id="attachment"
+                  aria-label="Add a file"
+                  title="File upload — coming soon">
+                  +
+                </button>
 
+                <div class="composer-actions">
+
+                  <button
+                    type="button"
+                    class="tool microphone"
+                    id="microphone"
+                    aria-label="Use microphone"
+                    aria-pressed="false"
+                    title="Voice input">
+
+                    <svg
+                      class="mic-icon"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true">
+
+                      <path
+                        d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Z"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round">
+                      </path>
+
+                      <path
+                        d="M19 11a7 7 0 0 1-14 0M12 18v3M9 21h6"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round">
+                      </path>
+
+                    </svg>
+                  </button>
+
+                  <button
+                    class="send"
+                    type="submit"
+                    aria-label="Send question">
+                    ↑
+                  </button>
+
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <div class="try-section">
+            <span class="try-label">Try asking</span>
+
+            <div class="suggestions" id="suggestions">
+
+              <button data-prompt="Explain GST simply">
+                Explain GST simply
+              </button>
+
+              <button data-prompt="Plan a 3-day Jaipur trip">
+                Plan a Jaipur trip
+              </button>
+
+              <button data-prompt="What should I cook today?">
+                What should I cook?
+              </button>
+
+              <button data-prompt="Why is the price of gold changing?">
+                Why is gold rising?
+              </button>
+
+            </div>
           </div>
 
         </div>
 
       </div>
 
-
-      <div class="composer-area">
-
-        <form id="chatForm">
-
-          <div class="composer">
-
-            <label
-              class="sr"
-              for="promptInput">
-              Ask ConBOT a question
-            </label>
-
-            <textarea
-              id="promptInput"
-              maxlength="4000"
-              rows="1"
-              placeholder="What would you like to know?"
-              autocomplete="off"
-              spellcheck="true"></textarea>
-
-
-            <div class="composer-footer">
-
-              <button
-                type="button"
-                class="tool"
-                id="attachment"
-                aria-label="Add a file"
-                title="File upload — coming soon">
-                +
-              </button>
-
-
-              <div class="composer-actions">
-
-                <button
-                  type="button"
-                  class="tool microphone"
-                  id="microphone"
-                  aria-label="Use microphone"
-                  aria-pressed="false"
-                  title="Voice input">
-
-                  <svg
-                    class="mic-icon"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true">
-
-                    <path
-                      d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Z"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.8"
-                      stroke-linecap="round"
-                      stroke-linejoin="round">
-                    </path>
-
-                    <path
-                      d="M19 11a7 7 0 0 1-14 0M12 18v3M9 21h6"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.8"
-                      stroke-linecap="round"
-                      stroke-linejoin="round">
-                    </path>
-
-                  </svg>
-
-                </button>
-
-
-                <button
-                  class="send"
-                  type="submit"
-                  aria-label="Send question">
-                  ↑
-                </button>
-
-              </div>
-
-            </div>
-
-          </div>
-
-        </form>
-
-        <p class="trust">
-          ConBOT can make mistakes. Check important information.
-        </p>
-
+      <div class="composer-area" id="composerArea">
+        <!-- The main composer is embedded in the welcome state.
+             During an active conversation, this fixed composer is used. -->
       </div>
 
     </section>
@@ -286,7 +244,6 @@
   </main>
 
 </div>
-
 
 <script src="app.js"></script>
 
