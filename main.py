@@ -46,7 +46,21 @@ AVAILABLE_MODELS = {
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+# Tolerate a key pasted with surrounding whitespace, quotes, or a "Bearer "
+# prefix — all three are common and all three produce a silent 401.
+def _clean_key(raw: str) -> str:
+    key = raw.strip().strip('"').strip("'").strip()
+    if key.lower().startswith("bearer "):
+        key = key[7:].strip()
+    return key
+
+
+OPENROUTER_API_KEY = _clean_key(os.getenv("OPENROUTER_API_KEY", ""))
+
+# Ollama runs on the host during local development. There is no Ollama on a
+# managed host, so falling back to it there turns every upstream failure into a
+# misleading "AI service unavailable." Set this to true only for local dev.
+ALLOW_OLLAMA_FALLBACK = os.getenv("ALLOW_OLLAMA_FALLBACK", "false").lower() == "true"
 
 OPENROUTER_MODEL_MAP = {
     "qwen3:14b": "qwen/qwen3-14b",
@@ -65,6 +79,28 @@ WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
 OPENROUTER_TIMEOUT = 60
 OLLAMA_TIMEOUT = 120
 SEARCH_TIMEOUT = 10
+
+
+# =========================================================
+# STARTUP DIAGNOSTICS
+# =========================================================
+
+@app.on_event("startup")
+async def log_configuration() -> None:
+    """One line at boot that says whether this instance can answer at all."""
+    if OPENROUTER_API_KEY:
+        logger.info(
+            "Startup: OpenRouter configured (key ends ...%s), ollama_fallback=%s",
+            OPENROUTER_API_KEY[-4:],
+            ALLOW_OLLAMA_FALLBACK,
+        )
+    else:
+        logger.error(
+            "Startup: OPENROUTER_API_KEY is NOT set. "
+            "Every request will fail until it is added to the environment. "
+            "ollama_fallback=%s",
+            ALLOW_OLLAMA_FALLBACK,
+        )
 
 
 # =========================================================
@@ -356,6 +392,12 @@ async def ask_openrouter(
             )
             response.raise_for_status()
             data = response.json()
+
+            # OpenRouter returns 200 with an "error" object for some failures
+            # (quota, moderation), so a successful status is not enough.
+            if isinstance(data, dict) and data.get("error"):
+                raise ValueError(f"OpenRouter error payload: {data['error']}")
+
             answer = data["choices"][0]["message"]["content"]
 
             if not isinstance(answer, str) or not answer.strip():
@@ -365,10 +407,16 @@ async def ask_openrouter(
             return answer.strip()
 
     except httpx.TimeoutException:
-        logger.error(f"[{request_id}] OpenRouter timeout")
+        logger.error(f"[{request_id}] OpenRouter timeout after {OPENROUTER_TIMEOUT}s")
         raise
     except httpx.HTTPStatusError as e:
-        logger.error(f"[{request_id}] OpenRouter HTTP error: {e.status_code}")
+        # HTTPStatusError has no .status_code — it is on .response. The old
+        # code raised AttributeError inside this handler, which is why every
+        # real cause (401, 402, 404 data policy) was invisible in the logs.
+        logger.error(
+            f"[{request_id}] OpenRouter HTTP {e.response.status_code}: "
+            f"{e.response.text[:500]}"
+        )
         raise
     except Exception as e:
         logger.error(f"[{request_id}] OpenRouter error: {str(e)}")
@@ -435,7 +483,24 @@ async def get_ai_answer(
         try:
             return await ask_openrouter(full_prompt, model, request_id)
         except Exception as e:
-            logger.warning(f"[{request_id}] OpenRouter failed, falling back to Ollama: {str(e)}")
+            logger.warning(
+                f"[{request_id}] OpenRouter failed: {type(e).__name__}: {str(e)[:500]}"
+            )
+            if not ALLOW_OLLAMA_FALLBACK:
+                raise HTTPException(
+                    status_code=502,
+                    detail="ConBOT could not answer that right now. Please try again shortly.",
+                )
+    else:
+        logger.error(
+            f"[{request_id}] OPENROUTER_API_KEY is not set — "
+            "check the environment variables on the deployed service"
+        )
+        if not ALLOW_OLLAMA_FALLBACK:
+            raise HTTPException(
+                status_code=503,
+                detail="ConBOT is not configured to answer questions yet.",
+            )
 
     logger.info(f"[{request_id}] Using Ollama fallback")
     return await ask_ollama(full_prompt, model, request_id)
@@ -577,7 +642,12 @@ Now provide the clearest answer for the user.
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy"}
+    """Report whether the service can actually answer, not just whether it booted."""
+    return {
+        "status": "healthy" if (OPENROUTER_API_KEY or ALLOW_OLLAMA_FALLBACK) else "degraded",
+        "llm_configured": bool(OPENROUTER_API_KEY),
+        "ollama_fallback": ALLOW_OLLAMA_FALLBACK,
+    }
 
 
 # =========================================================
