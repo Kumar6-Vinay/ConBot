@@ -171,6 +171,23 @@ function toBottom() {
 }
 
 /* =========================================================
+   Where the user is
+   Timezone and language come from device settings — no permission
+   prompt, no location API, nothing precise. Enough for the answer to
+   be about the right country.
+========================================================= */
+
+function locale() {
+  let timezone = null;
+  try {
+    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch (e) {
+    timezone = null;
+  }
+  return { timezone, language: navigator.language || null };
+}
+
+/* =========================================================
    Sending
 ========================================================= */
 
@@ -190,11 +207,18 @@ async function ask() {
   pending = new AbortController();
   const timer = setTimeout(() => pending && pending.abort(), TIMEOUT_MS);
 
+  const where = locale();
+
   try {
     const res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: text, model: MODEL }),
+      body: JSON.stringify({
+        prompt: text,
+        model: MODEL,
+        timezone: where.timezone,
+        language: where.language,
+      }),
       signal: pending.signal,
     });
 
