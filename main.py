@@ -68,7 +68,7 @@ SEARCH_TIMEOUT = 10
 
 
 # =========================================================
-# CORS
+# CORS (FIXED FOR FRONTEND)
 # =========================================================
 
 app.add_middleware(
@@ -80,6 +80,7 @@ app.add_middleware(
         "http://127.0.0.1:3001",
         "https://conbot.in",
         "https://www.conbot.in",
+        "https://llama-chatbot-fe.onrender.com",
     ],
     allow_credentials=False,
     allow_methods=["GET", "POST"],
