@@ -1,251 +1,58 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="ConBOT — Ask. Learn. Understand.">
-<meta name="theme-color" content="#ffffff">
-<title>ConBOT — Ask. Learn. Understand.</title>
-<link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ConBOT - Ask. Learn. Understand.</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
-
 <body>
-
-<div class="app">
-
-  <aside class="sidebar" id="sidebar">
-
-    <div class="side-head">
-      <a class="brand" href="/">
-        ConBOT
-        <span>Ask. Learn. Understand.</span>
-      </a>
-
-      <button
-        class="round"
-        id="newChatTop"
-        aria-label="New chat"
-        title="New chat">
-        ↗
-      </button>
-    </div>
-
-    <button class="new-chat" id="newChat">
-      ＋
-      <span>New Chat</span>
-      <kbd>⌘ N</kbd>
-    </button>
-
-    <button class="search-chat" id="searchChats">
-      ⌕
-      <span>Search chats</span>
-      <kbd>⌘ K</kbd>
-    </button>
-
-    <div class="history">
-      <section>
-        <p>Today</p>
-        <div id="todayHistory"></div>
-      </section>
-
-      <section>
-        <p>Yesterday</p>
-        <div id="yesterdayHistory"></div>
-      </section>
-    </div>
-  </aside>
-
-  <button class="overlay" id="overlay" aria-label="Close menu"></button>
-
-  <main class="main">
-
-    <header class="topbar">
-
-      <div class="mobile-left">
-        <button
-          class="round"
-          id="menu"
-          aria-label="Open menu"
-          title="Open menu">
-          ☰
-        </button>
-        <strong>ConBOT</strong>
-      </div>
-
-      <div class="chat-title" id="chatTitle">
-        New conversation
-      </div>
-
-      <div class="top-actions">
-
-        <!-- Visible Dark Mode control -->
-        <button
-          class="theme-toggle"
-          id="themeTop"
-          type="button"
-          aria-label="Toggle dark mode"
-          title="Dark Mode">
-          <span class="theme-icon" aria-hidden="true">☾</span>
-          <span id="themeTopLabel">Dark Mode</span>
-        </button>
-
-        <div class="more-wrap">
-          <button
-            class="round"
-            id="more"
-            aria-label="More options"
-            aria-expanded="false"
-            title="More options">
-            •••
-          </button>
-
-          <div class="more-menu" id="moreMenu" hidden>
-            <button class="menu-action" id="settings">
-              <span>⚙</span>
-              <span>Settings</span>
-            </button>
-
-            <button class="menu-action" id="help">
-              <span>?</span>
-              <span>Help & Feedback</span>
-            </button>
-          </div>
-        </div>
-
-      </div>
-
-    </header>
-
-    <section class="workspace">
-
-      <div class="messages" id="chatMessages" aria-live="polite">
-
-        <div class="welcome" id="welcome">
-
-
-          <h1>
-            Ask. Learn.
-            <span>Understand.</span>
-          </h1>
-
-          <p class="hero-subtitle">
-            Your questions. Made clear.
-          </p>
-
-          <div class="hero-composer">
-            <form id="chatForm">
-
-              <label class="sr" for="promptInput">
-                Ask ConBOT a question
-              </label>
-
-              <textarea
-                id="promptInput"
-                maxlength="4000"
-                rows="1"
-                placeholder="What are you curious about?"
-                autocomplete="off"
-                spellcheck="true"></textarea>
-
-              <div class="composer-footer">
-
-                <button
-                  type="button"
-                  class="tool"
-                  id="attachment"
-                  aria-label="Add a file"
-                  title="File upload — coming soon">
-                  +
-                </button>
-
-                <div class="composer-actions">
-
-                  <button
-                    type="button"
-                    class="tool microphone"
-                    id="microphone"
-                    aria-label="Use microphone"
-                    aria-pressed="false"
-                    title="Voice input">
-
-                    <svg
-                      class="mic-icon"
-                      viewBox="0 0 24 24"
-                      aria-hidden="true">
-
-                      <path
-                        d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Z"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.8"
-                        stroke-linecap="round"
-                        stroke-linejoin="round">
-                      </path>
-
-                      <path
-                        d="M19 11a7 7 0 0 1-14 0M12 18v3M9 21h6"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.8"
-                        stroke-linecap="round"
-                        stroke-linejoin="round">
-                      </path>
-
-                    </svg>
-                  </button>
-
-                  <button
-                    class="send"
-                    type="submit"
-                    aria-label="Send question">
-                    ↑
-                  </button>
-
-                </div>
-              </div>
-            </form>
-          </div>
-
-          <div class="try-section">
-            <span class="try-label">Try asking</span>
-
-            <div class="suggestions" id="suggestions">
-
-              <button data-prompt="Explain GST simply">
-                Explain GST simply
-              </button>
-
-              <button data-prompt="Plan a 3-day Jaipur trip">
-                Plan a Jaipur trip
-              </button>
-
-              <button data-prompt="What should I cook today?">
-                What should I cook?
-              </button>
-
-              <button data-prompt="Why is the price of gold changing?">
-                Why is gold rising?
-              </button>
-
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h1>ConBOT</h1>
+                <p>Ask. Learn. Understand.</p>
             </div>
-          </div>
+            <button class="new-chat-btn">+ New Chat</button>
+            <div class="chat-history">
+                <p>No chat history yet</p>
+            </div>
+        </aside>
 
-        </div>
+        <!-- Main Chat Area -->
+        <main class="chat-area">
+            <div class="chat-container">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="welcome-message">
+                        <h2>Ask.Learn.Understand.</h2>
+                        <p>Your questions. Made clear.</p>
+                    </div>
+                </div>
 
-      </div>
+                <!-- Input Area -->
+                <div class="input-area">
+                    <div class="input-wrapper">
+                        <input 
+                            type="text" 
+                            id="userInput" 
+                            class="user-input" 
+                            placeholder="What are you curious about?"
+                            autocomplete="off"
+                        >
+                        <button class="send-btn" onclick="sendMessage()">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="1"></circle>
+                                <path d="M12 19V5M19 12H5"></path>
+                                <path d="M17.66 7.34l-9.32 9.32M6.34 7.34l9.32 9.32"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
 
-      <div class="composer-area" id="composerArea">
-        <!-- The main composer is embedded in the welcome state.
-             During an active conversation, this fixed composer is used. -->
-      </div>
-
-    </section>
-
-  </main>
-
-</div>
-
-<script src="app.js"></script>
-
+    <script src="app.js"></script>
 </body>
 </html>
