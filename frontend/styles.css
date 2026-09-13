@@ -573,6 +573,78 @@ textarea:focus-visible {
 }
 
 /* =========================================================
+   Code
+========================================================= */
+
+.message-text :not(pre) > code {
+  font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.88em;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.message-text pre.code-block {
+  position: relative;
+  margin: 14px 0;
+  padding: 34px 16px 16px;
+  border-radius: 14px;
+  background: #1d1e21;
+  overflow-x: auto;
+}
+
+.message-text pre.code-block code {
+  display: block;
+  font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: #f0f0f2;
+  white-space: pre;
+  background: none;
+  padding: 0;
+}
+
+.code-lang {
+  position: absolute;
+  top: 10px;
+  left: 16px;
+  color: #9a9aa2;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.code-copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #b9b9be;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.code-copy svg {
+  width: 15px;
+  height: 15px;
+}
+
+.code-copy:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.code-copy.is-copied {
+  color: #6fe3a0;
+}
+
+/* =========================================================
    Understanding actions
 ========================================================= */
 
@@ -617,11 +689,29 @@ textarea:focus-visible {
   height: 30px;
   border-radius: 50%;
   cursor: pointer;
+  display: inline-grid;
+  place-items: center;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.message-action svg {
+  width: 16px;
+  height: 16px;
 }
 
 .message-action:hover {
   background: #f0f0f2;
   color: #222;
+}
+
+.message-action.is-active[data-action="like"] {
+  color: #1a8a4a;
+  background: #e6f6ec;
+}
+
+.message-action.is-active[data-action="dislike"] {
+  color: #c13c3c;
+  background: #fbeaea;
 }
 
 /* =========================================================
@@ -861,6 +951,25 @@ body.dark {
 
 .dark .message.user .message-content { background: #2a2b2f; }
 .dark .message-name { color: #a1a1a6; }
+
+.dark .message-text :not(pre) > code {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dark .message-text pre.code-block {
+  background: #0d0e10;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dark .message-action.is-active[data-action="like"] {
+  color: #6fe3a0;
+  background: rgba(111, 227, 160, 0.14);
+}
+
+.dark .message-action.is-active[data-action="dislike"] {
+  color: #f08a8a;
+  background: rgba(240, 138, 138, 0.14);
+}
 
 .dark .more-menu {
   background: #1d1e21;

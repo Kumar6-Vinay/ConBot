@@ -30,6 +30,17 @@ let lastUserPrompt = "";
 let lastAssistantAnswer = "";
 
 /* =========================================================
+   Icons
+========================================================= */
+
+const ICONS = {
+  copy: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  like: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v10H4V10h3Zm3 10h7.5a2 2 0 0 0 1.94-1.52l1.35-5.4A2 2 0 0 0 18.85 10.5H14l.7-3.9a1.8 1.8 0 0 0-3.2-1.4L8 9v11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>',
+  dislike: '<svg viewBox="0 0 24 24" aria-hidden="true"><g transform="scale(1,-1) translate(0,-24)"><path d="M7 10v10H4V10h3Zm3 10h7.5a2 2 0 0 0 1.94-1.52l1.35-5.4A2 2 0 0 0 18.85 10.5H14l.7-3.9a1.8 1.8 0 0 0-3.2-1.4L8 9v11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></g></svg>'
+};
+
+/* =========================================================
    Utility
 ========================================================= */
 
@@ -44,8 +55,21 @@ function escapeHtml(s) {
 
 function inline(s) {
   return escapeHtml(s)
+    .replace(/`([^`\n]+)`/g, "<code>$1</code>")
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
+}
+
+function codeBlock(lang, code) {
+  const langAttr = lang ? ` class="language-${escapeHtml(lang)}"` : "";
+
+  return (
+    '<pre class="code-block">' +
+    `<button type="button" class="code-copy" data-action="copy-code" title="Copy code" aria-label="Copy code">${ICONS.copy}</button>` +
+    (lang ? `<span class="code-lang">${escapeHtml(lang)}</span>` : "") +
+    `<code${langAttr}>${escapeHtml(code)}</code>` +
+    "</pre>"
+  );
 }
 
 function markdown(s) {
@@ -72,12 +96,38 @@ function markdown(s) {
     }
   };
 
-  for (const raw of s.replace(/\r\n/g, "\n").split("\n")) {
+  const lines = s.replace(/\r\n/g, "\n").split("\n");
+  let i = 0;
+
+  while (i < lines.length) {
+    const raw = lines[i];
     const l = raw.trim();
+
+    const fence = l.match(/^```(\S*)\s*$/);
+
+    if (fence) {
+      fp();
+      fl();
+
+      const lang = fence[1];
+      const codeLines = [];
+      i++;
+
+      while (i < lines.length && !/^```\s*$/.test(lines[i].trim())) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+
+      i++;
+
+      out.push(codeBlock(lang, codeLines.join("\n")));
+      continue;
+    }
 
     if (!l) {
       fp();
       fl();
+      i++;
       continue;
     }
 
@@ -90,6 +140,7 @@ function markdown(s) {
       const n = h[0].match(/^#+/)[0].length + 1;
 
       out.push(`<h${n}>${inline(h[1])}</h${n}>`);
+      i++;
       continue;
     }
 
@@ -108,11 +159,13 @@ function markdown(s) {
       }
 
       out.push("<li>" + inline((u || o)[1]) + "</li>");
+      i++;
       continue;
     }
 
     fl();
     p.push(l);
+    i++;
   }
 
   fp();
@@ -217,9 +270,9 @@ function add(text, sender) {
         <div class="message-text"></div>
 
         <div class="message-actions">
-          <button class="message-action" data-action="copy" title="Copy">□</button>
-          <button class="message-action" data-action="like" title="Helpful">♡</button>
-          <button class="message-action" data-action="dislike" title="Not helpful">♧</button>
+          <button class="message-action" data-action="copy" title="Copy" aria-label="Copy response">${ICONS.copy}</button>
+          <button class="message-action" data-action="like" title="Helpful" aria-label="Helpful" aria-pressed="false">${ICONS.like}</button>
+          <button class="message-action" data-action="dislike" title="Not helpful" aria-label="Not helpful" aria-pressed="false">${ICONS.dislike}</button>
         </div>
       </div>
     `;
@@ -653,6 +706,27 @@ document.addEventListener("click", async e => {
     return;
   }
 
+  const codeCopyButton = e.target.closest(".code-copy");
+
+  if (codeCopyButton) {
+    try {
+      const code = codeCopyButton.closest(".code-block").querySelector("code").innerText;
+      await navigator.clipboard.writeText(code);
+
+      codeCopyButton.innerHTML = ICONS.check;
+      codeCopyButton.classList.add("is-copied");
+
+      setTimeout(() => {
+        codeCopyButton.innerHTML = ICONS.copy;
+        codeCopyButton.classList.remove("is-copied");
+      }, 1200);
+    } catch {
+      // Clipboard unavailable.
+    }
+
+    return;
+  }
+
   const messageAction = e.target.closest(".message-action");
 
   if (messageAction && messageAction.dataset.action === "copy") {
@@ -661,12 +735,29 @@ document.addEventListener("click", async e => {
         messageAction.closest(".message").querySelector(".message-text").innerText
       );
 
-      messageAction.textContent = "✓";
+      messageAction.innerHTML = ICONS.check;
       setTimeout(() => {
-        messageAction.textContent = "□";
-      }, 1000);
+        messageAction.innerHTML = ICONS.copy;
+      }, 1200);
     } catch {
       // Clipboard unavailable.
+    }
+
+    return;
+  }
+
+  if (messageAction && (messageAction.dataset.action === "like" || messageAction.dataset.action === "dislike")) {
+    const actions = messageAction.closest(".message-actions");
+    const isActive = messageAction.getAttribute("aria-pressed") === "true";
+
+    actions.querySelectorAll(".message-action[aria-pressed]").forEach(button => {
+      button.setAttribute("aria-pressed", "false");
+      button.classList.remove("is-active");
+    });
+
+    if (!isActive) {
+      messageAction.setAttribute("aria-pressed", "true");
+      messageAction.classList.add("is-active");
     }
   }
 });
