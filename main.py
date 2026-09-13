@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -6,6 +9,7 @@ import re
 import os
 import logging
 import uuid
+from typing import Optional
 
 # =========================================================
 # LOGGING
@@ -32,8 +36,6 @@ app = FastAPI(
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://host.docker.internal:11434/api/generate")
 
-SEARXNG_URL = os.getenv("SEARXNG_URL", "http://searxng:8080/search")
-
 DEFAULT_MODEL = "qwen3:14b"
 
 AVAILABLE_MODELS = {
@@ -52,10 +54,17 @@ OPENROUTER_MODEL_MAP = {
     "mistral:latest": "mistralai/mistral-7b-instruct",
 }
 
+# DuckDuckGo Search API
+DUCKDUCKGO_URL = "https://api.duckduckgo.com/"
+
+# Weather APIs (Open-Meteo - free, no API key)
+GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
+WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
+
 # Timeouts (in seconds)
 OPENROUTER_TIMEOUT = 60
 OLLAMA_TIMEOUT = 120
-SEARXNG_TIMEOUT = 20
+SEARCH_TIMEOUT = 10
 
 
 # =========================================================
@@ -186,6 +195,7 @@ def needs_web_search(question: str) -> bool:
         r"\bgold price\b",
         r"\bweather\b",
         r"\btemperature\b",
+        r"\btemp\b",
         r"\bforecast\b",
         r"\bscore\b",
         r"\bmatch today\b",
@@ -221,11 +231,99 @@ def needs_web_search(question: str) -> bool:
 
 
 # =========================================================
+# WEATHER DETECTION & API
+# =========================================================
+
+def is_weather_question(question: str) -> bool:
+    """Check if the question is about weather."""
+    weather_keywords = [
+        r"\bweather\b",
+        r"\btemperature\b",
+        r"\btemp\b",
+        r"\bhow hot\b",
+        r"\bhow cold\b",
+        r"\bwind\b",
+        r"\brain\b",
+        r"\braining\b",
+        r"\bforecast\b",
+        r"\bclimate\b",
+    ]
+    
+    question_lower = question.lower()
+    for keyword in weather_keywords:
+        if re.search(keyword, question_lower):
+            return True
+    return False
+
+
+async def get_weather(location: str, request_id: str) -> Optional[dict]:
+    """Get weather from Open-Meteo (free, no API key required)."""
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            # Step 1: Geocode the location
+            geo_response = await client.get(
+                GEOCODING_URL,
+                params={
+                    "name": location,
+                    "count": 1,
+                    "language": "en",
+                    "format": "json"
+                },
+                timeout=SEARCH_TIMEOUT,
+            )
+            geo_response.raise_for_status()
+            geo_data = geo_response.json()
+            
+            if not geo_data.get("results"):
+                logger.warning(f"[{request_id}] Location not found: {location}")
+                return None
+            
+            result = geo_data["results"][0]
+            lat = result["latitude"]
+            lon = result["longitude"]
+            location_name = f"{result.get('name', '')}, {result.get('country', '')}"
+            
+            # Step 2: Get weather
+            weather_response = await client.get(
+                WEATHER_URL,
+                params={
+                    "latitude": lat,
+                    "longitude": lon,
+                    "current": "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m",
+                    "temperature_unit": "celsius",
+                },
+                timeout=SEARCH_TIMEOUT,
+            )
+            weather_response.raise_for_status()
+            weather_data = weather_response.json()
+            
+            current = weather_data.get("current", {})
+            temp = current.get("temperature_2m")
+            humidity = current.get("relative_humidity_2m")
+            wind = current.get("wind_speed_10m")
+            
+            content = f"Temperature: {temp}°C, Humidity: {humidity}%, Wind: {wind} km/h"
+            
+            logger.info(f"[{request_id}] Weather found for {location_name}: {temp}°C")
+            
+            return {
+                "title": f"Current Weather in {location_name}",
+                "content": content,
+                "url": "open-meteo.com",
+            }
+            
+    except Exception as e:
+        logger.error(f"[{request_id}] Weather API error: {str(e)}")
+        return None
+
+
+# =========================================================
 # OPENROUTER (PRIMARY)
 # =========================================================
 
 async def ask_openrouter(
-    prompt: str,
+    full_prompt: str,
     model: str,
     request_id: str,
 ) -> str:
@@ -236,8 +334,7 @@ async def ask_openrouter(
     payload = {
         "model": openrouter_model,
         "messages": [
-            {"role": "system", "content": CONBOT_SYSTEM_PROMPT},
-            {"role": "user", "content": prompt},
+            {"role": "user", "content": full_prompt},
         ],
         "max_tokens": 1000,
         "temperature": 0.7,
@@ -282,7 +379,7 @@ async def ask_openrouter(
 # =========================================================
 
 async def ask_ollama(
-    prompt: str,
+    full_prompt: str,
     model: str,
     request_id: str,
 ) -> str:
@@ -290,7 +387,7 @@ async def ask_ollama(
     
     payload = {
         "model": model,
-        "prompt": prompt,
+        "prompt": full_prompt,
         "stream": False,
     }
 
@@ -327,7 +424,7 @@ async def ask_ollama(
 # =========================================================
 
 async def get_ai_answer(
-    prompt: str,
+    full_prompt: str,
     model: str,
     request_id: str,
 ) -> str:
@@ -335,63 +432,84 @@ async def get_ai_answer(
     
     if OPENROUTER_API_KEY:
         try:
-            return await ask_openrouter(prompt, model, request_id)
+            return await ask_openrouter(full_prompt, model, request_id)
         except Exception as e:
             logger.warning(f"[{request_id}] OpenRouter failed, falling back to Ollama: {str(e)}")
 
     logger.info(f"[{request_id}] Using Ollama fallback")
-    return await ask_ollama(prompt, model, request_id)
+    return await ask_ollama(full_prompt, model, request_id)
 
 
 # =========================================================
-# SEARXNG WEB SEARCH
+# DUCKDUCKGO WEB SEARCH (IMPROVED)
 # =========================================================
 
 async def search_web(question: str, request_id: str) -> list:
-    """Search the web using SearXNG."""
+    """Search the web using DuckDuckGo API with improved error handling."""
     
     params = {
         "q": question,
         "format": "json",
-        "language": "en",
-        "safesearch": 1,
-        "categories": "general",
+        "no_redirect": 1,
+        "skip_disambig": 1,
     }
 
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                SEARXNG_URL,
+                DUCKDUCKGO_URL,
                 params=params,
-                timeout=SEARXNG_TIMEOUT,
+                timeout=SEARCH_TIMEOUT,
             )
-            response.raise_for_status()
+            
+            # Handle different response codes (202 is also OK for async responses)
+            if response.status_code not in [200, 202]:
+                logger.warning(f"[{request_id}] DuckDuckGo returned {response.status_code}")
+                return []
+            
             data = response.json()
-            results = data.get("results", [])
-
             cleaned_results = []
-            for result in results[:5]:
-                title = result.get("title", "").strip()
-                content = result.get("content", "").strip()
-                url = result.get("url", "").strip()
 
-                if not title or not url:
-                    continue
-
+            # Try to get abstract result
+            abstract_text = data.get("AbstractText", "").strip()
+            abstract_url = data.get("AbstractURL", "").strip()
+            
+            if abstract_text and abstract_url:
                 cleaned_results.append({
-                    "title": title,
-                    "content": content,
-                    "url": url,
+                    "title": data.get("Heading", "Search Result")[:100],
+                    "content": abstract_text[:500],
+                    "url": abstract_url,
                 })
+                logger.info(f"[{request_id}] Found abstract result from DuckDuckGo")
 
-            logger.info(f"[{request_id}] Web search found {len(cleaned_results)} results")
+            # Try to get related topics
+            related_topics = data.get("RelatedTopics", [])
+            if related_topics:
+                for result in related_topics[:3]:
+                    if isinstance(result, dict):
+                        text = result.get("Text", "").strip()
+                        url = result.get("FirstURL", "").strip()
+                        
+                        if text and url:
+                            cleaned_results.append({
+                                "title": text[:100],
+                                "content": text[:500],
+                                "url": url,
+                            })
+                
+                if cleaned_results:
+                    logger.info(f"[{request_id}] Found {len(cleaned_results)} results from DuckDuckGo")
+
+            if not cleaned_results:
+                logger.warning(f"[{request_id}] DuckDuckGo returned empty response")
+
             return cleaned_results
 
     except httpx.TimeoutException:
-        logger.error(f"[{request_id}] SearXNG timeout")
+        logger.error(f"[{request_id}] DuckDuckGo timeout")
         return []
     except Exception as e:
-        logger.error(f"[{request_id}] SearXNG error: {str(e)}")
+        logger.error(f"[{request_id}] DuckDuckGo error: {type(e).__name__}: {str(e)}")
         return []
 
 
@@ -461,23 +579,6 @@ async def health():
     return {"status": "healthy"}
 
 
-@app.get("/health/search")
-async def search_health():
-    """Check if SearXNG is available."""
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                SEARXNG_URL,
-                params={"q": "test", "format": "json"},
-                timeout=SEARXNG_TIMEOUT,
-            )
-            response.raise_for_status()
-            return {"status": "healthy", "searxng": "connected"}
-    except Exception as e:
-        logger.error(f"SearXNG health check failed: {str(e)}")
-        raise HTTPException(status_code=503, detail="SearXNG unavailable.")
-
-
 # =========================================================
 # ASK CONBOT
 # =========================================================
@@ -505,15 +606,39 @@ async def ask(request: ChatRequest):
 
     if web_required:
         logger.info(f"[{request_id}] Web search required")
-        search_results = await search_web(question, request_id)
+        
+        search_results = []
+        
+        # Check if it's a weather question first
+        if is_weather_question(question):
+            logger.info(f"[{request_id}] Weather question detected")
+            
+            # Extract location (e.g., "Kota" from "what's the weather in Kota")
+            location = "Kota"  # Default to Kota
+            if " in " in question:
+                location = question.split(" in ")[-1].replace("?", "").strip()
+            
+            weather = await get_weather(location, request_id)
+            if weather:
+                search_results = [weather]
+                logger.info(f"[{request_id}] Got weather data for {location}")
+        
+        # If no weather data or not a weather question, use DuckDuckGo
+        if not search_results:
+            logger.info(f"[{request_id}] Using DuckDuckGo search")
+            search_results = await search_web(question, request_id)
+
+        # =====================================================
+        # NO RESULTS FALLBACK
+        # =====================================================
 
         if not search_results:
-            logger.info(f"[{request_id}] No web results, using local knowledge")
+            logger.info(f"[{request_id}] No search results, using local knowledge")
             fallback_prompt = f"""
 {CONBOT_SYSTEM_PROMPT}
 
 The user asked a question that may require current
-information, but live web information is currently
+information, but live information is currently
 unavailable.
 
 Do NOT invent or guess current facts.
@@ -532,6 +657,10 @@ User question:
                 "web_used": False,
                 "sources": [],
             }
+
+        # =====================================================
+        # BUILD ANSWER FROM RESULTS
+        # =====================================================
 
         web_prompt = build_web_prompt(question, search_results)
         answer = await get_ai_answer(web_prompt, request.model, request_id)
