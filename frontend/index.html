@@ -7,12 +7,14 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
+    <div class="app">
         <!-- Sidebar -->
         <aside class="sidebar">
-            <div class="logo">
-                <h1>ConBOT</h1>
-                <p>Ask. Learn. Understand.</p>
+            <div class="side-head">
+                <a href="#" class="brand">
+                    ConBOT
+                    <span>Ask. Learn. Understand.</span>
+                </a>
             </div>
             <button class="new-chat-btn">+ New Chat</button>
             <div class="chat-history">
@@ -21,18 +23,18 @@
         </aside>
 
         <!-- Main Chat Area -->
-        <main class="chat-area">
-            <div class="chat-container">
-                <div class="chat-messages" id="chatMessages">
-                    <div class="welcome-message">
+        <main class="chat-main">
+            <div class="chat-viewport">
+                <div class="messages" id="chatMessages">
+                    <div class="welcome">
                         <h2>Ask.Learn.Understand.</h2>
                         <p>Your questions. Made clear.</p>
                     </div>
                 </div>
 
                 <!-- Input Area -->
-                <div class="input-area">
-                    <div class="input-wrapper">
+                <div class="input-section">
+                    <div class="input-box">
                         <input 
                             type="text" 
                             id="userInput" 
@@ -41,7 +43,7 @@
                             autocomplete="off"
                         >
                         <button class="send-btn" onclick="sendMessage()">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M5 12h14M12 5l7 7-7 7"></path>
                             </svg>
                         </button>
