@@ -7,16 +7,18 @@
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <meta name="description" content="ConBOT — ask a question, get a clear answer.">
 <title>ConBOT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<!-- =========================================================
-     Top bar
-========================================================= -->
 <header class="bar" id="bar">
   <div class="bar-inner">
-    <button class="wordmark" id="newChat" type="button" title="Start a new chat">ConBOT</button>
+    <button class="wordmark" id="newChat" type="button" title="Start a new chat">
+      ConBOT<span class="dot"></span>
+    </button>
     <button class="ghost" id="themeToggle" type="button" aria-label="Switch appearance">
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
         <path class="ic-sun" d="M12 4V2m0 20v-2m8-8h2M2 12h2m13.66-5.66 1.41-1.41M4.93 19.07l1.41-1.41m11.32 0 1.41 1.41M4.93 4.93l1.41 1.41M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"/>
@@ -28,35 +30,37 @@
 
 <main class="stage" id="stage">
 
-  <!-- ===== Opening state ===== -->
+  <!-- Opening state: headline, composer and chips read as one group -->
   <section class="hero" id="hero">
-    <h1>Ask anything.</h1>
-    <p class="sub">Questions in. Clear answers out.</p>
-    <div class="chips" id="chips">
-      <button type="button" class="chip">Explain compound interest simply</button>
-      <button type="button" class="chip">What's the weather in Jaipur</button>
-      <button type="button" class="chip">Help me write a polite refund email</button>
+    <div class="hero-inner">
+      <h1>Ask anything.</h1>
+
+      <div class="composer" id="heroComposer">
+        <label class="sr" for="input">Your question</label>
+        <textarea id="input" rows="1" placeholder="Ask ConBOT" autocomplete="off" maxlength="4000"></textarea>
+        <button class="send" id="send" type="button" aria-label="Send" disabled>
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path d="M12 19V5M5 12l7-7 7 7"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="chips" id="chips">
+        <button type="button" class="chip">Explain GST in simple terms</button>
+        <button type="button" class="chip">What's the weather today</button>
+        <button type="button" class="chip">Write a polite refund email</button>
+        <button type="button" class="chip">Mujhe PAN card ke baare mein batao</button>
+      </div>
     </div>
   </section>
 
-  <!-- ===== Conversation ===== -->
   <section class="thread" id="thread" aria-live="polite" aria-label="Conversation"></section>
 
 </main>
 
-<!-- =========================================================
-     Composer
-========================================================= -->
-<div class="dock" id="dock">
-  <div class="composer">
-    <label class="sr" for="input">Your question</label>
-    <textarea id="input" rows="1" placeholder="Ask ConBOT" autocomplete="off" maxlength="4000"></textarea>
-    <button class="send" id="send" type="button" aria-label="Send" disabled>
-      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-        <path d="M12 19V5M5 12l7-7 7 7"/>
-      </svg>
-    </button>
-  </div>
+<!-- Composer docks here once the conversation starts -->
+<div class="dock" id="dock" hidden>
+  <div class="dock-inner" id="dockSlot"></div>
   <p class="fineprint">ConBOT can make mistakes. Check anything important.</p>
 </div>
 

@@ -3,13 +3,15 @@ load_dotenv()
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 import httpx
 import re
 import os
+import json
 import logging
 import uuid
-from typing import Optional
+from typing import AsyncIterator, List, Optional
 
 # =========================================================
 # LOGGING
@@ -180,6 +182,13 @@ Follow these principles:
 
 15. Be helpful, respectful, and natural.
 
+16. Reply in the same language and script the user wrote in. If they
+    write in Hindi, reply in Hindi. If they write romanised Hindi or
+    mix Hindi and English ("mujhe PAN card ke baare mein batao"),
+    reply the same way — do not switch them to formal English or to
+    Devanagari they did not use. The same applies to any other
+    language.
+
 Return only the answer intended for the user.
 """
 
@@ -188,9 +197,142 @@ Return only the answer intended for the user.
 # REQUEST MODEL
 # =========================================================
 
+class Turn(BaseModel):
+    """One prior exchange. Sent by the client; the server keeps no state."""
+    role: str = Field(..., pattern="^(user|assistant)$")
+    content: str = Field(..., min_length=1, max_length=8000)
+
+
+# How much conversation to carry. Caps cost and latency per request.
+MAX_HISTORY_TURNS = int(os.getenv("MAX_HISTORY_TURNS", "10"))
+
+
 class ChatRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=4000)
     model: str = Field(default=DEFAULT_MODEL, max_length=50)
+    history: List[Turn] = Field(default_factory=list, max_length=40)
+    # Sent by the browser. Neither is precise location and neither needs a
+    # permission prompt — a timezone is city-level at best.
+    timezone: Optional[str] = Field(default=None, max_length=64)
+    language: Optional[str] = Field(default=None, max_length=32)
+
+
+# =========================================================
+# LOCATION
+# =========================================================
+
+# Country code -> name. Only what the region tag of navigator.language
+# commonly produces; anything else falls through to the raw code.
+COUNTRY_NAMES = {
+    "IN": "India", "US": "the United States", "GB": "the United Kingdom",
+    "CA": "Canada", "AU": "Australia", "NZ": "New Zealand", "IE": "Ireland",
+    "SG": "Singapore", "AE": "the United Arab Emirates", "SA": "Saudi Arabia",
+    "DE": "Germany", "FR": "France", "ES": "Spain", "IT": "Italy",
+    "NL": "the Netherlands", "SE": "Sweden", "NO": "Norway", "DK": "Denmark",
+    "FI": "Finland", "PL": "Poland", "PT": "Portugal", "CH": "Switzerland",
+    "AT": "Austria", "BE": "Belgium", "CZ": "Czechia", "GR": "Greece",
+    "JP": "Japan", "CN": "China", "HK": "Hong Kong", "TW": "Taiwan",
+    "KR": "South Korea", "TH": "Thailand", "VN": "Vietnam", "ID": "Indonesia",
+    "MY": "Malaysia", "PH": "the Philippines", "PK": "Pakistan",
+    "BD": "Bangladesh", "LK": "Sri Lanka", "NP": "Nepal",
+    "ZA": "South Africa", "NG": "Nigeria", "KE": "Kenya", "EG": "Egypt",
+    "BR": "Brazil", "MX": "Mexico", "AR": "Argentina", "CL": "Chile",
+    "CO": "Colombia", "RU": "Russia", "TR": "Turkey", "IL": "Israel",
+    "UA": "Ukraine",
+}
+
+# Timezones that pin a country when the language tag has no region
+# (a user with "en" but "Asia/Kolkata" is still in India).
+TIMEZONE_COUNTRIES = {
+    "Asia/Kolkata": "IN", "Asia/Calcutta": "IN", "Asia/Karachi": "PK",
+    "Asia/Dhaka": "BD", "Asia/Colombo": "LK", "Asia/Kathmandu": "NP",
+    "Asia/Dubai": "AE", "Asia/Singapore": "SG", "Asia/Tokyo": "JP",
+    "Asia/Shanghai": "CN", "Asia/Hong_Kong": "HK", "Asia/Seoul": "KR",
+    "Asia/Bangkok": "TH", "Asia/Jakarta": "ID", "Asia/Manila": "PH",
+    "Europe/London": "GB", "Europe/Dublin": "IE", "Europe/Berlin": "DE",
+    "Europe/Paris": "FR", "Europe/Madrid": "ES", "Europe/Rome": "IT",
+    "Europe/Amsterdam": "NL", "Europe/Stockholm": "SE", "Europe/Oslo": "NO",
+    "Europe/Zurich": "CH", "Europe/Lisbon": "PT", "Europe/Warsaw": "PL",
+    "Europe/Moscow": "RU", "Europe/Istanbul": "TR", "Europe/Kyiv": "UA",
+    "Africa/Johannesburg": "ZA", "Africa/Lagos": "NG", "Africa/Nairobi": "KE",
+    "Africa/Cairo": "EG", "America/Toronto": "CA", "America/Vancouver": "CA",
+    "America/Sao_Paulo": "BR", "America/Mexico_City": "MX",
+    "America/Argentina/Buenos_Aires": "AR", "America/Bogota": "CO",
+    "America/Santiago": "CL", "Australia/Sydney": "AU",
+    "Australia/Melbourne": "AU", "Pacific/Auckland": "NZ",
+    "Asia/Jerusalem": "IL", "Asia/Riyadh": "SA",
+}
+
+# Used when the browser sends nothing at all.
+FALLBACK_TIMEZONE = os.getenv("FALLBACK_TIMEZONE", "Asia/Kolkata")
+
+
+def resolve_location(timezone: Optional[str], language: Optional[str]) -> dict:
+    """Turn the browser's timezone and language tag into a place description.
+
+    Neither input is trusted for anything but prompt context, so a bad value
+    degrades to a vaguer answer rather than an error.
+    """
+    tz = (timezone or "").strip() or FALLBACK_TIMEZONE
+    if not re.fullmatch(r"[A-Za-z_+\-/]{1,64}", tz):
+        tz = FALLBACK_TIMEZONE
+
+    # Region subtag of e.g. "en-IN" is the most direct signal.
+    code = None
+    lang = (language or "").strip()
+    match = re.fullmatch(r"([a-zA-Z]{2,3})[-_]([A-Za-z]{2})", lang)
+    if match:
+        code = match.group(2).upper()
+
+    if not code:
+        code = TIMEZONE_COUNTRIES.get(tz)
+
+    # "Asia/Kolkata" -> "Kolkata"; a coarse city, not a precise one.
+    city = tz.split("/")[-1].replace("_", " ") if "/" in tz else None
+
+    return {
+        "timezone": tz,
+        "city": city,
+        "country": COUNTRY_NAMES.get(code, code) if code else None,
+    }
+
+
+def build_locale_note(loc: dict) -> str:
+    """The block prepended to every prompt so answers are local by default."""
+    where = loc["country"] or f"the {loc['timezone']} timezone"
+    city_line = f"Their nearest major city is roughly {loc['city']}.\n" if loc["city"] else ""
+
+    return f"""
+WHERE THE USER IS
+
+The user is in {where}. {city_line}Their timezone is {loc["timezone"]}.
+
+Answer for that place by default, in every kind of question — not only money.
+That means local currency and units, local laws, taxes, rules and regulators,
+local institutions, services, providers and brands that actually operate there,
+local exam systems, holidays, seasons and conventions, and examples the user
+would recognise.
+
+Do not give answers framed around a different country unless the user asks
+about one. If the user names another place, follow them instead.
+
+Their location is inferred from their device settings, so it is approximate.
+If a precise location would change the answer materially — a specific address,
+branch, or local office — say what you are assuming and ask.
+
+LANGUAGE
+
+Reply in the same language and script the user wrote in. If they write in
+Hindi, reply in Hindi. If they write romanised Hindi or a mix of Hindi and
+English — "mera PAN card kaise banega" — reply the same way, naturally, not in
+formal English and not in Devanagari unless they used it. Keep technical terms
+in English where that is how people actually say them.
+""".strip()
+
+
+def base_prompt(loc: dict) -> str:
+    """System prompt plus the locale block. Use this everywhere, not the raw prompt."""
+    return CONBOT_SYSTEM_PROMPT.strip() + "\n\n" + build_locale_note(loc)
 
 
 # =========================================================
@@ -356,45 +498,57 @@ async def get_weather(location: str, request_id: str) -> Optional[dict]:
 
 
 # =========================================================
+# MESSAGE ASSEMBLY
+# =========================================================
+
+def build_messages(system: str, history: List[Turn], question: str) -> List[dict]:
+    """System prompt, then the conversation so far, then the new question.
+
+    The server stores nothing — the client replays history, trimmed here so a
+    long chat cannot inflate cost or latency without limit.
+    """
+    messages = [{"role": "system", "content": system}]
+    for turn in history[-MAX_HISTORY_TURNS:]:
+        messages.append({"role": turn.role, "content": turn.content})
+    messages.append({"role": "user", "content": question})
+    return messages
+
+
+# =========================================================
 # OPENROUTER (PRIMARY)
 # =========================================================
 
-async def ask_openrouter(
-    full_prompt: str,
-    model: str,
-    request_id: str,
-) -> str:
-    """Call OpenRouter API with the given prompt and model."""
-    
-    openrouter_model = OPENROUTER_MODEL_MAP.get(model, model)
-
-    payload = {
-        "model": openrouter_model,
-        "messages": [
-            {"role": "user", "content": full_prompt},
-        ],
+def openrouter_payload(messages: List[dict], model: str, stream: bool) -> dict:
+    return {
+        "model": OPENROUTER_MODEL_MAP.get(model, model),
+        "messages": messages,
         "max_tokens": 1000,
         "temperature": 0.7,
+        "stream": stream,
     }
 
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-    }
+
+OPENROUTER_HEADERS = {"Content-Type": "application/json"}
+
+
+def auth_headers() -> dict:
+    return {**OPENROUTER_HEADERS, "Authorization": f"Bearer {OPENROUTER_API_KEY}"}
+
+
+async def ask_openrouter(messages: List[dict], model: str, request_id: str) -> str:
+    """Non-streaming call. Used by /ask."""
 
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 OPENROUTER_URL,
-                json=payload,
-                headers=headers,
+                json=openrouter_payload(messages, model, stream=False),
+                headers=auth_headers(),
                 timeout=OPENROUTER_TIMEOUT,
             )
             response.raise_for_status()
             data = response.json()
 
-            # OpenRouter returns 200 with an "error" object for some failures
-            # (quota, moderation), so a successful status is not enough.
             if isinstance(data, dict) and data.get("error"):
                 raise ValueError(f"OpenRouter error payload: {data['error']}")
 
@@ -403,53 +557,94 @@ async def ask_openrouter(
             if not isinstance(answer, str) or not answer.strip():
                 raise ValueError("Empty OpenRouter response")
 
-            logger.info(f"[{request_id}] OpenRouter success with model {openrouter_model}")
+            logger.info(f"[{request_id}] OpenRouter success")
             return answer.strip()
 
     except httpx.TimeoutException:
         logger.error(f"[{request_id}] OpenRouter timeout after {OPENROUTER_TIMEOUT}s")
         raise
     except httpx.HTTPStatusError as e:
-        # HTTPStatusError has no .status_code — it is on .response. The old
-        # code raised AttributeError inside this handler, which is why every
-        # real cause (401, 402, 404 data policy) was invisible in the logs.
+        # HTTPStatusError has no .status_code — it is on .response.
         logger.error(
             f"[{request_id}] OpenRouter HTTP {e.response.status_code}: "
             f"{e.response.text[:500]}"
         )
         raise
     except Exception as e:
-        logger.error(f"[{request_id}] OpenRouter error: {str(e)}")
+        logger.error(f"[{request_id}] OpenRouter error: {type(e).__name__}: {e}")
         raise
 
 
-# =========================================================
-# OLLAMA (FALLBACK)
-# =========================================================
-
-async def ask_ollama(
-    full_prompt: str,
+async def stream_openrouter(
+    messages: List[dict],
     model: str,
     request_id: str,
-) -> str:
-    """Call Ollama API (local fallback)."""
-    
-    payload = {
-        "model": model,
-        "prompt": full_prompt,
-        "stream": False,
-    }
+) -> AsyncIterator[str]:
+    """Yield answer text as it arrives. Raises before the first token if the
+    upstream call fails, so the caller can still return a clean error."""
+
+    async with httpx.AsyncClient(timeout=OPENROUTER_TIMEOUT) as client:
+        async with client.stream(
+            "POST",
+            OPENROUTER_URL,
+            json=openrouter_payload(messages, model, stream=True),
+            headers=auth_headers(),
+        ) as response:
+            if response.status_code >= 400:
+                body = (await response.aread()).decode("utf-8", "replace")
+                logger.error(
+                    f"[{request_id}] OpenRouter HTTP {response.status_code}: {body[:500]}"
+                )
+                response.raise_for_status()
+
+            async for line in response.aiter_lines():
+                if not line.startswith("data: "):
+                    continue
+
+                chunk = line[6:].strip()
+                if chunk == "[DONE]":
+                    break
+
+                try:
+                    data = json.loads(chunk)
+                except json.JSONDecodeError:
+                    continue
+
+                if data.get("error"):
+                    raise ValueError(f"OpenRouter error payload: {data['error']}")
+
+                for choice in data.get("choices", []):
+                    piece = (choice.get("delta") or {}).get("content")
+                    if piece:
+                        yield piece
+
+
+# =========================================================
+# OLLAMA (LOCAL FALLBACK)
+# =========================================================
+
+def ollama_prompt(messages: List[dict]) -> str:
+    """Ollama's /api/generate takes one prompt, so flatten the conversation."""
+    parts = []
+    for m in messages:
+        if m["role"] == "system":
+            parts.append(m["content"])
+        elif m["role"] == "user":
+            parts.append(f"User:\n{m['content']}")
+        else:
+            parts.append(f"Assistant:\n{m['content']}")
+    parts.append("Assistant:")
+    return "\n\n".join(parts)
+
+
+async def ask_ollama(messages: List[dict], model: str, request_id: str) -> str:
+    payload = {"model": model, "prompt": ollama_prompt(messages), "stream": False}
 
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.post(
-                OLLAMA_URL,
-                json=payload,
-                timeout=OLLAMA_TIMEOUT,
-            )
+            response = await client.post(OLLAMA_URL, json=payload, timeout=OLLAMA_TIMEOUT)
             response.raise_for_status()
-            data = response.json()
-            answer = data.get("response")
+            answer = response.json().get("response")
 
             if not isinstance(answer, str) or not answer.strip():
                 raise ValueError("Empty Ollama response")
@@ -459,29 +654,54 @@ async def ask_ollama(
 
     except httpx.TimeoutException:
         logger.error(f"[{request_id}] Ollama timeout")
-        raise HTTPException(status_code=504, detail="AI service timed out. Please try again.")
+        raise HTTPException(status_code=504, detail="ConBOT timed out. Please try again.")
     except httpx.ConnectError:
         logger.error(f"[{request_id}] Ollama connection error (not running?)")
-        raise HTTPException(status_code=503, detail="AI service unavailable.")
+        raise HTTPException(status_code=503, detail="ConBOT is unavailable right now.")
     except Exception as e:
-        logger.error(f"[{request_id}] Ollama error: {str(e)}")
-        raise HTTPException(status_code=502, detail="AI service returned an invalid response.")
+        logger.error(f"[{request_id}] Ollama error: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=502, detail="ConBOT returned an invalid response.")
 
 
-# =========================================================
-# LLM DISPATCH (OPENROUTER PRIMARY, OLLAMA FALLBACK)
-# =========================================================
-
-async def get_ai_answer(
-    full_prompt: str,
+async def stream_ollama(
+    messages: List[dict],
     model: str,
     request_id: str,
-) -> str:
-    """Try OpenRouter first, fall back to Ollama if it fails."""
-    
+) -> AsyncIterator[str]:
+    payload = {"model": model, "prompt": ollama_prompt(messages), "stream": True}
+
+    async with httpx.AsyncClient(timeout=OLLAMA_TIMEOUT) as client:
+        async with client.stream("POST", OLLAMA_URL, json=payload) as response:
+            response.raise_for_status()
+            async for line in response.aiter_lines():
+                if not line.strip():
+                    continue
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                piece = data.get("response")
+                if piece:
+                    yield piece
+                if data.get("done"):
+                    break
+
+
+# =========================================================
+# DISPATCH
+# =========================================================
+
+def no_llm_error() -> HTTPException:
+    logger.error("OPENROUTER_API_KEY is not set — check the deployed environment")
+    return HTTPException(
+        status_code=503, detail="ConBOT is not configured to answer questions yet."
+    )
+
+
+async def get_ai_answer(messages: List[dict], model: str, request_id: str) -> str:
     if OPENROUTER_API_KEY:
         try:
-            return await ask_openrouter(full_prompt, model, request_id)
+            return await ask_openrouter(messages, model, request_id)
         except Exception as e:
             logger.warning(
                 f"[{request_id}] OpenRouter failed: {type(e).__name__}: {str(e)[:500]}"
@@ -491,19 +711,19 @@ async def get_ai_answer(
                     status_code=502,
                     detail="ConBOT could not answer that right now. Please try again shortly.",
                 )
-    else:
-        logger.error(
-            f"[{request_id}] OPENROUTER_API_KEY is not set — "
-            "check the environment variables on the deployed service"
-        )
-        if not ALLOW_OLLAMA_FALLBACK:
-            raise HTTPException(
-                status_code=503,
-                detail="ConBOT is not configured to answer questions yet.",
-            )
+    elif not ALLOW_OLLAMA_FALLBACK:
+        raise no_llm_error()
 
     logger.info(f"[{request_id}] Using Ollama fallback")
-    return await ask_ollama(full_prompt, model, request_id)
+    return await ask_ollama(messages, model, request_id)
+
+
+def stream_answer(messages: List[dict], model: str, request_id: str) -> AsyncIterator[str]:
+    if OPENROUTER_API_KEY:
+        return stream_openrouter(messages, model, request_id)
+    if ALLOW_OLLAMA_FALLBACK:
+        return stream_ollama(messages, model, request_id)
+    raise no_llm_error()
 
 
 # =========================================================
@@ -583,7 +803,7 @@ async def search_web(question: str, request_id: str) -> list:
 # BUILD WEB-AUGMENTED PROMPT
 # =========================================================
 
-def build_web_prompt(question: str, search_results: list) -> str:
+def build_web_prompt(question: str, search_results: list, system: str) -> str:
     """Build a prompt that includes web search results."""
     
     sources_text = []
@@ -607,7 +827,7 @@ Information:
     web_information = "\n\n".join(sources_text)
 
     return f"""
-{CONBOT_SYSTEM_PROMPT}
+{system}
 
 IMPORTANT:
 
@@ -654,115 +874,140 @@ async def health():
 # ASK CONBOT
 # =========================================================
 
-@app.post("/ask")
-async def ask(request: ChatRequest):
-    """Main endpoint: accept a question, return an answer with optional web search."""
-    
-    request_id = str(uuid.uuid4())[:8]
-    
-    # Validate model
+# =========================================================
+# SHARED PREPARATION
+# =========================================================
+
+async def prepare(request: ChatRequest, request_id: str) -> dict:
+    """Everything both endpoints need: validation, location, search, messages."""
+
     if request.model not in AVAILABLE_MODELS:
         logger.warning(f"[{request_id}] Invalid model requested: {request.model}")
         raise HTTPException(status_code=400, detail="Unsupported model.")
 
     question = request.prompt.strip()
-    logger.info(f"[{request_id}] Question: {question[:100]}... Model: {request.model}")
+    loc = resolve_location(request.timezone, request.language)
+    system = base_prompt(loc)
 
-    # Check if web search is needed
-    web_required = needs_web_search(question)
-
-    # =====================================================
-    # WEB SEARCH CASE
-    # =====================================================
-
-    if web_required:
-        logger.info(f"[{request_id}] Web search required")
-        
-        search_results = []
-        
-        # Check if it's a weather question first
-        if is_weather_question(question):
-            logger.info(f"[{request_id}] Weather question detected")
-            
-            # Extract location (e.g., "Kota" from "what's the weather in Kota")
-            location = "Kota"  # Default to Kota
-            if " in " in question:
-                location = question.split(" in ")[-1].replace("?", "").strip()
-            
-            weather = await get_weather(location, request_id)
-            if weather:
-                search_results = [weather]
-                logger.info(f"[{request_id}] Got weather data for {location}")
-        
-        # If no weather data or not a weather question, use DuckDuckGo
-        if not search_results:
-            logger.info(f"[{request_id}] Using DuckDuckGo search")
-            search_results = await search_web(question, request_id)
-
-        # =====================================================
-        # NO RESULTS FALLBACK
-        # =====================================================
-
-        if not search_results:
-            logger.info(f"[{request_id}] No search results, using local knowledge")
-            fallback_prompt = f"""
-{CONBOT_SYSTEM_PROMPT}
-
-The user asked a question that may require current
-information, but live information is currently
-unavailable.
-
-Do NOT invent or guess current facts.
-
-If the answer depends on current information, clearly
-tell the user that you cannot reliably verify it right now.
-
-User question:
-{question}
-""".strip()
-
-            answer = await get_ai_answer(fallback_prompt, request.model, request_id)
-
-            return {
-                "answer": answer,
-                "web_used": False,
-                "sources": [],
-            }
-
-        # =====================================================
-        # BUILD ANSWER FROM RESULTS
-        # =====================================================
-
-        web_prompt = build_web_prompt(question, search_results)
-        answer = await get_ai_answer(web_prompt, request.model, request_id)
-
-        sources = [
-            {"title": result["title"], "url": result["url"]}
-            for result in search_results
-        ]
-
-        logger.info(f"[{request_id}] Answer generated with web search")
-        return {
-            "answer": answer,
-            "web_used": True,
-            "sources": sources,
-        }
-
-    # =====================================================
-    # LOCAL QUESTION (NO WEB SEARCH)
-    # =====================================================
-
-    logger.info(f"[{request_id}] Local answer (no web search)")
-    full_prompt = (
-        CONBOT_SYSTEM_PROMPT.strip()
-        + "\n\nUser question:\n"
-        + question
+    logger.info(
+        f"[{request_id}] Q: {question[:80]}... model={request.model} "
+        f"loc={loc['city']}, {loc['country']} history={len(request.history)}"
     )
 
-    answer = await get_ai_answer(full_prompt, request.model, request_id)
+    sources: list = []
+
+    if needs_web_search(question):
+        logger.info(f"[{request_id}] Web search required")
+        results: list = []
+
+        if is_weather_question(question):
+            # "weather in Delhi" -> Delhi; bare "what's the weather" -> the
+            # user's own city, not a hardcoded one.
+            location = loc["city"] or FALLBACK_TIMEZONE.split("/")[-1]
+            if " in " in question:
+                location = question.split(" in ")[-1].replace("?", "").strip()
+
+            weather = await get_weather(location, request_id)
+            if weather:
+                results = [weather]
+
+        if not results:
+            results = await search_web(question, request_id)
+
+        if results:
+            system = build_web_prompt(question, results, system)
+            sources = [{"title": r["title"], "url": r["url"]} for r in results]
+        else:
+            logger.info(f"[{request_id}] No search results, answering without them")
+            system += (
+                "\n\nThe question may need current information, but live "
+                "information is unavailable right now. Do not invent or guess "
+                "current facts — say plainly that you cannot verify them."
+            )
+
+    return {
+        "messages": build_messages(system, request.history, question),
+        "sources": sources,
+    }
+
+
+# =========================================================
+# ASK (NON-STREAMING)
+# =========================================================
+
+@app.post("/ask")
+async def ask(request: ChatRequest):
+    """Whole answer in one response. Kept for clients that cannot stream."""
+
+    request_id = str(uuid.uuid4())[:8]
+    prepared = await prepare(request, request_id)
+
+    answer = await get_ai_answer(prepared["messages"], request.model, request_id)
 
     return {
         "answer": answer,
-        "web_used": False,
-        "sources": [],
+        "web_used": bool(prepared["sources"]),
+        "sources": prepared["sources"],
     }
+
+
+# =========================================================
+# STREAM
+# =========================================================
+
+def sse(event: dict) -> str:
+    return f"data: {json.dumps(event)}\n\n"
+
+
+@app.post("/stream")
+async def stream(request: ChatRequest):
+    """Server-sent events: sources first, then answer text as it is generated."""
+
+    request_id = str(uuid.uuid4())[:8]
+
+    # Check configuration before the response starts. Once headers are sent
+    # the status code is fixed, so a 503 raised inside the generator would
+    # reach the client as a 200 with an error event.
+    if not OPENROUTER_API_KEY and not ALLOW_OLLAMA_FALLBACK:
+        raise no_llm_error()
+
+    prepared = await prepare(request, request_id)
+
+    async def events() -> AsyncIterator[str]:
+        if prepared["sources"]:
+            yield sse({"type": "sources", "sources": prepared["sources"]})
+
+        produced = False
+        try:
+            async for piece in stream_answer(prepared["messages"], request.model, request_id):
+                produced = True
+                yield sse({"type": "delta", "text": piece})
+
+        except Exception as e:
+            logger.warning(
+                f"[{request_id}] Stream failed: {type(e).__name__}: {str(e)[:400]}"
+            )
+            # Nothing sent yet — a clean error still reads well in the UI.
+            # Mid-stream, the client keeps what it has and shows the notice.
+            yield sse({
+                "type": "error",
+                "detail": "ConBOT could not finish that answer. Please try again.",
+            })
+            return
+
+        if not produced:
+            yield sse({"type": "error", "detail": "ConBOT returned an empty answer."})
+            return
+
+        logger.info(f"[{request_id}] Stream complete")
+        yield sse({"type": "done"})
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",   # stop proxies buffering the stream
+            "Connection": "keep-alive",
+        },
+    )
