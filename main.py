@@ -302,6 +302,16 @@ TIMEZONE_COUNTRIES = {
     "Asia/Jerusalem": "IL", "Asia/Riyadh": "SA",
 }
 
+# Browsers still report these older IANA names.
+TIMEZONE_ALIASES = {
+    "Asia/Calcutta": "Asia/Kolkata",
+    "Asia/Katmandu": "Asia/Kathmandu",
+    "Asia/Rangoon": "Asia/Yangon",
+    "Asia/Saigon": "Asia/Ho_Chi_Minh",
+    "Europe/Kiev": "Europe/Kyiv",
+    "Asia/Dacca": "Asia/Dhaka",
+}
+
 # Used when the browser sends nothing at all.
 FALLBACK_TIMEZONE = os.getenv("FALLBACK_TIMEZONE", "Asia/Kolkata")
 
@@ -315,16 +325,17 @@ def resolve_location(timezone: Optional[str], language: Optional[str]) -> dict:
     tz = (timezone or "").strip() or FALLBACK_TIMEZONE
     if not re.fullmatch(r"[A-Za-z_+\-/]{1,64}", tz):
         tz = FALLBACK_TIMEZONE
+    tz = TIMEZONE_ALIASES.get(tz, tz)
 
-    # Region subtag of e.g. "en-IN" is the most direct signal.
-    code = None
-    lang = (language or "").strip()
-    match = re.fullmatch(r"([a-zA-Z]{2,3})[-_]([A-Za-z]{2})", lang)
-    if match:
-        code = match.group(2).upper()
+    # Timezone first: it says where the device physically is. The language
+    # region tag only says how the OS is configured, so it is the fallback.
+    code = TIMEZONE_COUNTRIES.get(tz)
 
     if not code:
-        code = TIMEZONE_COUNTRIES.get(tz)
+        lang = (language or "").strip()
+        match = re.fullmatch(r"([a-zA-Z]{2,3})[-_]([A-Za-z]{2})", lang)
+        if match:
+            code = match.group(2).upper()
 
     # "Asia/Kolkata" -> "Kolkata"; a coarse city, not a precise one.
     city = tz.split("/")[-1].replace("_", " ") if "/" in tz else None
@@ -375,7 +386,18 @@ in English where that is how people actually say them.
 
 CLARIFY_TAG = "[[CLARIFY]]"
 FOLLOWUPS_TAG = "[[FOLLOWUPS]]"
-_TAG_GUARD = max(len(CLARIFY_TAG), len(FOLLOWUPS_TAG))
+
+# Matches [[FOLLOWUPS]], [[FOLLOW-UPS]], **FOLLOWUPS:**, FOLLOWUPS: and the
+# same shapes for CLARIFY — at a line start only.
+TAG_RE = re.compile(
+    r"(?:^|\n)[ \t]*[\*_]{0,2}\[{0,2}[ \t]*"
+    r"(?P<name>FOLLOW[ \-_]?UPS?|CLARIFY)"
+    r"[ \t]*\]{0,2}[\*_]{0,2}[ \t]*:?[ \t]*(?=\n|$)",
+    re.IGNORECASE,
+)
+
+# Longest tag shape we might have to hold back mid-stream.
+_TAG_GUARD = 24
 
 
 class BlockFilter:
@@ -407,20 +429,22 @@ class BlockFilter:
         # everything — otherwise the first words of a clarify block leak.
         if not self.decided:
             stripped = self.held.lstrip()
-            if len(stripped) < len(CLARIFY_TAG):
-                if CLARIFY_TAG.startswith(stripped):
+            if len(stripped) < _TAG_GUARD and not stripped.count("\n"):
+                # Too early to tell — a clarify tag may still be forming.
+                if re.match(r"[\*_\[ \t]*C?L?A?R?I?F?Y?", stripped, re.I) \
+                        and len(stripped) < len(CLARIFY_TAG):
                     return ""
-            if stripped.startswith(CLARIFY_TAG):
+            opener = TAG_RE.match("\n" + stripped)
+            if opener and opener.group("name").upper() == "CLARIFY":
                 self.in_block = True
                 return ""
             self.decided = True
 
-        for tag in (FOLLOWUPS_TAG, CLARIFY_TAG):
-            index = self.held.find(tag)
-            if index != -1:
-                out = self.held[self.released:index]
-                self.in_block = True
-                return out
+        found = TAG_RE.search(self.held)
+        if found:
+            out = self.held[self.released:found.start()]
+            self.in_block = True
+            return out
 
         # Hold back a tail that could still turn into a tag.
         safe_end = max(self.released, len(self.held) - _TAG_GUARD)
@@ -438,16 +462,18 @@ class BlockFilter:
 
     # -- parsing the blocks once the stream is done --------------------
 
-    def _block(self, tag: str) -> Optional[str]:
-        index = self.raw.find(tag)
-        if index == -1:
-            return None
-        rest = self.raw[index + len(tag):]
-        end = rest.find("[[")
-        return (rest if end == -1 else rest[:end]).strip()
+    def _block(self, want: str) -> Optional[str]:
+        for found in TAG_RE.finditer(self.raw):
+            name = found.group("name").upper().replace("-", "").replace("_", "").replace(" ", "")
+            if name.rstrip("S") != want.rstrip("S"):
+                continue
+            rest = self.raw[found.end():]
+            nxt = TAG_RE.search(rest)
+            return (rest if not nxt else rest[:nxt.start()]).strip()
+        return None
 
     def followups(self) -> List[str]:
-        body = self._block(FOLLOWUPS_TAG)
+        body = self._block("FOLLOWUPS")
         if not body:
             return []
         items = []
@@ -459,7 +485,7 @@ class BlockFilter:
         return items[:3]
 
     def clarify(self) -> Optional[dict]:
-        body = self._block(CLARIFY_TAG)
+        body = self._block("CLARIFY")
         if not body:
             return None
 
@@ -661,6 +687,21 @@ def build_messages(system: str, history: List[Turn], question: str) -> List[dict
     for turn in history[-MAX_HISTORY_TURNS:]:
         messages.append({"role": turn.role, "content": turn.content})
     messages.append({"role": "user", "content": question})
+
+    # Smaller models reliably drop an instruction buried in a long system
+    # prompt. Repeating it as the last thing they read is what makes it stick.
+    messages.append({
+        "role": "system",
+        "content": (
+            "Reminder: after the answer, end your reply with this block, "
+            "exactly as written:\n\n"
+            "[[FOLLOWUPS]]\n- <question>\n- <question>\n\n"
+            "Two or three specific questions this answer just opened, in the "
+            "same language as the answer. This block is required. If instead "
+            "you need one detail before you can answer at all, reply with "
+            "only a [[CLARIFY]] block."
+        ),
+    })
     return messages
 
 
