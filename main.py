@@ -189,7 +189,46 @@ Follow these principles:
     Devanagari they did not use. The same applies to any other
     language.
 
-Return only the answer intended for the user.
+HOW TO SHAPE AN ANSWER
+
+Lead with the answer. The first one or two sentences must answer what
+was actually asked. Definitions, background and caveats come after, if
+they are needed at all. Never open by restating the question.
+
+Then add only the structure the answer needs — short paragraphs, or a
+list when the content really is a list.
+
+WHEN THE QUESTION IS UNDERSPECIFIED
+
+If a materially different answer would follow from a detail the user
+has not given — which tax regime, which state, which year, which
+board — do not guess. Reply with ONLY this block and nothing else:
+
+[[CLARIFY]]
+question: <one short question>
+- <option>
+- <option>
+- <option>
+
+Ask one question, never several, with two to four options. Use this
+sparingly: only when guessing would likely produce a wrong answer, not
+merely when more detail would be nice to have.
+
+AFTER A COMPLETE ANSWER
+
+End every complete answer with this block:
+
+[[FOLLOWUPS]]
+- <question>
+- <question>
+
+Two or three questions, each a real gap this answer just opened — the
+thing a thoughtful reader would now want to know, phrased as they
+would type it. Never generic ("tell me more", "any other questions").
+Never something the answer already covered. Write them in the same
+language as the answer.
+
+Return only the answer intended for the user, plus these blocks.
 """
 
 
@@ -328,6 +367,117 @@ English — "mera PAN card kaise banega" — reply the same way, naturally, not 
 formal English and not in Devanagari unless they used it. Keep technical terms
 in English where that is how people actually say them.
 """.strip()
+
+
+# =========================================================
+# STRUCTURED BLOCKS IN A STREAM
+# =========================================================
+
+CLARIFY_TAG = "[[CLARIFY]]"
+FOLLOWUPS_TAG = "[[FOLLOWUPS]]"
+_TAG_GUARD = max(len(CLARIFY_TAG), len(FOLLOWUPS_TAG))
+
+
+class BlockFilter:
+    """Strip the structured blocks out of a streaming answer.
+
+    The model writes prose, then a tagged block. We must never emit even a
+    partial tag to the client, so the last few characters are always held
+    back until they are known not to be the start of one.
+
+    A CLARIFY block replaces the answer entirely, so nothing is emitted
+    until we know the reply does not begin with that tag.
+    """
+
+    def __init__(self) -> None:
+        self.raw = ""          # everything the model produced
+        self.held = ""         # not yet released to the client
+        self.released = 0      # chars of prose already sent
+        self.in_block = False  # a tag has been seen; prose is over
+        self.decided = False   # we know whether this is a CLARIFY reply
+
+    def feed(self, piece: str) -> str:
+        self.raw += piece
+        if self.in_block:
+            return ""
+
+        self.held += piece
+
+        # Until we have enough characters to rule out "[[CLARIFY]]", hold
+        # everything — otherwise the first words of a clarify block leak.
+        if not self.decided:
+            stripped = self.held.lstrip()
+            if len(stripped) < len(CLARIFY_TAG):
+                if CLARIFY_TAG.startswith(stripped):
+                    return ""
+            if stripped.startswith(CLARIFY_TAG):
+                self.in_block = True
+                return ""
+            self.decided = True
+
+        for tag in (FOLLOWUPS_TAG, CLARIFY_TAG):
+            index = self.held.find(tag)
+            if index != -1:
+                out = self.held[self.released:index]
+                self.in_block = True
+                return out
+
+        # Hold back a tail that could still turn into a tag.
+        safe_end = max(self.released, len(self.held) - _TAG_GUARD)
+        out = self.held[self.released:safe_end]
+        self.released = safe_end
+        return out
+
+    def flush(self) -> str:
+        """Release anything held back once the stream ends."""
+        if self.in_block:
+            return ""
+        out = self.held[self.released:]
+        self.released = len(self.held)
+        return out
+
+    # -- parsing the blocks once the stream is done --------------------
+
+    def _block(self, tag: str) -> Optional[str]:
+        index = self.raw.find(tag)
+        if index == -1:
+            return None
+        rest = self.raw[index + len(tag):]
+        end = rest.find("[[")
+        return (rest if end == -1 else rest[:end]).strip()
+
+    def followups(self) -> List[str]:
+        body = self._block(FOLLOWUPS_TAG)
+        if not body:
+            return []
+        items = []
+        for line in body.split("\n"):
+            line = line.strip().lstrip("-*").strip()
+            line = re.sub(r"^\d+[.)]\s*", "", line)
+            if 8 <= len(line) <= 120:
+                items.append(line)
+        return items[:3]
+
+    def clarify(self) -> Optional[dict]:
+        body = self._block(CLARIFY_TAG)
+        if not body:
+            return None
+
+        question, options = None, []
+        for line in body.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            if line.lower().startswith("question:"):
+                question = line.split(":", 1)[1].strip()
+            elif line.startswith(("-", "*")):
+                option = line.lstrip("-*").strip()
+                if option:
+                    options.append(option)
+
+        if not question or len(options) < 2:
+            return None
+        return {"question": question, "options": options[:4]}
 
 
 def base_prompt(loc: dict) -> str:
@@ -518,11 +668,17 @@ def build_messages(system: str, history: List[Turn], question: str) -> List[dict
 # OPENROUTER (PRIMARY)
 # =========================================================
 
+# Devanagari and other non-Latin scripts tokenize far less efficiently than
+# English — the same answer can cost 3-4x the tokens. A cap tuned for English
+# silently truncates Hindi mid-sentence.
+MAX_OUTPUT_TOKENS = int(os.getenv("MAX_OUTPUT_TOKENS", "2400"))
+
+
 def openrouter_payload(messages: List[dict], model: str, stream: bool) -> dict:
     return {
         "model": OPENROUTER_MODEL_MAP.get(model, model),
         "messages": messages,
-        "max_tokens": 1000,
+        "max_tokens": MAX_OUTPUT_TOKENS,
         "temperature": 0.7,
         "stream": stream,
     }
@@ -579,6 +735,7 @@ async def stream_openrouter(
     messages: List[dict],
     model: str,
     request_id: str,
+    state: Optional[dict] = None,
 ) -> AsyncIterator[str]:
     """Yield answer text as it arrives. Raises before the first token if the
     upstream call fails, so the caller can still return a clean error."""
@@ -614,6 +771,11 @@ async def stream_openrouter(
                     raise ValueError(f"OpenRouter error payload: {data['error']}")
 
                 for choice in data.get("choices", []):
+                    # "length" means the token cap cut the answer off, not
+                    # that the model finished. The UI needs to say so.
+                    if state is not None and choice.get("finish_reason"):
+                        state["finish_reason"] = choice["finish_reason"]
+
                     piece = (choice.get("delta") or {}).get("content")
                     if piece:
                         yield piece
@@ -718,9 +880,14 @@ async def get_ai_answer(messages: List[dict], model: str, request_id: str) -> st
     return await ask_ollama(messages, model, request_id)
 
 
-def stream_answer(messages: List[dict], model: str, request_id: str) -> AsyncIterator[str]:
+def stream_answer(
+    messages: List[dict],
+    model: str,
+    request_id: str,
+    state: Optional[dict] = None,
+) -> AsyncIterator[str]:
     if OPENROUTER_API_KEY:
-        return stream_openrouter(messages, model, request_id)
+        return stream_openrouter(messages, model, request_id, state)
     if ALLOW_OLLAMA_FALLBACK:
         return stream_ollama(messages, model, request_id)
     raise no_llm_error()
@@ -978,10 +1145,21 @@ async def stream(request: ChatRequest):
             yield sse({"type": "sources", "sources": prepared["sources"]})
 
         produced = False
+        state = {}
+        blocks = BlockFilter()
         try:
-            async for piece in stream_answer(prepared["messages"], request.model, request_id):
+            async for piece in stream_answer(
+                prepared["messages"], request.model, request_id, state
+            ):
+                visible = blocks.feed(piece)
+                if visible:
+                    produced = True
+                    yield sse({"type": "delta", "text": visible})
+
+            tail = blocks.flush()
+            if tail:
                 produced = True
-                yield sse({"type": "delta", "text": piece})
+                yield sse({"type": "delta", "text": tail})
 
         except Exception as e:
             logger.warning(
@@ -995,9 +1173,25 @@ async def stream(request: ChatRequest):
             })
             return
 
+        clarify = blocks.clarify()
+        if clarify:
+            # A clarify reply has no prose at all — the question is the answer.
+            logger.info(f"[{request_id}] Asking for clarification")
+            yield sse({"type": "clarify", **clarify})
+            yield sse({"type": "done"})
+            return
+
         if not produced:
             yield sse({"type": "error", "detail": "ConBOT returned an empty answer."})
             return
+
+        if state.get("finish_reason") == "length":
+            logger.info(f"[{request_id}] Answer hit the token cap")
+            yield sse({"type": "truncated"})
+        else:
+            followups = blocks.followups()
+            if followups:
+                yield sse({"type": "followups", "questions": followups})
 
         logger.info(f"[{request_id}] Stream complete")
         yield sse({"type": "done"})
