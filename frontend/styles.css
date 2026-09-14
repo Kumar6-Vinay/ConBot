@@ -611,3 +611,78 @@ body.chatting .thread { padding-bottom: 190px; }
   .rotator.swap-out, .rotator.swap-in { animation: none; }
   .send:not(:disabled):hover, .chip:hover { transform: none; }
 }
+
+/* =========================================================
+   Mic — voice input (Web Speech API)
+   Sits inside the composer, left of the text. Hidden by default and
+   revealed by JS only when the browser actually supports recognition,
+   so an unsupported browser never shows a dead control.
+========================================================= */
+
+.mic {
+  flex: none;
+  width: 34px; height: 34px;
+  margin-right: -6px;          /* tuck toward the text, away from send */
+  display: grid; place-items: center;
+  border-radius: 50%;
+  color: var(--ink-2);
+  transition: color 0.2s var(--ease), background 0.2s var(--ease), transform 0.15s var(--ease);
+}
+.mic:hover { color: var(--ink); background: var(--surface); }
+.mic:active { transform: scale(0.92); }
+
+/* Listening: the accent colour and a soft pulsing ring make the live
+   state unmistakable without a separate label. */
+.mic.listening {
+  color: var(--accent-ink);
+  background: var(--accent);
+  animation: micPulse 1.6s var(--ease) infinite;
+}
+
+@keyframes micPulse {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
+  70%  { box-shadow: 0 0 0 9px color-mix(in srgb, var(--accent) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent); }
+}
+
+/* =========================================================
+   Slim rail — only during a conversation (body.chatting)
+   Fixed to the left edge, vertically centred, quiet. Keeps the opening
+   screen a pure single column; appears when there is a chat to manage.
+========================================================= */
+
+.rail {
+  position: fixed;
+  left: 14px; top: 50%;
+  transform: translateY(-50%);
+  z-index: 30;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--canvas) 75%, transparent);
+  backdrop-filter: saturate(160%) blur(14px);
+  -webkit-backdrop-filter: saturate(160%) blur(14px);
+  border: 1px solid var(--hairline);
+  animation: railIn 0.4s var(--ease) both;
+}
+
+.rail-btn {
+  width: 38px; height: 38px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  color: var(--ink-2);
+  transition: color 0.2s var(--ease), background 0.2s var(--ease);
+}
+.rail-btn:hover { color: var(--ink); background: var(--surface); }
+
+@keyframes railIn {
+  from { opacity: 0; transform: translate(-8px, -50%); }
+  to   { opacity: 1; transform: translate(0, -50%); }
+}
+
+/* The rail overlaps the reading column on narrow desktops; hide it on
+   phones, where the top bar's own controls remain reachable and screen
+   width is precious. */
+@media (max-width: 900px) {
+  .rail { display: none; }
+}

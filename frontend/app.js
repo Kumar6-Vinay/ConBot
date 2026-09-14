@@ -478,7 +478,7 @@ document.querySelectorAll('.chip').forEach((chip) => {
    Chrome
 ========================================================= */
 
-$('newChat').addEventListener('click', () => {
+function newChat() {
   if (pending) pending.abort();
   history = [];
   thread.innerHTML = '';
@@ -488,17 +488,41 @@ $('newChat').addEventListener('click', () => {
   send.disabled = true;
   window.scrollTo({ top: 0 });
   input.focus();
-});
+}
+
+$('newChat').addEventListener('click', newChat);
 
 const saved = localStorage.getItem('conbot-theme');
 if (saved) document.body.classList.add(saved);
 
-$('themeToggle').addEventListener('click', () => {
+function toggleTheme() {
   const dark = getComputedStyle(document.body).backgroundColor === 'rgb(0, 0, 0)';
   document.body.classList.remove('dark', 'light');
   document.body.classList.add(dark ? 'light' : 'dark');
   localStorage.setItem('conbot-theme', dark ? 'light' : 'dark');
+}
+
+$('themeToggle').addEventListener('click', toggleTheme);
+
+/* =========================================================
+   Slim rail — new-chat + theme, shown only during a conversation.
+   It reuses the same handlers as the top bar so behaviour never drifts.
+========================================================= */
+
+const rail = $('rail');
+$('railNew').addEventListener('click', newChat);
+$('railTheme').addEventListener('click', toggleTheme);
+
+/* The rail's visibility tracks body.chatting. startThread/resetToHero
+   toggle that class, so a MutationObserver keeps the rail in sync without
+   touching those functions. */
+function syncRail() {
+  rail.hidden = !document.body.classList.contains('chatting');
+}
+new MutationObserver(syncRail).observe(document.body, {
+  attributes: true, attributeFilter: ['class'],
 });
+syncRail();
 
 /* Let the reader scroll up mid-answer without being yanked back down. */
 window.addEventListener('scroll', () => {
@@ -575,3 +599,95 @@ input.addEventListener('input', stopRotator, { once: true });
 
 startRotator();
 input.focus();
+
+/* =========================================================
+   Mic — voice input via the Web Speech API
+   Frontend-only: speech becomes text in the input box, then sends as a
+   normal question. No backend change, no audio leaves the device beyond
+   the browser's own recognition.
+
+   Handled carefully:
+   - Only shown when recognition actually exists (no dead button).
+   - Interim results preview live; the final result is committed.
+   - Language follows the user's locale so Hindi/Hinglish transcribe.
+   - Permission denial, no-speech, and errors each recover cleanly.
+   - Starting a send or losing support always leaves the mic idle.
+========================================================= */
+
+(function setupMic() {
+  const mic = $('mic');
+  if (!mic) return;
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return;                       // unsupported: leave the mic hidden
+
+  mic.hidden = false;                    // supported: reveal it
+
+  const recog = new SR();
+  recog.continuous = false;
+  recog.interimResults = true;
+  recog.lang = navigator.language || 'en-IN';
+
+  let listening = false;
+  let committed = '';                    // text already in the box before speaking
+
+  function start() {
+    committed = input.value ? input.value.trimEnd() + ' ' : '';
+    try {
+      recog.start();
+    } catch (e) {
+      // start() throws if called while already starting; ignore.
+    }
+  }
+
+  function stop() {
+    try { recog.stop(); } catch (e) { /* not running */ }
+  }
+
+  mic.addEventListener('click', () => {
+    if (listening) { stop(); return; }
+    start();
+  });
+
+  recog.onstart = () => {
+    listening = true;
+    mic.classList.add('listening');
+    mic.setAttribute('aria-label', 'Stop listening');
+    stopRotator();                       // treat speaking as intent, like typing
+  };
+
+  recog.onresult = (event) => {
+    let interim = '';
+    let final = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const chunk = event.results[i][0].transcript;
+      if (event.results[i].isFinal) final += chunk;
+      else interim += chunk;
+    }
+    input.value = committed + final + interim;
+    if (final) committed += final;
+    grow();
+    send.disabled = !input.value.trim();
+  };
+
+  recog.onerror = (event) => {
+    // not-allowed = permission denied; no-speech = silence. Both just reset.
+    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+      mic.setAttribute('aria-label', 'Microphone blocked — allow access in your browser');
+    }
+  };
+
+  recog.onend = () => {
+    listening = false;
+    mic.classList.remove('listening');
+    mic.setAttribute('aria-label', 'Speak your question');
+    input.focus();
+  };
+
+  // If the user sends while still listening, stop first so the recogniser
+  // does not keep running against an empty box.
+  send.addEventListener('click', () => { if (listening) stop(); });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && listening) stop();
+  });
+})();
