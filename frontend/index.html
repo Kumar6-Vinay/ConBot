@@ -33,7 +33,9 @@
   <!-- Opening state: headline, composer and chips read as one group -->
   <section class="hero" id="hero">
     <div class="hero-inner">
-      <h1>Ask anything.</h1>
+      <!-- "Ask" is fixed; only the trailing phrase rotates, left-anchored.
+           aria-live announces each phrase; the visible span is swapped by JS. -->
+      <h1 class="headline">Ask&nbsp;<span class="rotator" id="rotator" aria-live="polite">anything.</span></h1>
 
       <div class="composer" id="heroComposer">
         <label class="sr" for="input">Your question</label>

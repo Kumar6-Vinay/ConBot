@@ -100,7 +100,8 @@ function markdown(raw) {
 
 function startThread() {
   if (dock.hidden) {
-    dockSlot.appendChild(composer);       // same node, new home
+    stopRotator();                          // the welcome is over
+    dockSlot.appendChild(composer);         // same node, new home
     dock.hidden = false;
     hero.classList.add('gone');
     document.body.classList.add('chatting');
@@ -112,6 +113,7 @@ function resetToHero() {
   dock.hidden = true;
   hero.classList.remove('gone');
   document.body.classList.remove('chatting');
+  startRotator();                           // welcome again on a fresh chat
 }
 
 /* =========================================================
@@ -505,4 +507,71 @@ window.addEventListener('scroll', () => {
   stuckToBottom = room < 120;
 }, { passive: true });
 
+/* =========================================================
+   B — Living headline
+   "Ask __." where the trailing phrase rotates, teaching range across
+   the audience (general -> practical -> everyday -> the differentiator).
+   It is a welcome: it stops the moment a conversation starts, pauses
+   when the tab is hidden, and honours reduced-motion.
+========================================================= */
+
+const PHRASES = ['anything.', 'about tax.', 'for a home remedy.', 'in your language.'];
+const PHRASE_HOLD_MS = 2600;
+
+const rotator = $('rotator');
+const reduceMotion = window.matchMedia &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+let phraseIndex = 0;
+let rotatorTimer = null;
+let rotatorLive = false;
+
+function showNextPhrase() {
+  phraseIndex = (phraseIndex + 1) % PHRASES.length;
+  const next = PHRASES[phraseIndex];
+
+  if (reduceMotion) {
+    rotator.textContent = next;
+    return;
+  }
+
+  rotator.classList.remove('swap-in');
+  rotator.classList.add('swap-out');
+
+  const onOut = () => {
+    rotator.removeEventListener('animationend', onOut);
+    rotator.textContent = next;
+    rotator.classList.remove('swap-out');
+    rotator.classList.add('swap-in');
+  };
+  rotator.addEventListener('animationend', onOut);
+}
+
+function scheduleRotator() {
+  clearTimeout(rotatorTimer);
+  rotatorTimer = setTimeout(() => {
+    if (rotatorLive && !document.hidden) showNextPhrase();
+    scheduleRotator();
+  }, PHRASE_HOLD_MS);
+}
+
+function startRotator() {
+  if (!rotator || rotatorLive) return;
+  rotatorLive = true;
+  phraseIndex = 0;
+  rotator.textContent = PHRASES[0];
+  if (!reduceMotion) scheduleRotator();
+}
+
+function stopRotator() {
+  rotatorLive = false;
+  clearTimeout(rotatorTimer);
+}
+
+// Typing is intent — the welcome bows out on the first real keystroke.
+// (Not on focus: the page autofocuses the input on load, which would
+// otherwise kill the rotation before it ever started.)
+input.addEventListener('input', stopRotator, { once: true });
+
+startRotator();
 input.focus();

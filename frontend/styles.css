@@ -538,3 +538,76 @@ body.chatting .thread { padding-bottom: 190px; }
   .options { flex-direction: column; }
   .option { width: 100%; text-align: left; }
 }
+
+/* =========================================================
+   B — Living headline
+   "Ask" is fixed; the trailing phrase rotates and is left-anchored,
+   so swaps read as the sentence extending rather than the whole
+   headline resizing. Reduced-motion users get a static line (below).
+========================================================= */
+
+.headline {
+  display: flex;
+  justify-content: center;   /* the whole line stays centred in the column */
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.rotator {
+  display: inline-block;
+  color: var(--accent);      /* the live part carries the one accent colour */
+  will-change: opacity, transform;
+}
+
+.rotator.swap-out {
+  animation: phraseOut 0.32s var(--ease) forwards;
+}
+.rotator.swap-in {
+  animation: phraseIn 0.42s var(--ease) forwards;
+}
+
+@keyframes phraseOut {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-8px); }
+}
+@keyframes phraseIn {
+  from { opacity: 0; transform: translateY(9px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* =========================================================
+   E — Interaction polish
+   Nothing new at rest; these only add life to what the user does.
+========================================================= */
+
+/* Send button invites the tap once there is something to send. */
+.send:not(:disabled) {
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+.send:not(:disabled):hover { transform: scale(1.06); }
+.send:not(:disabled):active { transform: scale(0.9); }
+
+/* Chips gain a gentle lift and a faint accent tint — tactile, not loud. */
+.chip {
+  transition: color 0.2s var(--ease), transform 0.18s var(--ease),
+    background 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.chip:hover {
+  color: var(--ink);
+  transform: translateY(-2px);
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--ink) 6%, transparent);
+}
+.chip:active { transform: translateY(0); }
+
+/* Thinking dots: warmer tint and a slightly more organic rhythm. */
+.dots i {
+  background: color-mix(in srgb, var(--accent) 55%, var(--ink-2));
+}
+
+/* Keep the rotator honest for people who asked for less motion:
+   no phrase animation, and it simply shows whatever word is current. */
+@media (prefers-reduced-motion: reduce) {
+  .rotator.swap-out, .rotator.swap-in { animation: none; }
+  .send:not(:disabled):hover, .chip:hover { transform: none; }
+}
