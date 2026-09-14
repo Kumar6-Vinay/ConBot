@@ -1,18 +1,15 @@
 /* =========================================================
    ConBOT — client
-
    POST /stream {prompt, model, history, timezone, language}
-     -> SSE events: {type:"sources"|"delta"|"error"|"done"}
-
-   History lives here, in memory, for this tab only. The server is
-   stateless: every request replays the conversation.
+     -> SSE events: sources | delta | truncated | clarify | followups | error | done
+   History lives here, in memory, for this tab only.
 ========================================================= */
 
 const API_BASE = 'https://llama-chatbot-qb2c.onrender.com';
 const MODEL = 'qwen3:14b';
-const TIMEOUT_MS = 120000;   // free dyno can cold-start
+const TIMEOUT_MS = 120000;
 const WAKE_HINT_MS = 7000;
-const MAX_TURNS = 20;        // trimmed again server-side
+const MAX_TURNS = 20;
 
 const $ = (id) => document.getElementById(id);
 
@@ -29,9 +26,7 @@ let history = [];
 let pending = null;
 let stuckToBottom = true;
 
-/* =========================================================
-   Markdown — escape first, then format. Never raw innerHTML.
-========================================================= */
+/* ===== Markdown — escape first, then format ===== */
 
 function esc(s) {
   return s.replace(/[&<>"']/g, (c) => (
@@ -54,7 +49,7 @@ function markdown(raw) {
   let out = '';
 
   blocks.forEach((block, i) => {
-    if (i % 2 === 1) {                      // fenced code
+    if (i % 2 === 1) {
       const body = block.replace(/^[a-zA-Z0-9+-]*\n/, '');
       out += '<pre><code>' + body.replace(/\n$/, '') + '</code></pre>';
       return;
@@ -92,16 +87,12 @@ function markdown(raw) {
   return out;
 }
 
-/* =========================================================
-   Opening state -> conversation
-   The composer is one element that moves, so the change reads as the
-   page rearranging rather than two different inputs swapping.
-========================================================= */
+/* ===== Opening state -> conversation ===== */
 
 function startThread() {
   if (dock.hidden) {
-    stopRotator();                          // the welcome is over
-    dockSlot.appendChild(composer);         // same node, new home
+    stopRotator();
+    dockSlot.appendChild(composer);
     dock.hidden = false;
     hero.classList.add('gone');
     document.body.classList.add('chatting');
@@ -113,12 +104,10 @@ function resetToHero() {
   dock.hidden = true;
   hero.classList.remove('gone');
   document.body.classList.remove('chatting');
-  startRotator();                           // welcome again on a fresh chat
+  startRotator();
 }
 
-/* =========================================================
-   Rendering
-========================================================= */
+/* ===== Rendering ===== */
 
 function addYou(text) {
   startThread();
@@ -126,7 +115,7 @@ function addYou(text) {
   turn.className = 'turn you';
   const body = document.createElement('div');
   body.className = 'text';
-  body.textContent = text;                // user text is never parsed
+  body.textContent = text;
   turn.appendChild(body);
   thread.appendChild(turn);
   toBottom();
@@ -135,12 +124,10 @@ function addYou(text) {
 function addAnswerShell() {
   const turn = document.createElement('div');
   turn.className = 'turn bot';
-
   const body = document.createElement('div');
   body.className = 'text';
   body.innerHTML = '<div class="dots"><i></i><i></i><i></i></div>';
   turn.appendChild(body);
-
   thread.appendChild(turn);
   toBottom();
 
@@ -174,12 +161,9 @@ function renderSources(turn, sources) {
   turn.appendChild(wrap);
 }
 
-/* Share beats copy on a phone: the next thing people do with a useful
-   answer is forward it. Falls back to the clipboard on desktop. */
 function addActions(turn, getText) {
   const acts = document.createElement('div');
   acts.className = 'acts';
-
   const share = document.createElement('button');
   share.className = 'act';
   share.type = 'button';
@@ -187,32 +171,25 @@ function addActions(turn, getText) {
   share.onclick = async () => {
     const text = getText();
     if (navigator.share) {
-      try { await navigator.share({ text: text }); } catch (e) { /* dismissed */ }
+      try { await navigator.share({ text: text }); } catch (e) {}
       return;
     }
     try {
       await navigator.clipboard.writeText(text);
       share.textContent = 'Copied';
       setTimeout(() => { share.textContent = 'Copy'; }, 1600);
-    } catch (e) {
-      share.textContent = 'Select and copy';
-    }
+    } catch (e) { share.textContent = 'Select and copy'; }
   };
-
   acts.appendChild(share);
   turn.appendChild(acts);
 }
 
-/* Ask one thing back when guessing would produce a wrong answer. The
-   options are the answer — there is no prose above them. */
 function renderClarify(turn, body, event) {
   turn.dataset.clarify = '1';
-
   const q = document.createElement('p');
   q.className = 'ask-back';
   q.textContent = event.question;
   body.appendChild(q);
-
   const wrap = document.createElement('div');
   wrap.className = 'options';
   event.options.forEach((option) => {
@@ -220,23 +197,15 @@ function renderClarify(turn, body, event) {
     b.className = 'option';
     b.type = 'button';
     b.textContent = option;
-    b.onclick = () => {
-      wrap.remove();
-      input.value = option;
-      send.disabled = false;
-      ask();
-    };
+    b.onclick = () => { wrap.remove(); input.value = option; send.disabled = false; ask(); };
     wrap.appendChild(b);
   });
   body.appendChild(wrap);
   toBottom();
 }
 
-/* Follow-ups are gaps this answer opened. Ignoring them costs nothing —
-   they sit below the answer and never interrupt it. */
 function renderFollowups(turn, questions) {
   if (!questions || !questions.length) return;
-
   const wrap = document.createElement('div');
   wrap.className = 'next';
   questions.forEach((q) => {
@@ -244,26 +213,18 @@ function renderFollowups(turn, questions) {
     b.className = 'next-q';
     b.type = 'button';
     b.textContent = q;
-    b.onclick = () => {
-      input.value = q;
-      send.disabled = false;
-      ask();
-    };
+    b.onclick = () => { input.value = q; send.disabled = false; ask(); };
     wrap.appendChild(b);
   });
   turn.appendChild(wrap);
   toBottom();
 }
 
-/* A long answer can hit the token cap mid-sentence. Say so plainly and let
-   the reader pick it up — history makes "carry on" mean something now. */
 function addContinue(turn) {
   const wrap = document.createElement('div');
   wrap.className = 'cut';
-
   const note = document.createElement('span');
   note.textContent = 'That answer was cut short.';
-
   const more = document.createElement('button');
   more.className = 'act';
   more.type = 'button';
@@ -274,7 +235,6 @@ function addContinue(turn) {
     send.disabled = false;
     ask();
   };
-
   wrap.appendChild(note);
   wrap.appendChild(more);
   turn.appendChild(wrap);
@@ -294,25 +254,19 @@ function toBottom() {
   window.scrollTo({ top: document.body.scrollHeight, behavior: 'auto' });
 }
 
-/* =========================================================
-   Where the user is — device settings only, no permission prompt
-========================================================= */
+/* ===== Where the user is ===== */
 
 function locale() {
   let timezone = null;
-  try {
-    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || null;
-  } catch (e) { timezone = null; }
+  try { timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || null; }
+  catch (e) { timezone = null; }
   return { timezone: timezone, language: navigator.language || null };
 }
 
-/* =========================================================
-   Asking
-========================================================= */
+/* ===== Asking ===== */
 
 async function ask() {
   if (pending) { pending.abort(); return; }
-
   const text = input.value.trim();
   if (!text) return;
 
@@ -332,12 +286,7 @@ async function ask() {
 
   let answer = '';
   let frame = null;
-
-  const paint = () => {
-    frame = null;
-    body.innerHTML = markdown(answer);
-    toBottom();
-  };
+  const paint = () => { frame = null; body.innerHTML = markdown(answer); toBottom(); };
 
   try {
     const res = await fetch(API_BASE + '/stream', {
@@ -367,14 +316,12 @@ async function ask() {
     while (true) {
       const step = await reader.read();
       if (step.done) break;
-
       buffer += decoder.decode(step.value, { stream: true });
       const lines = buffer.split('\n');
-      buffer = lines.pop();                 // keep the partial line
+      buffer = lines.pop();
 
       for (const line of lines) {
         if (line.indexOf('data: ') !== 0) continue;
-
         let event;
         try { event = JSON.parse(line.slice(6)); } catch (e) { continue; }
 
@@ -405,14 +352,12 @@ async function ask() {
     }
 
     if (frame) cancelAnimationFrame(frame);
-
-    if (turn.dataset.clarify) return;   // the question stands on its own
+    if (turn.dataset.clarify) return;
 
     if (answer) {
       paint();
       history.push({ role: 'user', content: text });
       history.push({ role: 'assistant', content: answer });
-
       if (turn.dataset.sources) renderSources(turn, JSON.parse(turn.dataset.sources));
       addActions(turn, () => answer);
       if (turn.dataset.truncated) addContinue(turn);
@@ -445,9 +390,7 @@ function lock(busy) {
     : '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
 }
 
-/* =========================================================
-   Composer
-========================================================= */
+/* ===== Composer ===== */
 
 function grow() {
   input.style.height = 'auto';
@@ -474,9 +417,7 @@ document.querySelectorAll('.chip').forEach((chip) => {
   });
 });
 
-/* =========================================================
-   Chrome
-========================================================= */
+/* ===== Chrome: new chat + theme (shared by bar and rail) ===== */
 
 function newChat() {
   if (pending) pending.abort();
@@ -504,18 +445,12 @@ function toggleTheme() {
 
 $('themeToggle').addEventListener('click', toggleTheme);
 
-/* =========================================================
-   Slim rail — new-chat + theme, shown only during a conversation.
-   It reuses the same handlers as the top bar so behaviour never drifts.
-========================================================= */
+/* ===== Slim rail ===== */
 
 const rail = $('rail');
 $('railNew').addEventListener('click', newChat);
 $('railTheme').addEventListener('click', toggleTheme);
 
-/* The rail's visibility tracks body.chatting. startThread/resetToHero
-   toggle that class, so a MutationObserver keeps the rail in sync without
-   touching those functions. */
 function syncRail() {
   rail.hidden = !document.body.classList.contains('chatting');
 }
@@ -524,20 +459,15 @@ new MutationObserver(syncRail).observe(document.body, {
 });
 syncRail();
 
-/* Let the reader scroll up mid-answer without being yanked back down. */
+/* ===== Scroll ===== */
+
 window.addEventListener('scroll', () => {
   bar.classList.toggle('scrolled', window.scrollY > 4);
   const room = document.body.scrollHeight - window.scrollY - window.innerHeight;
   stuckToBottom = room < 120;
 }, { passive: true });
 
-/* =========================================================
-   B — Living headline
-   "Ask __." where the trailing phrase rotates, teaching range across
-   the audience (general -> practical -> everyday -> the differentiator).
-   It is a welcome: it stops the moment a conversation starts, pauses
-   when the tab is hidden, and honours reduced-motion.
-========================================================= */
+/* ===== Living headline ===== */
 
 const PHRASES = ['anything.', 'about tax.', 'for a home remedy.', 'in your language.'];
 const PHRASE_HOLD_MS = 2600;
@@ -553,15 +483,9 @@ let rotatorLive = false;
 function showNextPhrase() {
   phraseIndex = (phraseIndex + 1) % PHRASES.length;
   const next = PHRASES[phraseIndex];
-
-  if (reduceMotion) {
-    rotator.textContent = next;
-    return;
-  }
-
+  if (reduceMotion) { rotator.textContent = next; return; }
   rotator.classList.remove('swap-in');
   rotator.classList.add('swap-out');
-
   const onOut = () => {
     rotator.removeEventListener('animationend', onOut);
     rotator.textContent = next;
@@ -592,36 +516,16 @@ function stopRotator() {
   clearTimeout(rotatorTimer);
 }
 
-// Typing is intent — the welcome bows out on the first real keystroke.
-// (Not on focus: the page autofocuses the input on load, which would
-// otherwise kill the rotation before it ever started.)
 input.addEventListener('input', stopRotator, { once: true });
 
-startRotator();
-input.focus();
-
-/* =========================================================
-   Mic — voice input via the Web Speech API
-   Frontend-only: speech becomes text in the input box, then sends as a
-   normal question. No backend change, no audio leaves the device beyond
-   the browser's own recognition.
-
-   Handled carefully:
-   - Only shown when recognition actually exists (no dead button).
-   - Interim results preview live; the final result is committed.
-   - Language follows the user's locale so Hindi/Hinglish transcribe.
-   - Permission denial, no-speech, and errors each recover cleanly.
-   - Starting a send or losing support always leaves the mic idle.
-========================================================= */
+/* ===== Mic — voice input (Web Speech API) ===== */
 
 (function setupMic() {
   const mic = $('mic');
   if (!mic) return;
-
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) return;                       // unsupported: leave the mic hidden
-
-  mic.hidden = false;                    // supported: reveal it
+  if (!SR) return;
+  mic.hidden = false;
 
   const recog = new SR();
   recog.continuous = false;
@@ -629,40 +533,28 @@ input.focus();
   recog.lang = navigator.language || 'en-IN';
 
   let listening = false;
-  let committed = '';                    // text already in the box before speaking
+  let committed = '';
 
   function start() {
     committed = input.value ? input.value.trimEnd() + ' ' : '';
-    try {
-      recog.start();
-    } catch (e) {
-      // start() throws if called while already starting; ignore.
-    }
+    try { recog.start(); } catch (e) {}
   }
+  function stop() { try { recog.stop(); } catch (e) {} }
 
-  function stop() {
-    try { recog.stop(); } catch (e) { /* not running */ }
-  }
-
-  mic.addEventListener('click', () => {
-    if (listening) { stop(); return; }
-    start();
-  });
+  mic.addEventListener('click', () => { if (listening) stop(); else start(); });
 
   recog.onstart = () => {
     listening = true;
     mic.classList.add('listening');
     mic.setAttribute('aria-label', 'Stop listening');
-    stopRotator();                       // treat speaking as intent, like typing
+    stopRotator();
   };
 
   recog.onresult = (event) => {
-    let interim = '';
-    let final = '';
+    let interim = '', final = '';
     for (let i = event.resultIndex; i < event.results.length; i++) {
       const chunk = event.results[i][0].transcript;
-      if (event.results[i].isFinal) final += chunk;
-      else interim += chunk;
+      if (event.results[i].isFinal) final += chunk; else interim += chunk;
     }
     input.value = committed + final + interim;
     if (final) committed += final;
@@ -671,7 +563,6 @@ input.focus();
   };
 
   recog.onerror = (event) => {
-    // not-allowed = permission denied; no-speech = silence. Both just reset.
     if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
       mic.setAttribute('aria-label', 'Microphone blocked — allow access in your browser');
     }
@@ -684,10 +575,11 @@ input.focus();
     input.focus();
   };
 
-  // If the user sends while still listening, stop first so the recogniser
-  // does not keep running against an empty box.
   send.addEventListener('click', () => { if (listening) stop(); });
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey && listening) stop();
   });
 })();
+
+startRotator();
+input.focus();

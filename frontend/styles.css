@@ -208,23 +208,24 @@ body.dark .ic-moon { display: block; }
 
 .turn { animation: rise 0.45s var(--ease) both; }
 
+/* Claude/ChatGPT style: the question is not a chat bubble on the right —
+   it's the heading of the answer that follows, left-aligned in the same
+   column, set heavier than body text so the exchange still reads clearly. */
 .turn.you {
-  display: flex; justify-content: flex-end;
-  margin: 30px 0 0;
+  margin: 34px 0 0;
 }
 
 .turn.you .text {
-  max-width: 78%;
-  padding: 11px 17px;
-  background: var(--bubble);
-  color: #fff;
-  border-radius: var(--r-lg);
-  border-bottom-right-radius: 8px;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+  color: var(--ink);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-.turn.bot { margin: 26px 0 0; }
+.turn.bot { margin: 14px 0 0; }
 
 .turn.bot .text > *:first-child { margin-top: 0; }
 .turn.bot .text > *:last-child { margin-bottom: 0; }
@@ -401,7 +402,7 @@ body.dark .ic-moon { display: block; }
   .hero { min-height: calc(100vh - var(--bar-h) - 250px); }
   .chips { flex-direction: column; width: 100%; }
   .chip { width: 100%; }
-  .turn.you .text { max-width: 86%; }
+  .turn.you .text { font-size: 18px; }
   .fineprint { font-size: 11px; }
 }
 

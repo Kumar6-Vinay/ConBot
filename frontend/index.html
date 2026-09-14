@@ -46,11 +46,8 @@
 
 <main class="stage" id="stage">
 
-  <!-- Opening state: headline, composer and chips read as one group -->
   <section class="hero" id="hero">
     <div class="hero-inner">
-      <!-- "Ask" is fixed; only the trailing phrase rotates, left-anchored.
-           aria-live announces each phrase; the visible span is swapped by JS. -->
       <h1 class="headline">Ask&nbsp;<span class="rotator" id="rotator" aria-live="polite">anything.</span></h1>
 
       <div class="composer" id="heroComposer">
@@ -82,7 +79,6 @@
 
 </main>
 
-<!-- Composer docks here once the conversation starts -->
 <div class="dock" id="dock" hidden>
   <div class="dock-inner" id="dockSlot"></div>
   <p class="fineprint">ConBOT can make mistakes. Check anything important.</p>
