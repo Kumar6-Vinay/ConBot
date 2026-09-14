@@ -476,3 +476,65 @@ body.chatting .thread { padding-bottom: 190px; }
   .dock { padding-top: 10px; }
   body.chatting .thread { padding-bottom: 170px; }
 }
+
+/* A cut-off answer is a fact about the answer, not an error. */
+.cut {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 12px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.cut .act {
+  color: var(--accent);
+  padding: 5px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 999px;
+}
+.cut .act:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+
+/* =========================================================
+   Asking back, and what to ask next
+========================================================= */
+
+.ask-back {
+  margin: 0 0 14px;
+  font-size: 17px;
+}
+
+.options { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.option {
+  padding: 9px 16px;
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--surface);
+  border-radius: 999px;
+  transition: background 0.2s var(--ease);
+}
+.option:hover { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+
+/* Follow-ups sit quietly under the answer. Plain rows, hairline between —
+   deliberately not buttons, so they read as an offer, not an instruction. */
+.next {
+  margin-top: 18px;
+  border-top: 1px solid var(--hairline);
+}
+
+.next-q {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px 2px;
+  font-size: 15.5px;
+  color: var(--ink-2);
+  border-bottom: 1px solid var(--hairline);
+  transition: color 0.18s var(--ease), padding-left 0.18s var(--ease);
+}
+.next-q:last-child { border-bottom: 0; }
+.next-q:hover { color: var(--accent); padding-left: 6px; }
+
+@media (max-width: 640px) {
+  .options { flex-direction: column; }
+  .option { width: 100%; text-align: left; }
+}
