@@ -65,6 +65,12 @@ function markdown(raw) {
       const t = line.trim();
       if (!t) { if (list) { out += '</' + list + '>'; list = null; } return; }
 
+      if (/^(-{3,}|\*{3,}|_{3,})$/.test(t)) {
+        if (list) { out += '</' + list + '>'; list = null; }
+        out += '<hr>';
+        return;
+      }
+
       const bullet = t.match(/^[-*]\s+(.*)/);
       const number = t.match(/^\d+[.)]\s+(.*)/);
       const head = t.match(/^#{1,6}\s+(.*)/);
@@ -142,6 +148,7 @@ function addAnswerShell() {
       p.className = 'waking';
       p.textContent = 'Waking the server up — the first question of the day takes a moment.';
       turn.appendChild(p);
+      turn._waking = p;
       toBottom();
     }
   }, WAKE_HINT_MS);
@@ -372,7 +379,11 @@ async function ask() {
         if (event.type === 'sources') {
           turn.dataset.sources = JSON.stringify(event.sources);
         } else if (event.type === 'delta') {
-          if (!turn.dataset.started) { turn.dataset.started = '1'; body.innerHTML = ''; }
+          if (!turn.dataset.started) {
+            turn.dataset.started = '1';
+            body.innerHTML = '';
+            if (turn._waking) { turn._waking.remove(); turn._waking = null; }
+          }
           answer += event.text;
           if (!frame) frame = requestAnimationFrame(paint);
         } else if (event.type === 'truncated') {
@@ -380,6 +391,7 @@ async function ask() {
         } else if (event.type === 'clarify') {
           turn.dataset.started = '1';
           body.innerHTML = '';
+          if (turn._waking) { turn._waking.remove(); turn._waking = null; }
           renderClarify(turn, body, event);
         } else if (event.type === 'followups') {
           turn.dataset.followups = JSON.stringify(event.questions);
