@@ -82,7 +82,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round
 }
 
 /* =========================================================
-   Top bar
+   Top bar — translucent, hairline under
 ========================================================= */
 
 .bar {
@@ -140,12 +140,14 @@ body.dark .ic-moon { display: block; }
   min-height: 100%;
 }
 
+/* ===== Hero ===== */
+
 .hero {
   min-height: calc(100dvh - var(--bar-h) - 40px);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-bottom: 9vh;
+  padding-bottom: 9vh;              /* optical centre sits above true centre */
 }
 
 .hero-inner {
@@ -192,19 +194,12 @@ body.dark .ic-moon { display: block; }
   color: var(--ink-2);
   background: var(--surface);
   border-radius: 999px;
-  transition: color 0.2s var(--ease), transform 0.18s var(--ease),
-    background 0.2s var(--ease), box-shadow 0.2s var(--ease);
+  transition: color 0.2s var(--ease), transform 0.2s var(--ease);
 }
-.chip:hover {
-  color: var(--ink);
-  transform: translateY(-2px);
-  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
-  box-shadow: 0 3px 12px color-mix(in srgb, var(--ink) 6%, transparent);
-}
-.chip:active { transform: translateY(0); }
+.chip:hover { color: var(--ink); transform: translateY(-1px); }
 
 /* =========================================================
-   Thread — question as a document heading, not a chat bubble
+   Thread
 ========================================================= */
 
 .thread {
@@ -213,6 +208,9 @@ body.dark .ic-moon { display: block; }
 
 .turn { animation: rise 0.45s var(--ease) both; }
 
+/* Claude/ChatGPT style: the question is not a chat bubble on the right —
+   it's the heading of the answer that follows, left-aligned in the same
+   column, set heavier than body text so the exchange still reads clearly. */
 .turn.you {
   margin: 34px 0 0;
 }
@@ -261,6 +259,8 @@ body.dark .ic-moon { display: block; }
 }
 .text pre code { background: none; padding: 0; font-size: 14px; line-height: 1.55; }
 
+/* ===== Row of quiet actions under an answer ===== */
+
 .acts {
   display: flex; gap: 4px;
   margin-top: 10px;
@@ -276,6 +276,8 @@ body.dark .ic-moon { display: block; }
   border-radius: 8px;
 }
 .act:hover { background: var(--surface); color: var(--ink); }
+
+/* ===== Sources ===== */
 
 .sources {
   margin-top: 14px;
@@ -298,10 +300,12 @@ body.dark .ic-moon { display: block; }
 }
 .source:hover { color: var(--accent); }
 
+/* ===== Thinking ===== */
+
 .dots { display: flex; gap: 5px; padding: 6px 0; }
 .dots i {
   width: 7px; height: 7px; border-radius: 50%;
-  background: color-mix(in srgb, var(--accent) 55%, var(--ink-2));
+  background: var(--ink-2);
   animation: pulse 1.3s var(--ease) infinite;
 }
 .dots i:nth-child(2) { animation-delay: 0.16s; }
@@ -376,35 +380,8 @@ body.dark .ic-moon { display: block; }
   transition: opacity 0.2s var(--ease), transform 0.15s var(--ease);
 }
 .send:disabled { opacity: 0.28; cursor: default; }
-.send:not(:disabled) {
-  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 32%, transparent);
-}
-.send:not(:disabled):hover { transform: scale(1.06); }
-.send:not(:disabled):active { transform: scale(0.9); }
+.send:not(:disabled):active { transform: scale(0.92); }
 .send.stop svg { stroke-width: 0; }
-
-.mic {
-  flex: none;
-  width: 34px; height: 34px;
-  margin-right: -6px;
-  display: grid; place-items: center;
-  border-radius: 50%;
-  color: var(--ink-2);
-  transition: color 0.2s var(--ease), background 0.2s var(--ease), transform 0.15s var(--ease);
-}
-.mic:hover { color: var(--ink); background: var(--surface); }
-.mic:active { transform: scale(0.92); }
-.mic.listening {
-  color: var(--accent-ink);
-  background: var(--accent);
-  animation: micPulse 1.6s var(--ease) infinite;
-}
-
-@keyframes micPulse {
-  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
-  70%  { box-shadow: 0 0 0 9px color-mix(in srgb, var(--accent) 0%, transparent); }
-  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent); }
-}
 
 .fineprint {
   max-width: var(--col);
@@ -415,72 +392,34 @@ body.dark .ic-moon { display: block; }
 }
 
 /* =========================================================
-   Slim rail — only during a conversation
+   Small screens
 ========================================================= */
 
-.rail {
-  position: fixed;
-  left: 14px; top: 50%;
-  transform: translateY(-50%);
-  z-index: 30;
-  display: flex; flex-direction: column; gap: 6px;
-  padding: 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--canvas) 75%, transparent);
-  backdrop-filter: saturate(160%) blur(14px);
-  -webkit-backdrop-filter: saturate(160%) blur(14px);
-  border: 1px solid var(--hairline);
-  animation: railIn 0.4s var(--ease) both;
+@media (max-width: 640px) {
+  body { font-size: 16px; }
+  .stage, .bar-inner { padding-left: 16px; padding-right: 16px; }
+  .dock { padding-left: 16px; padding-right: 16px; }
+  .hero { min-height: calc(100vh - var(--bar-h) - 250px); }
+  .chips { flex-direction: column; width: 100%; }
+  .chip { width: 100%; }
+  .turn.you .text { font-size: 18px; }
+  .fineprint { font-size: 11px; }
 }
 
-.rail-btn {
-  width: 38px; height: 38px;
-  display: grid; place-items: center;
-  border-radius: 50%;
-  color: var(--ink-2);
-  transition: color 0.2s var(--ease), background 0.2s var(--ease);
-}
-.rail-btn:hover { color: var(--ink); background: var(--surface); }
-
-@keyframes railIn {
-  from { opacity: 0; transform: translate(-8px, -50%); }
-  to   { opacity: 1; transform: translate(0, -50%); }
-}
-
-@media (max-width: 900px) {
-  .rail { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .dots i { animation: none; opacity: 0.5; }
 }
 
 /* =========================================================
-   Living headline
-========================================================= */
-
-.headline {
-  display: flex;
-  justify-content: center;
-  align-items: baseline;
-  flex-wrap: wrap;
-}
-
-.rotator {
-  display: inline-block;
-  color: var(--accent);
-  will-change: opacity, transform;
-}
-.rotator.swap-out { animation: phraseOut 0.32s var(--ease) forwards; }
-.rotator.swap-in  { animation: phraseIn 0.42s var(--ease) forwards; }
-
-@keyframes phraseOut {
-  from { opacity: 1; transform: translateY(0); }
-  to   { opacity: 0; transform: translateY(-8px); }
-}
-@keyframes phraseIn {
-  from { opacity: 0; transform: translateY(9px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-/* =========================================================
-   The wordmark full-stop
+   The one bold element
+   Everything else on this page is quiet, so the identity lives in a
+   single mark: the aperture beside the wordmark. It opens once on
+   load and then holds still.
 ========================================================= */
 
 .wordmark { display: inline-flex; align-items: baseline; gap: 6px; }
@@ -503,23 +442,50 @@ body.dark .ic-moon { display: block; }
   to   { transform: none; opacity: 1; }
 }
 
+/* Streamed text lands mid-word, so keep the block from jittering. */
 .turn.bot .text { min-height: 1.5em; }
 
 .thread { padding-bottom: 26px; }
 body.chatting .thread { padding-bottom: 190px; }
 
+/* =========================================================
+   Devanagari needs more room than Latin at the same size
+========================================================= */
+
 :lang(hi), .text:has(> :not(:lang(en))) { line-height: 1.62; }
 
 /* =========================================================
-   Cut-off answer
+   Phone first — this is where most Indian users will open it
 ========================================================= */
 
+@media (max-width: 640px) {
+  .chips {
+    grid-template-columns: 1fr;
+    margin-top: 18px;
+  }
+
+  .hero { padding-bottom: 6vh; }
+  .hero h1 { font-size: clamp(34px, 10vw, 44px); }
+
+  /* Cheap Android GPUs drop frames on backdrop blur. Use a solid bar. */
+  .bar, .dock {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--canvas);
+  }
+
+  .dock { padding-top: 10px; }
+  body.chatting .thread { padding-bottom: 170px; }
+}
+
+/* A cut-off answer is a fact about the answer, not an error. */
 .cut {
   display: flex; align-items: center; gap: 10px;
   margin-top: 12px;
   font-size: 14px;
   color: var(--ink-2);
 }
+
 .cut .act {
   color: var(--accent);
   padding: 5px 12px;
@@ -529,7 +495,7 @@ body.chatting .thread { padding-bottom: 190px; }
 .cut .act:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
 
 /* =========================================================
-   Clarify + follow-ups
+   Asking back, and what to ask next
 ========================================================= */
 
 .ask-back {
@@ -549,6 +515,8 @@ body.chatting .thread { padding-bottom: 190px; }
 }
 .option:hover { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
 
+/* Follow-ups sit quietly under the answer. Plain rows, hairline between —
+   deliberately not buttons, so they read as an offer, not an instruction. */
 .next {
   margin-top: 18px;
   border-top: 1px solid var(--hairline);
@@ -567,59 +535,277 @@ body.chatting .thread { padding-bottom: 190px; }
 .next-q:last-child { border-bottom: 0; }
 .next-q:hover { color: var(--accent); padding-left: 6px; }
 
-/* =========================================================
-   Small screens
-========================================================= */
-
 @media (max-width: 640px) {
-  body { font-size: 16px; }
-  .stage, .bar-inner { padding-left: 16px; padding-right: 16px; }
-  .dock { padding-left: 16px; padding-right: 16px; }
-  .chips { grid-template-columns: 1fr; margin-top: 18px; }
-  .chip { width: 100%; }
-  .turn.you .text { font-size: 18px; }
-  .fineprint { font-size: 11px; }
-  .hero { padding-bottom: 6vh; }
-  .hero h1 { font-size: clamp(34px, 10vw, 44px); }
-  .bar, .dock {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    background: var(--canvas);
-  }
-  .dock { padding-top: 10px; }
-  body.chatting .thread { padding-bottom: 170px; }
   .options { flex-direction: column; }
   .option { width: 100%; text-align: left; }
 }
 
+/* =========================================================
+   B — Living headline
+   "Ask" is fixed; the trailing phrase rotates and is left-anchored,
+   so swaps read as the sentence extending rather than the whole
+   headline resizing. Reduced-motion users get a static line (below).
+========================================================= */
+
+.headline {
+  display: flex;
+  justify-content: center;   /* the whole line stays centred in the column */
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.rotator {
+  display: inline-block;
+  color: var(--accent);      /* the live part carries the one accent colour */
+  will-change: opacity, transform;
+}
+
+.rotator.swap-out {
+  animation: phraseOut 0.32s var(--ease) forwards;
+}
+.rotator.swap-in {
+  animation: phraseIn 0.42s var(--ease) forwards;
+}
+
+@keyframes phraseOut {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-8px); }
+}
+@keyframes phraseIn {
+  from { opacity: 0; transform: translateY(9px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* =========================================================
+   E — Interaction polish
+   Nothing new at rest; these only add life to what the user does.
+========================================================= */
+
+/* Send button invites the tap once there is something to send. */
+.send:not(:disabled) {
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+.send:not(:disabled):hover { transform: scale(1.06); }
+.send:not(:disabled):active { transform: scale(0.9); }
+
+/* Chips gain a gentle lift and a faint accent tint — tactile, not loud. */
+.chip {
+  transition: color 0.2s var(--ease), transform 0.18s var(--ease),
+    background 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.chip:hover {
+  color: var(--ink);
+  transform: translateY(-2px);
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--ink) 6%, transparent);
+}
+.chip:active { transform: translateY(0); }
+
+/* Thinking dots: warmer tint and a slightly more organic rhythm. */
+.dots i {
+  background: color-mix(in srgb, var(--accent) 55%, var(--ink-2));
+}
+
+/* Keep the rotator honest for people who asked for less motion:
+   no phrase animation, and it simply shows whatever word is current. */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-  }
-  .dots i { animation: none; opacity: 0.5; }
   .rotator.swap-out, .rotator.swap-in { animation: none; }
   .send:not(:disabled):hover, .chip:hover { transform: none; }
 }
 
-.site-footer {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 14px;
-  text-align: center;
-  padding: 0 20px;
-  font-size: 12px;
-  line-height: 18px;
-  color: #8a8a8a;
-  pointer-events: none;
+/* =========================================================
+   Mic — voice input (Web Speech API)
+   Sits inside the composer, left of the text. Hidden by default and
+   revealed by JS only when the browser actually supports recognition,
+   so an unsupported browser never shows a dead control.
+========================================================= */
+
+.mic {
+  flex: none;
+  width: 34px; height: 34px;
+  margin-right: -6px;          /* tuck toward the text, away from send */
+  display: grid; place-items: center;
+  border-radius: 50%;
+  color: var(--ink-2);
+  transition: color 0.2s var(--ease), background 0.2s var(--ease), transform 0.15s var(--ease);
+}
+.mic:hover { color: var(--ink); background: var(--surface); }
+.mic:active { transform: scale(0.92); }
+
+/* Listening: the accent colour and a soft pulsing ring make the live
+   state unmistakable without a separate label. */
+.mic.listening {
+  color: var(--accent-ink);
+  background: var(--accent);
+  animation: micPulse 1.6s var(--ease) infinite;
 }
 
-@media (max-width: 600px) {
-  .site-footer {
-    bottom: 10px;
-    padding: 0 16px;
-    font-size: 11px;
+@keyframes micPulse {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
+  70%  { box-shadow: 0 0 0 9px color-mix(in srgb, var(--accent) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent); }
+}
+
+/* =========================================================
+   Sidebar — New chat, pinned, history
+   Fixed left on desktop, off-canvas behind a scrim on mobile. Holds the
+   saved-conversation list so people can return to earlier answers.
+========================================================= */
+
+:root { --side-w: 264px; }
+
+.sidebar {
+  position: fixed; inset: 0 auto 0 0; z-index: 40;
+  width: var(--side-w);
+  display: flex; flex-direction: column;
+  background: var(--surface);
+  border-right: 1px solid var(--hairline);
+  padding: 12px 10px;
+  transition: transform 0.28s var(--ease);
+}
+
+.side-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 6px 10px;
+}
+.side-mark { font-size: 17px; }
+.side-close { display: none; }        /* only shown on mobile */
+
+.side-new {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  margin-bottom: 12px;
+  font-size: 15px; font-weight: 500;
+  color: var(--ink);
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  transition: background 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+.side-new:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline)); }
+
+.side-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: 1px;
+  padding-right: 2px;
+}
+
+.side-section {
+  font-size: 12px; font-weight: 600;
+  color: var(--ink-2);
+  padding: 12px 10px 4px;
+  letter-spacing: 0.01em;
+}
+
+.side-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 9px 10px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background 0.15s var(--ease);
+}
+.side-item:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.side-item.active { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+.side-item-title {
+  flex: 1;
+  font-size: 14px;
+  color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.side-item-acts {
+  display: flex; gap: 2px;
+  position: absolute; right: 6px;
+  padding-left: 14px;
+  background: linear-gradient(to right,
+    transparent, var(--surface) 14px, var(--surface));
+  opacity: 0;
+  transition: opacity 0.15s var(--ease);
+}
+
+.side-item { position: relative; }
+.side-item:hover .side-item-acts { background: linear-gradient(to right,
+    transparent, color-mix(in srgb, var(--ink) 5%, var(--surface)) 14px,
+    color-mix(in srgb, var(--ink) 5%, var(--surface))); }
+.side-item:hover .side-item-acts,
+.side-item.menu-open .side-item-acts { opacity: 1; }
+
+.side-mini {
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  border-radius: 6px;
+  color: var(--ink-2);
+}
+.side-mini:hover { background: var(--canvas); color: var(--ink); }
+.side-mini.is-pinned { color: var(--accent); }
+
+.side-empty {
+  padding: 16px 10px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+
+.side-foot {
+  border-top: 1px solid var(--hairline);
+  padding-top: 8px; margin-top: 4px;
+}
+.side-foot-btn {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--ink-2);
+  border-radius: var(--r-sm);
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+.side-foot-btn:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); color: var(--ink); }
+
+/* Rename input reuses the row footprint. */
+.side-rename {
+  flex: 1;
+  font-size: 14px;
+  padding: 2px 6px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--canvas);
+  color: var(--ink);
+}
+.side-rename:focus { outline: none; }
+
+/* =========================================================
+   Layout shift: main content sits right of the sidebar on desktop
+========================================================= */
+
+@media (min-width: 901px) {
+  .bar, .stage, .dock { margin-left: var(--side-w); }
+  .menu-btn { display: none; }          /* no hamburger when sidebar is fixed */
+  .bar .wordmark { display: none; }     /* sidebar already shows the mark */
+  .bar-inner { justify-content: flex-end; }
+}
+
+/* =========================================================
+   Mobile: sidebar slides in over a scrim
+========================================================= */
+
+@media (max-width: 900px) {
+  .sidebar {
+    transform: translateX(-100%);
+    box-shadow: 0 0 40px rgba(0,0,0,0.18);
   }
+  body.side-open .sidebar { transform: translateX(0); }
+  .side-close { display: grid; }
+
+  .side-scrim {
+    position: fixed; inset: 0; z-index: 39;
+    background: rgba(0,0,0,0.32);
+    animation: rise 0.2s var(--ease) both;
+  }
+}
+
+@media (min-width: 901px) {
+  .side-scrim { display: none !important; }
 }
