@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -10,7 +10,9 @@ import re
 import os
 import json
 import logging
+import time
 import uuid
+from collections import defaultdict, deque
 from typing import AsyncIterator, List, Optional
 
 # =========================================================
@@ -81,6 +83,62 @@ WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
 OPENROUTER_TIMEOUT = 60
 OLLAMA_TIMEOUT = 120
 SEARCH_TIMEOUT = 10
+
+
+# =========================================================
+# RATE LIMITING
+#
+# /ask and /stream are public and unauthenticated, and each request costs
+# real OpenRouter credit. Without a limit, one script in a browser console
+# can drain the key. This is a fixed-window counter per client IP, held in
+# memory — no extra service, no extra dependency. It resets if the process
+# restarts, and it is per-instance if this ever runs on more than one, which
+# is the honest limit of "no infrastructure" rate limiting. It stops a
+# casual script; it is not a defense against a determined, distributed abuser.
+# =========================================================
+
+RATE_LIMIT_MAX = int(os.getenv("RATE_LIMIT_MAX", "20"))        # requests
+RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "600"))  # seconds (10 min)
+
+_rate_buckets: dict[str, deque] = defaultdict(deque)
+
+
+def client_ip(request: Request) -> str:
+    """Render sits behind a proxy, so the socket IP is Render's own edge,
+    not the visitor's. The real address is the first hop in
+    X-Forwarded-For; trust it here because Render sets it itself rather
+    than passing through whatever the client sent."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def enforce_rate_limit(request: Request, request_id: str) -> None:
+    ip = client_ip(request)
+    now = time.monotonic()
+    bucket = _rate_buckets[ip]
+
+    while bucket and now - bucket[0] > RATE_LIMIT_WINDOW:
+        bucket.popleft()
+
+    if len(bucket) >= RATE_LIMIT_MAX:
+        retry_after = int(RATE_LIMIT_WINDOW - (now - bucket[0])) + 1
+        logger.warning(f"[{request_id}] Rate limited: {ip} ({len(bucket)} in window)")
+        raise HTTPException(
+            status_code=429,
+            detail="Too many questions in a short time. Please wait a moment and try again.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
+    bucket.append(now)
+
+    # Bound memory: an unbounded number of distinct IPs would otherwise
+    # accumulate forever on a long-running process.
+    if len(_rate_buckets) > 5000:
+        stale = [k for k, v in _rate_buckets.items() if not v]
+        for k in stale[:2000]:
+            del _rate_buckets[k]
 
 
 # =========================================================
@@ -1144,10 +1202,11 @@ async def prepare(request: ChatRequest, request_id: str) -> dict:
 # =========================================================
 
 @app.post("/ask")
-async def ask(request: ChatRequest):
+async def ask(request: ChatRequest, http_request: Request):
     """Whole answer in one response. Kept for clients that cannot stream."""
 
     request_id = str(uuid.uuid4())[:8]
+    enforce_rate_limit(http_request, request_id)
     prepared = await prepare(request, request_id)
 
     answer = await get_ai_answer(prepared["messages"], request.model, request_id)
@@ -1168,10 +1227,11 @@ def sse(event: dict) -> str:
 
 
 @app.post("/stream")
-async def stream(request: ChatRequest):
+async def stream(request: ChatRequest, http_request: Request):
     """Server-sent events: sources first, then answer text as it is generated."""
 
     request_id = str(uuid.uuid4())[:8]
+    enforce_rate_limit(http_request, request_id)
 
     # Check configuration before the response starts. Once headers are sent
     # the status code is fixed, so a 503 raised inside the generator would
