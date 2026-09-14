@@ -194,6 +194,84 @@ function addActions(turn, getText) {
   turn.appendChild(acts);
 }
 
+/* Ask one thing back when guessing would produce a wrong answer. The
+   options are the answer — there is no prose above them. */
+function renderClarify(turn, body, event) {
+  turn.dataset.clarify = '1';
+
+  const q = document.createElement('p');
+  q.className = 'ask-back';
+  q.textContent = event.question;
+  body.appendChild(q);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'options';
+  event.options.forEach((option) => {
+    const b = document.createElement('button');
+    b.className = 'option';
+    b.type = 'button';
+    b.textContent = option;
+    b.onclick = () => {
+      wrap.remove();
+      input.value = option;
+      send.disabled = false;
+      ask();
+    };
+    wrap.appendChild(b);
+  });
+  body.appendChild(wrap);
+  toBottom();
+}
+
+/* Follow-ups are gaps this answer opened. Ignoring them costs nothing —
+   they sit below the answer and never interrupt it. */
+function renderFollowups(turn, questions) {
+  if (!questions || !questions.length) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'next';
+  questions.forEach((q) => {
+    const b = document.createElement('button');
+    b.className = 'next-q';
+    b.type = 'button';
+    b.textContent = q;
+    b.onclick = () => {
+      input.value = q;
+      send.disabled = false;
+      ask();
+    };
+    wrap.appendChild(b);
+  });
+  turn.appendChild(wrap);
+  toBottom();
+}
+
+/* A long answer can hit the token cap mid-sentence. Say so plainly and let
+   the reader pick it up — history makes "carry on" mean something now. */
+function addContinue(turn) {
+  const wrap = document.createElement('div');
+  wrap.className = 'cut';
+
+  const note = document.createElement('span');
+  note.textContent = 'That answer was cut short.';
+
+  const more = document.createElement('button');
+  more.className = 'act';
+  more.type = 'button';
+  more.textContent = 'Continue';
+  more.onclick = () => {
+    wrap.remove();
+    input.value = 'Continue from where you stopped.';
+    send.disabled = false;
+    ask();
+  };
+
+  wrap.appendChild(note);
+  wrap.appendChild(more);
+  turn.appendChild(wrap);
+  toBottom();
+}
+
 function showNotice(body, message) {
   const p = document.createElement('p');
   p.className = 'notice';
@@ -297,6 +375,14 @@ async function ask() {
           if (!turn.dataset.started) { turn.dataset.started = '1'; body.innerHTML = ''; }
           answer += event.text;
           if (!frame) frame = requestAnimationFrame(paint);
+        } else if (event.type === 'truncated') {
+          turn.dataset.truncated = '1';
+        } else if (event.type === 'clarify') {
+          turn.dataset.started = '1';
+          body.innerHTML = '';
+          renderClarify(turn, body, event);
+        } else if (event.type === 'followups') {
+          turn.dataset.followups = JSON.stringify(event.questions);
         } else if (event.type === 'error') {
           if (!turn.dataset.started) body.innerHTML = '';
           showNotice(body, event.detail);
@@ -305,6 +391,9 @@ async function ask() {
     }
 
     if (frame) cancelAnimationFrame(frame);
+
+    if (turn.dataset.clarify) return;   // the question stands on its own
+
     if (answer) {
       paint();
       history.push({ role: 'user', content: text });
@@ -312,6 +401,8 @@ async function ask() {
 
       if (turn.dataset.sources) renderSources(turn, JSON.parse(turn.dataset.sources));
       addActions(turn, () => answer);
+      if (turn.dataset.truncated) addContinue(turn);
+      if (turn.dataset.followups) renderFollowups(turn, JSON.parse(turn.dataset.followups));
     }
 
   } catch (err) {
