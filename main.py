@@ -967,7 +967,7 @@ def build_web_context(search_results: list) -> str:
 
 # Devanagari and other non-Latin scripts tokenize far less efficiently than
 # English. A cap tuned for English silently truncates Hindi mid-sentence.
-MAX_OUTPUT_TOKENS = int(os.getenv("MAX_OUTPUT_TOKENS", "1200"))
+MAX_OUTPUT_TOKENS = int(os.getenv("MAX_OUTPUT_TOKENS", "2000"))
 
 GEMINI_TIMEOUT = int(os.getenv("GEMINI_TIMEOUT", "60"))
 
