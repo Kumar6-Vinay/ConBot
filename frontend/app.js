@@ -9,7 +9,7 @@
 ========================================================= */
 
 const API_BASE = 'https://llama-chatbot-qb2c.onrender.com';
-const MODEL = 'qwen3:14b';
+const MODEL = 'text';
 const TIMEOUT_MS = 120000;   // free dyno can cold-start
 const WAKE_HINT_MS = 7000;
 const MAX_TURNS = 20;        // trimmed again server-side

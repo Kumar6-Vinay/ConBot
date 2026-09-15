@@ -40,12 +40,13 @@ app = FastAPI(
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://host.docker.internal:11434/api/generate")
 
-DEFAULT_MODEL = "qwen3:14b"
+DEFAULT_MODEL = "text"
 
 AVAILABLE_MODELS = {
-    "qwen3:14b",
-    "llama3:latest",
-    "mistral:latest",
+    "text",
+    "image",
+    "video",
+    "imagegen",
 }
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -70,7 +71,7 @@ OPENROUTER_MODEL_MAP = {
      "text": "nvidia/nemotron-3-ultra:free",
      "image": "google/gemma-4-26b-a4b-it:free",
      "video": "nvidia/nemotron-3-nano-omni:free",
-     "imagegen" = "black-forest-labs/flux.2-klein-4b:free"
+     "imagegen": "black-forest-labs/flux.2-klein-4b:free"
 }
 
 # DuckDuckGo Search API
