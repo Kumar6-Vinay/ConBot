@@ -70,8 +70,8 @@ ALLOW_OLLAMA_FALLBACK = os.getenv("ALLOW_OLLAMA_FALLBACK", "false").lower() == "
 OPENROUTER_MODEL_MAP = {
      "text": "nvidia/nemotron-3-ultra-550b-a55b:free",
      "image": "google/gemma-4-26b-a4b-it:free",
-     "video": "nvidia/nemotron-3-nano-omni:free",
-     "imagegen": "black-forest-labs/flux.2-klein-4b:free"
+     "video": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+     "imagegen": "black-forest-labs/flux.2-klein-4b"
 }
 
 # DuckDuckGo Search API
