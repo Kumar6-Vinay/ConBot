@@ -68,7 +68,7 @@ OPENROUTER_API_KEY = _clean_key(os.getenv("OPENROUTER_API_KEY", ""))
 ALLOW_OLLAMA_FALLBACK = os.getenv("ALLOW_OLLAMA_FALLBACK", "false").lower() == "true"
 
 OPENROUTER_MODEL_MAP = {
-     "text": "nvidia/nemotron-3.5-lightning:free",
+     "text": "mistralai/mistral-small-3.2-24b-instruct:free",
      "image": "google/gemma-4-26b-a4b-it:free",
      "video": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
      "imagegen": "black-forest-labs/flux.2-klein-4b"
