@@ -74,7 +74,7 @@ OPENROUTER_API_KEY = _clean_key(os.getenv("OPENROUTER_API_KEY", ""))
 ALLOW_OLLAMA_FALLBACK = os.getenv("ALLOW_OLLAMA_FALLBACK", "false").lower() == "true"
 
 OPENROUTER_MODEL_MAP = {
-    "text": os.getenv("OPENROUTER_TEXT_MODEL", "google/gemma-4-31b-it:free"),
+    "text": os.getenv("OPENROUTER_TEXT_MODEL", "google/gemma-4-26b-a4b-it:free"),
 }
 
 # Ollama needs a real local model name — "text" is a ConBOT mode, not a model.
