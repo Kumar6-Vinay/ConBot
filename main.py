@@ -76,9 +76,12 @@ OPENROUTER_MODEL_MAP = {
 # to one of these; anything else gets a clear error instead of a silent drop.
 # Keep in sync with OPENROUTER_MODEL_MAP as models change.
 VISION_MODELS = {
-    m.strip() for m in os.getenv(
+    m.strip()
+    for m in os.getenv(
+        "OPENROUTER_VISION_MODELS",
         "google/gemma-4-31b-it:free,google/gemma-4-26b-a4b-it:free",
-    ).split(",") if m.strip()
+    ).split(",")
+    if m.strip()
 }
 
 
