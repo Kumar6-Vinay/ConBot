@@ -72,7 +72,7 @@ OPENROUTER_API_KEY = GEMINI_API_KEY
 # note it is scheduled to retire in Oct 2026 — bump this env var to
 # gemini-3.6-flash (or the current flash) when that happens.
 GEMINI_MODEL_MAP = {
-    "text": os.getenv("GEMINI_TEXT_MODEL", "gemini-2.5-flash"),
+    "text": os.getenv("GEMINI_TEXT_MODEL", "gemini-3.6-flash"),
 }
 
 # Every current Gemini flash/pro model is natively multimodal, so any mode we
