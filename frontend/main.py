@@ -67,9 +67,10 @@ OPENROUTER_API_KEY = _clean_key(os.getenv("OPENROUTER_API_KEY", ""))
 ALLOW_OLLAMA_FALLBACK = os.getenv("ALLOW_OLLAMA_FALLBACK", "false").lower() == "true"
 
 OPENROUTER_MODEL_MAP = {
-    "qwen3:14b": "qwen/qwen3-14b",
-    "llama3:latest": "meta-llama/llama-3-8b-instruct",
-    "mistral:latest": "mistralai/mistral-7b-instruct",
+     "text": "nvidia/nemotron-3-ultra:free",
+     "image": "google/gemma-4-26b-a4b-it:free",
+     "video": "nvidia/nemotron-3-nano-omni:free",
+     "imagegen" = "black-forest-labs/flux.2-klein-4b:free"
 }
 
 # DuckDuckGo Search API
