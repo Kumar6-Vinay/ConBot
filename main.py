@@ -67,7 +67,7 @@ OPENROUTER_API_KEY = _clean_key(os.getenv("OPENROUTER_API_KEY", ""))
 ALLOW_OLLAMA_FALLBACK = os.getenv("ALLOW_OLLAMA_FALLBACK", "false").lower() == "true"
 
 OPENROUTER_MODEL_MAP = {
-    "qwen3:14b": "qwen/qwen3-14b:free",
+    "qwen3:14b": "qwen/qwen3-14b",
     "llama3:latest": "meta-llama/llama-3-8b-instruct",
     "mistral:latest": "mistralai/mistral-7b-instruct",
 }
@@ -97,15 +97,10 @@ SEARCH_TIMEOUT = 10
 # casual script; it is not a defense against a determined, distributed abuser.
 # =========================================================
 
-RATE_LIMIT_MAX = int(os.getenv("RATE_LIMIT_MAX", "10"))        # requests
+RATE_LIMIT_MAX = int(os.getenv("RATE_LIMIT_MAX", "20"))        # requests
 RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "600"))  # seconds (10 min)
 
 _rate_buckets: dict[str, deque] = defaultdict(deque)
-
-DAILY_REQUEST_LIMIT = int(os.getenv("DAILY_REQUEST_LIMIT", "45"))
-
-_daily_request_count = 0
-_daily_request_day = None
 
 
 def client_ip(request: Request) -> str:
@@ -120,20 +115,6 @@ def client_ip(request: Request) -> str:
 
 
 def enforce_rate_limit(request: Request, request_id: str) -> None:
-    global _daily_request_count, _daily_request_day
-
-    today = time.strftime("%Y-%m-%d", time.gmtime())
-    if today != _daily_request_day:
-        _daily_request_day = today
-        _daily_request_count = 0
-
-    if _daily_request_count >= DAILY_REQUEST_LIMIT:
-        logger.warning(f"[{request_id}] Daily request limit reached")
-        raise HTTPException(
-            status_code=429,
-            detail="CONBOT has reached today's prototype usage limit. Please try again tomorrow.",
-        )
-
     ip = client_ip(request)
     now = time.monotonic()
     bucket = _rate_buckets[ip]
@@ -151,7 +132,6 @@ def enforce_rate_limit(request: Request, request_id: str) -> None:
         )
 
     bucket.append(now)
-    _daily_request_count += 1
 
     # Bound memory: an unbounded number of distinct IPs would otherwise
     # accumulate forever on a long-running process.
@@ -196,7 +176,8 @@ app.add_middleware(
         "http://127.0.0.1:3001",
         "https://conbot.in",
         "https://www.conbot.in",
-        "https://kumar6-vinay.github.io",
+        "https://llama-chatbot-fe.onrender.com",
+         "https://kumar6-vinay.github.io",
     ],
     allow_credentials=False,
     allow_methods=["GET", "POST"],
@@ -251,9 +232,7 @@ Follow these principles:
     simplest explanation and then provide an example when
     useful.
 
-12. Keep answers short by default: usually 2–5 short paragraphs
-    or bullets, and roughly under 350 words unless the user
-    asks for more detail.
+12. Be concise by default.
 
 13. Do not unnecessarily repeat the user's question.
 
@@ -302,7 +281,7 @@ End every complete answer with this block:
 - <question>
 - <question>
 
-One or two questions, each a real gap this answer just opened — the
+Two or three questions, each a real gap this answer just opened — the
 thing a thoughtful reader would now want to know, phrased as they
 would type it. Never generic ("tell me more", "any other questions").
 Never something the answer already covered. Write them in the same
@@ -319,17 +298,17 @@ Return only the answer intended for the user, plus these blocks.
 class Turn(BaseModel):
     """One prior exchange. Sent by the client; the server keeps no state."""
     role: str = Field(..., pattern="^(user|assistant)$")
-    content: str = Field(..., min_length=1, max_length=3000)
+    content: str = Field(..., min_length=1, max_length=8000)
 
 
 # How much conversation to carry. Caps cost and latency per request.
-MAX_HISTORY_TURNS = int(os.getenv("MAX_HISTORY_TURNS", "8"))
+MAX_HISTORY_TURNS = int(os.getenv("MAX_HISTORY_TURNS", "10"))
 
 
 class ChatRequest(BaseModel):
-    prompt: str = Field(..., min_length=1, max_length=3000)
+    prompt: str = Field(..., min_length=1, max_length=4000)
     model: str = Field(default=DEFAULT_MODEL, max_length=50)
-    history: List[Turn] = Field(default_factory=list, max_length=16)
+    history: List[Turn] = Field(default_factory=list, max_length=40)
     # Sent by the browser. Neither is precise location and neither needs a
     # permission prompt — a timezone is city-level at best.
     timezone: Optional[str] = Field(default=None, max_length=64)
@@ -562,7 +541,7 @@ class BlockFilter:
             line = re.sub(r"^\d+[.)]\s*", "", line)
             if 8 <= len(line) <= 120:
                 items.append(line)
-        return items[:2]
+        return items[:3]
 
     def clarify(self) -> Optional[dict]:
         body = self._block("CLARIFY")
@@ -776,7 +755,7 @@ def build_messages(system: str, history: List[Turn], question: str) -> List[dict
             "Reminder: after the answer, end your reply with this block, "
             "exactly as written:\n\n"
             "[[FOLLOWUPS]]\n- <question>\n- <question>\n\n"
-            "One or two specific questions this answer just opened, in the "
+            "Two or three specific questions this answer just opened, in the "
             "same language as the answer. This block is required. If instead "
             "you need one detail before you can answer at all, reply with "
             "only a [[CLARIFY]] block."
@@ -792,7 +771,7 @@ def build_messages(system: str, history: List[Turn], question: str) -> List[dict
 # Devanagari and other non-Latin scripts tokenize far less efficiently than
 # English — the same answer can cost 3-4x the tokens. A cap tuned for English
 # silently truncates Hindi mid-sentence.
-MAX_OUTPUT_TOKENS = int(os.getenv("MAX_OUTPUT_TOKENS", "1200"))
+MAX_OUTPUT_TOKENS = int(os.getenv("MAX_OUTPUT_TOKENS", "2400"))
 
 
 def openrouter_payload(messages: List[dict], model: str, stream: bool) -> dict:
