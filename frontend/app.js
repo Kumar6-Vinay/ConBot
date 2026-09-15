@@ -2,7 +2,8 @@
    ConBOT — client
 
    POST /stream {prompt, model, history, timezone, language}
-     -> SSE events: {type:"sources"|"delta"|"error"|"done"}
+     -> SSE events: {type:"sources"|"delta"|"clarify"|"followups"|
+                     "truncated"|"error"|"done"}
 
    History lives here, in memory, for this tab only. The server is
    stateless: every request replays the conversation.
@@ -12,7 +13,8 @@ const API_BASE = 'https://llama-chatbot-qb2c.onrender.com';
 const MODEL = 'text';
 const TIMEOUT_MS = 120000;   // free dyno can cold-start
 const WAKE_HINT_MS = 7000;
-const MAX_TURNS = 20;        // trimmed again server-side
+const MAX_TURNS = 16;        // messages replayed; server keeps the last 8
+const MAX_CHARS = 3000;      // per question, and per replayed message
 
 const $ = (id) => document.getElementById(id);
 
@@ -206,7 +208,7 @@ function addActions(turn, getText) {
 /* Ask one thing back when guessing would produce a wrong answer. The
    options are the answer — there is no prose above them. */
 function renderClarify(turn, body, event) {
-  turn.dataset.clarify = '1';
+  turn.dataset.clarify = event.question;
 
   const q = document.createElement('p');
   q.className = 'ask-back';
@@ -221,6 +223,7 @@ function renderClarify(turn, body, event) {
     b.type = 'button';
     b.textContent = option;
     b.onclick = () => {
+    if (pending) return;
       wrap.remove();
       input.value = option;
       send.disabled = false;
@@ -245,6 +248,7 @@ function renderFollowups(turn, questions) {
     b.type = 'button';
     b.textContent = q;
     b.onclick = () => {
+    if (pending) return;
       input.value = q;
       send.disabled = false;
       ask();
@@ -269,6 +273,7 @@ function addContinue(turn) {
   more.type = 'button';
   more.textContent = 'Continue';
   more.onclick = () => {
+    if (pending) return;
     wrap.remove();
     input.value = 'Continue from where you stopped.';
     send.disabled = false;
@@ -294,6 +299,23 @@ function toBottom() {
   window.scrollTo({ top: document.body.scrollHeight, behavior: 'auto' });
 }
 
+/* The server rejects oversized bodies and trims history anyway, so send
+   only what it will use. Long answers are clipped here, never dropped. */
+function outgoingHistory() {
+  return history.slice(-MAX_TURNS).map((m) => ({
+    role: m.role,
+    content: m.content.length > MAX_CHARS ? m.content.slice(0, MAX_CHARS) : m.content,
+  }));
+}
+
+/* FastAPI's validation errors put a list in `detail`; only show strings. */
+function errorText(detail, status) {
+  if (typeof detail === 'string' && detail) return detail;
+  if (status === 422) return 'That message could not be sent. Try a shorter question.';
+  if (status === 429) return 'Too many questions right now. Please wait a moment.';
+  return 'The server returned ' + status + '. Try again shortly.';
+}
+
 /* =========================================================
    Where the user is — device settings only, no permission prompt
 ========================================================= */
@@ -315,6 +337,19 @@ async function ask() {
 
   const text = input.value.trim();
   if (!text) return;
+  if (text.length > MAX_CHARS) {
+    input.value = text;
+    grow();
+    const turn = document.createElement('div');
+    turn.className = 'turn bot';
+    const body = document.createElement('div');
+    body.className = 'text';
+    turn.appendChild(body);
+    startThread();
+    thread.appendChild(turn);
+    showNotice(body, 'That question is too long (' + text.length + ' characters). Please keep it under ' + MAX_CHARS + '.');
+    return;
+  }
 
   addYou(text);
   input.value = '';
@@ -346,7 +381,7 @@ async function ask() {
       body: JSON.stringify({
         prompt: text,
         model: MODEL,
-        history: history.slice(-MAX_TURNS),
+        history: outgoingHistory(),
         timezone: where.timezone,
         language: where.language,
       }),
@@ -354,9 +389,9 @@ async function ask() {
     });
 
     if (!res.ok) {
-      const detail = await res.json().catch(() => ({}));
+      const data = await res.json().catch(() => ({}));
       body.innerHTML = '';
-      showNotice(body, detail.detail || 'The server returned ' + res.status + '. Try again shortly.');
+      showNotice(body, errorText(data.detail, res.status));
       return;
     }
 
@@ -406,7 +441,14 @@ async function ask() {
 
     if (frame) cancelAnimationFrame(frame);
 
-    if (turn.dataset.clarify) return;   // the question stands on its own
+    if (turn.dataset.clarify) {
+      // Keep the exchange, so the option the user picks next is answered
+      // in the light of the question it clarifies.
+      history.push({ role: 'user', content: text });
+      history.push({ role: 'assistant', content: turn.dataset.clarify });
+      saveCurrent();
+      return;
+    }
 
     if (answer) {
       paint();
@@ -461,13 +503,17 @@ input.addEventListener('input', () => {
 });
 
 input.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(); }
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    if (!pending) ask();                  // Enter sends; only the button stops
+  }
 });
 
 send.addEventListener('click', ask);
 
 document.querySelectorAll('.chip').forEach((chip) => {
   chip.addEventListener('click', () => {
+    if (pending) return;
     input.value = chip.textContent;
     grow();
     send.disabled = false;

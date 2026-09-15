@@ -1,8 +1,8 @@
 # ConBOT 🤖
 
-**A production-oriented cloud-native RAG (Retrieval-Augmented Generation) platform for intelligent conversational AI.**
+**A general-purpose AI assistant (conbot.in) — FastAPI backend, vanilla-JS frontend.**
 
-ConBOT is a sophisticated multi-model AI assistant that combines local LLMs with cloud-based AI services, real-time web search, and weather APIs to deliver contextually aware, location-sensitive answers to users worldwide.
+ConBOT answers questions through OpenRouter (with an optional local Ollama fallback), adds live weather and web results when a question needs current information, and answers for the user's country and language by default. It is a prototype working toward a production chat product.
 
 ---
 
@@ -29,21 +29,18 @@ ConBOT is an intelligent conversational platform designed for:
 - **Location Awareness**: Provides location-specific answers based on timezone and regional settings
 - **Real-time Information**: Integrates web search and weather APIs for current data
 - **Flexible LLM Backend**: Seamlessly switches between OpenRouter (cloud) and Ollama (local) models
-- **Rate Limiting & Security**: Built-in protection against abuse with per-IP rate limiting
+- **Rate Limiting**: Per-IP window and daily caps, plus a global daily cost cap (in-memory, single instance)
 - **Streaming Responses**: Server-sent events (SSE) for real-time answer generation
-- **Production Ready**: Enterprise-grade logging, error handling, and CORS management
+- **Safe errors & logs**: Request-id log lines without question text; users only ever see safe messages
 
 ---
 
 ## ✨ Features
 
 ### Core Capabilities
-- **Smart Web Search**: Automatic detection of queries requiring current information
-- **Weather Integration**: Real-time weather data via Open-Meteo API (free, no API key required)
-- **Multi-Model Support**: 
-  - Qwen 3 (14B)
-  - Llama 3 (Latest)
-  - Mistral (Latest)
+- **Smart Web Search**: Detects questions that need current information. Uses the Brave Search API when `BRAVE_SEARCH_API_KEY` is set; otherwise falls back to DuckDuckGo Instant Answers (encyclopedia abstracts only — weak for news, prices and scores)
+- **Weather Integration**: Current conditions or tomorrow's forecast via Open-Meteo (free, no API key)
+- **One mode, `text`**: served by an OpenRouter model (`OPENROUTER_TEXT_MODEL`), or a local Ollama model (`OLLAMA_MODEL`) as fallback
 - **Intelligent Prompting**: Custom system prompts with behavioral guidelines
 - **Structured Responses**: Automatic parsing of follow-up questions and clarification blocks
 - **Conversation History**: Maintains context with configurable conversation depth
@@ -51,8 +48,8 @@ ConBOT is an intelligent conversational platform designed for:
 
 ### Technical Features
 - **Server-Sent Events (SSE)**: Real-time streaming for instant user feedback
-- **Fallback Mechanisms**: Graceful degradation from cloud to local models
-- **Rate Limiting**: Fixed-window rate limiting per client IP
+- **Fallback Mechanisms**: Optional OpenRouter → Ollama fallback, before the first token only
+- **Rate Limiting**: Sliding-window + daily caps per client IP, and a global daily cap
 - **Request Tracking**: UUID-based request IDs for comprehensive logging
 - **Error Resilience**: Detailed error handling with meaningful user messages
 - **CORS Support**: Pre-configured for multiple frontend origins
@@ -77,7 +74,7 @@ ConBOT is an intelligent conversational platform designed for:
 │  ├──────────────────────────────────────────────────────┤   │
 │  │ Location Resolution & Context Building               │   │
 │  ├──────────────────────────────────────────────────────┤   │
-│  │ Web Search (DuckDuckGo) & Weather APIs               │   │
+│  │ Web Search (Brave / DuckDuckGo) & Weather APIs       │   │
 │  ├──────────────────────────────────────────────────────┤   │
 │  │ Rate Limiting & Security                             │   │
 │  └──────────────────────────────────────────────────────┘   │
@@ -125,7 +122,7 @@ ConBOT is an intelligent conversational platform designed for:
 ### External Services
 - **LLM Cloud**: OpenRouter API
 - **Local LLM**: Ollama
-- **Web Search**: DuckDuckGo API
+- **Web Search**: Brave Search API (optional, keyed) → DuckDuckGo Instant Answer API
 - **Weather**: Open-Meteo API (Free)
 - **Geocoding**: Open-Meteo Geocoding API
 
@@ -149,8 +146,8 @@ cd ConBot
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# 3. Install dependencies
-pip install -r requirements.txt
+# 3. Install dependencies (dev file adds pytest)
+pip install -r requirements.txt -r requirements-dev.txt
 
 # 4. Configure environment
 cp .env.example .env
@@ -184,23 +181,46 @@ docker run -p 8000:8000 \
 Environment variables (see `.env.example`):
 
 ```env
-# Required
-OPENROUTER_API_KEY=sk-...  # Your OpenRouter API key
+# Required (unless running Ollama-only locally)
+OPENROUTER_API_KEY=sk-or-...
+OPENROUTER_TEXT_MODEL=mistralai/mistral-small-3.2-24b-instruct:free
 
-# Optional
+# Local fallback (development only — there is no Ollama on a managed host)
+ALLOW_OLLAMA_FALLBACK=false
 OLLAMA_URL=http://host.docker.internal:11434/api/generate
-ALLOW_OLLAMA_FALLBACK=false  # Use Ollama if OpenRouter fails
-MAX_HISTORY_TURNS=10         # Conversation history depth
-MAX_OUTPUT_TOKENS=2400       # Max tokens per response
-RATE_LIMIT_MAX=20            # Max requests per window
-RATE_LIMIT_WINDOW=600        # Rate limit window (seconds)
-FALLBACK_TIMEZONE=Asia/Kolkata # Default timezone
+OLLAMA_MODEL=llama3:latest
+
+# Live web search (optional — costs money per request once set)
+BRAVE_SEARCH_API_KEY=
+
+# Conversation and output size
+MAX_HISTORY_TURNS=8          # messages replayed to the model
+MAX_HISTORY_CHARS=3000       # each replayed message is trimmed to this
+MAX_OUTPUT_TOKENS=1200
+
+# Rate limits
+RATE_LIMIT_MAX=20            # per IP, per window
+RATE_LIMIT_WINDOW=600        # seconds
+DAILY_PER_IP_LIMIT=15        # per IP, per UTC day
+DAILY_REQUEST_LIMIT=45       # whole service, per UTC day (cost ceiling)
+
+# Client IP behind proxies (see "Client IP" below)
+CLIENT_IP_HEADER=            # e.g. cf-connecting-ip, if your edge sets it
+TRUSTED_PROXY_HOPS=1         # proxies that append to X-Forwarded-For
+
+# CORS — comma-separated; replaces the built-in list when set
+ALLOWED_ORIGINS=
+
+FALLBACK_TIMEZONE=Asia/Kolkata
 ```
 
-### Supported Models
-- `qwen3:14b` (Recommended for multilingual)
-- `llama3:latest`
-- `mistral:latest`
+### Modes
+
+The API accepts `model: "text"` only. Image, video and image-generation modes were removed until the request body can carry attachments and the client can render images.
+
+### Client IP
+
+Rate limits key on the client address. Anything at the *left* of `X-Forwarded-For` is client-controlled, so ConBOT counts `TRUSTED_PROXY_HOPS` entries from the *right*. Before relying on it in production, log the raw header once on your host and confirm which entry is the visitor. If your edge sets a header it always overwrites (e.g. Cloudflare's `CF-Connecting-IP`), set `CLIENT_IP_HEADER` to it instead. If every visitor appears as the same address, all of them share one limit — check this first when users report unexpected 429s.
 
 ---
 
@@ -221,30 +241,31 @@ Health check endpoint.
 ### `/ask` (POST)
 Non-streaming endpoint for full responses.
 
-**Request**:
+**Request** (same body for `/stream`):
 ```json
 {
   "prompt": "What's the weather like?",
-  "model": "qwen3:14b",
-  "history": [],
+  "model": "text",
+  "history": [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}],
   "timezone": "Asia/Kolkata",
   "language": "en-IN"
 }
 ```
+
+Limits: `prompt` ≤ 3000 characters. History is trimmed server-side to the last `MAX_HISTORY_TURNS` messages, each clipped to `MAX_HISTORY_CHARS` — long history is never rejected.
 
 **Response**:
 ```json
 {
   "answer": "The current weather in Delhi is...",
   "web_used": true,
-  "sources": [
-    {
-      "title": "Current Weather in Delhi",
-      "url": "open-meteo.com"
-    }
-  ]
+  "sources": [{"title": "Current weather in Delhi, India", "url": "https://open-meteo.com/"}],
+  "followups": ["Will it rain later today?"],
+  "clarify": null
 }
 ```
+
+`answer` never contains the raw `[[FOLLOWUPS]]` / `[[CLARIFY]]` blocks. When the model needs one detail first, `clarify` is `{"question": ..., "options": [...]}` and `answer` holds the question.
 
 ### `/stream` (POST)
 Streaming endpoint using Server-Sent Events (SSE).
@@ -253,9 +274,14 @@ Streaming endpoint using Server-Sent Events (SSE).
 ```
 data: {"type": "sources", "sources": [...]}
 data: {"type": "delta", "text": "partial response text"}
+data: {"type": "clarify", "question": "...", "options": [...]}   # instead of deltas
 data: {"type": "followups", "questions": [...]}
+data: {"type": "truncated"}                                       # hit MAX_OUTPUT_TOKENS
+data: {"type": "error", "detail": "safe message"}
 data: {"type": "done"}
 ```
+
+Errors before the stream starts are normal HTTP errors: `400` bad model, `422` invalid body (`detail` is a list), `429` rate limited, `503` not configured.
 
 ---
 
@@ -266,6 +292,9 @@ data: {"type": "done"}
 ConBot/
 ├── main.py                      # Main FastAPI application
 ├── requirements.txt             # Python dependencies
+├── requirements-dev.txt         # Test-only dependencies (pytest)
+├── tests/
+│   └── test_main.py             # Regression tests, no network needed
 ├── Dockerfile                   # Container configuration
 ├── .env.example                 # Environment template
 ├── .gitignore                   # Git ignore rules
@@ -292,14 +321,17 @@ ConBot/
 7. **Models** - Pydantic request/response schemas
 8. **Location** - Timezone and language resolution
 9. **Block Processing** - Parsing structured blocks in responses
-10. **Web Search** - DuckDuckGo integration
-11. **Weather** - Open-Meteo weather API
+10. **Web Search** - Brave (optional) and DuckDuckGo
+11. **Weather** - Open-Meteo current conditions and forecast
 12. **LLM Backends** - OpenRouter and Ollama clients
 13. **Endpoints** - API route handlers
 
 ### Testing
 
 ```bash
+# Unit/regression tests (no API key, no network)
+pytest -q
+
 # Test endpoints locally
 curl -X POST http://localhost:8000/ask \
   -H "Content-Type: application/json" \
@@ -325,21 +357,19 @@ curl -X POST http://localhost:8000/stream \
 
 ### Deployment Platforms
 
-- **Render** (Recommended): Git-connected deployment with auto-scaling
+- **Render** (current): Git-connected Docker deployment. Rate limits are in-memory, so run one instance
 - **Heroku**: Traditional Docker/buildpack deployment
-- **AWS Lambda**: Serverless with ALB/API Gateway
-- **Kubernetes**: Enterprise-grade orchestration
 - **Docker**: Any container runtime
 
 ### CORS Configuration
 
-Pre-configured for:
+Built-in origins:
 - Local development: `localhost:3000`, `localhost:3001`
 - Production: `conbot.in`, `www.conbot.in`
-- CDN: `llama-chatbot-fe.onrender.com`
+- Render frontend: `llama-chatbot-fe.onrender.com`
 - GitHub Pages: `kumar6-vinay.github.io`
 
-Update the `allow_origins` list in `main.py` for custom domains.
+Set `ALLOWED_ORIGINS` (comma-separated) to replace this list without editing code.
 
 ---
 
@@ -394,13 +424,10 @@ Update the `allow_origins` list in `main.py` for custom domains.
    - Should split into: `models/`, `services/`, `routers/`, `config/`
 
 2. **Testing**
-   - No unit tests present
-   - Should add: pytest, test fixtures, integration tests
+   - Regression suite in `tests/` (pytest); not yet run in CI
 
 3. **Documentation**
    - API documentation could be richer
-   - No docstrings in main.py functions
-   - Should add type hints throughout
 
 4. **Monitoring**
    - No metrics/observability setup
@@ -433,7 +460,7 @@ Update the `allow_origins` list in `main.py` for custom domains.
 ### Short-term (Month 1)
 ```
 - Modularize main.py
-- Add comprehensive test suite
+- Run the test suite in CI
 - Setup CI/CD pipeline with GitHub Actions
 - Add API documentation (FastAPI Swagger)
 ```
