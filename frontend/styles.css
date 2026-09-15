@@ -781,7 +781,11 @@ body.chatting .thread { padding-bottom: 190px; }
 ========================================================= */
 
 @media (min-width: 901px) {
-  .bar, .stage, .dock { margin-left: var(--side-w); }
+  /* Shift content past the fixed sidebar with padding, NOT margin.
+     .stage centres with `margin: 0 auto`; overriding margin-left kills that
+     auto and pins the column left. Padding moves the box, auto still centres. */
+  body { padding-left: var(--side-w); }
+  .bar, .dock { left: var(--side-w); }
   .menu-btn { display: none; }          /* no hamburger when sidebar is fixed */
   .bar .wordmark { display: none; }     /* sidebar already shows the mark */
   .bar-inner { justify-content: flex-end; }
