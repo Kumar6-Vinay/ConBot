@@ -206,17 +206,34 @@ def enforce_rate_limit(request: Request, request_id: str) -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    """One line at boot that says whether this instance can answer at all."""
+    """Create shared network resources once per process."""
+    global http_client
+
+    http_client = httpx.AsyncClient(
+        timeout=httpx.Timeout(60.0, connect=10.0),
+        limits=httpx.Limits(
+            max_connections=20,
+            max_keepalive_connections=10,
+            keepalive_expiry=30.0,
+        ),
+        # HTTP/1.1 keep-alive is widely supported and avoids requiring the
+        # optional HTTP/2 dependency on Render.
+    )
+
     if OPENROUTER_API_KEY:
         logger.info(
-            "startup openrouter=configured key_suffix=...%s",
-            OPENROUTER_API_KEY[-4:], 
+            "startup openrouter=configured model=%s key_suffix=...%s",
+            OPENROUTER_MODEL_MAP["text"],
+            OPENROUTER_API_KEY[-4:],
         )
     else:
-        logger.error(
-            "startup openrouter=MISSING — configure OPENROUTER_API_KEY to enable the service."
-        )
-    yield
+        logger.error("startup openrouter=MISSING")
+
+    try:
+        yield
+    finally:
+        await http_client.aclose()
+        http_client = None
 
 
 app = FastAPI(
@@ -265,103 +282,31 @@ app.add_middleware(
 CONBOT_SYSTEM_PROMPT = """
 You are ConBOT, a helpful AI assistant for everyday users.
 
-Your purpose is to help people ask questions, learn,
-understand ideas, solve everyday problems, and explore
-information clearly.
+Answer the user's actual question directly. Be clear, natural and concise.
+Prefer simple language, short paragraphs and useful bullets.
+Do not mention internal models, APIs, infrastructure or implementation details.
+Do not invent facts or claim access to tools, websites, files or data you do not have.
 
-Follow these principles:
+For law, tax, finance, health, safety and other high-impact topics, give useful
+general information and say when an authoritative or qualified source should verify it.
 
-1. Answer the user's actual question directly.
+If country, date or another missing detail would materially change the answer,
+ask one short clarification using the required CLARIFY block instead of guessing.
 
-2. Prefer simple, clear language before technical detail.
+Reply in the same language/script as the user, including natural Romanised Hindi
+or mixed Hindi-English.
 
-3. Use short paragraphs and helpful lists when appropriate.
+Keep normal answers concise (normally under 300 words).
+Lead with the answer; do not restate the question.
 
-4. Do not mention Docker, APIs, models, infrastructure, or internal implementation details.
-
-5. Do not claim to have access to information, tools,
-   websites, files, or personal data that you do not have.
-
-6. Do not invent facts.
-
-7. When web information is supplied, use it as the source
-   of current information. Do not contradict reliable
-   search results using your own outdated knowledge.
-
-8. If web sources disagree, clearly explain the disagreement.
-
-9. For questions involving law, tax, finance, health,
-   safety, or other high-impact decisions, provide useful
-   general information but clearly indicate that important
-   decisions should be verified with an appropriate
-   authoritative or qualified source.
-
-10. If a question depends on a country, location, date,
-    or other important context that has not been provided,
-    do not silently assume the answer.
-
-11. If the user asks for an explanation, start with the
-    simplest explanation and then provide an example when
-    useful.
-
-12. Keep answers short by default: usually 2–5 short paragraphs
-    or bullets, and roughly under 350 words unless the user
-    asks for more detail.
-
-13. Do not unnecessarily repeat the user's question.
-
-14. Do not use fake citations, fake sources, or invented
-    references.
-
-15. Be helpful, respectful, and natural.
-
-16. Reply in the same language and script the user wrote in. If they
-    write in Hindi, reply in Hindi. If they write romanised Hindi or
-    mix Hindi and English ("mujhe PAN card ke baare mein batao"),
-    reply the same way — do not switch them to formal English or to
-    Devanagari they did not use. The same applies to any other
-    language.
-
-HOW TO SHAPE AN ANSWER
-
-Lead with the answer. The first one or two sentences must answer what
-was actually asked. Definitions, background and caveats come after, if
-they are needed at all. Never open by restating the question.
-
-Then add only the structure the answer needs — short paragraphs, or a
-list when the content really is a list.
-
-WHEN THE QUESTION IS UNDERSPECIFIED
-
-If a materially different answer would follow from a detail the user
-has not given — which tax regime, which state, which year, which
-board — do not guess. Reply with ONLY this block and nothing else:
-
-[[CLARIFY]]
-question: <one short question>
-- <option>
-- <option>
-- <option>
-
-Ask one question, never several, with two to four options. Use this
-sparingly: only when guessing would likely produce a wrong answer, not
-merely when more detail would be nice to have.
-
-AFTER A COMPLETE ANSWER
-
-End every complete answer with this block:
-
+For a complete answer, end with:
 [[FOLLOWUPS]]
-- <question>
-- <question>
+- <specific next question>
+- <specific next question>
 
-Two or three questions, each a real gap this answer just opened — the
-thing a thoughtful reader would now want to know, phrased as they
-would type it. Never generic ("tell me more", "any other questions").
-Never something the answer already covered. Write them in the same
-language as the answer.
+The follow-ups must be genuinely useful next questions, not generic prompts.
 
-Return only the answer intended for the user, plus these blocks.
+Return only the user-facing answer plus the required block.
 """
 
 
@@ -384,8 +329,8 @@ _DATA_URL_RE = re.compile(r"^data:(image/[a-zA-Z0-9.+-]+);base64,[A-Za-z0-9+/=\s
 # How much conversation to carry, and how much of each message. These cap
 # cost and latency. The server TRIMS to them; it does not reject — a long
 # answer must never break the next question.
-MAX_HISTORY_TURNS = int(os.getenv("MAX_HISTORY_TURNS", "8"))
-MAX_HISTORY_CHARS = int(os.getenv("MAX_HISTORY_CHARS", "3000"))
+MAX_HISTORY_TURNS = int(os.getenv("MAX_HISTORY_TURNS", "4"))
+MAX_HISTORY_CHARS = int(os.getenv("MAX_HISTORY_CHARS", "1500"))
 
 # Hard ceilings that only stop abusive payloads, well above anything the
 # client sends after its own trimming.
@@ -505,36 +450,17 @@ def resolve_location(timezone: Optional[str], language: Optional[str]) -> dict:
 
 
 def build_locale_note(loc: dict) -> str:
-    """The block prepended to every prompt so answers are local by default."""
-    where = loc["country"] or f"the {loc['timezone']} timezone"
-    city_line = f"Their nearest major city is roughly {loc['city']}.\n" if loc["city"] else ""
+    """Compact locale context. Keep this short because it is sent every request."""
+    country = loc["country"] or "the user's country"
+    city = f' near {loc["city"]}' if loc["city"] else ""
+    return (
+        f"User context: approximately in {country}{city}; "
+        f"timezone {loc['timezone']}. "
+        "Use this context for local currency, units, laws, services and conventions "
+        "when relevant. It is approximate; do not infer a precise address. "
+        "Match the user's language naturally."
+    )
 
-    return f"""
-WHERE THE USER IS
-
-The user is in {where}. {city_line}Their timezone is {loc["timezone"]}.
-
-Answer for that place by default, in every kind of question — not only money.
-That means local currency and units, local laws, taxes, rules and regulators,
-local institutions, services, providers and brands that actually operate there,
-local exam systems, holidays, seasons and conventions, and examples the user
-would recognise.
-
-Do not give answers framed around a different country unless the user asks
-about one. If the user names another place, follow them instead.
-
-Their location is inferred from their device settings, so it is approximate.
-If a precise location would change the answer materially — a specific address,
-branch, or local office — say what you are assuming and ask.
-
-LANGUAGE
-
-Reply in the same language and script the user wrote in. If they write in
-Hindi, reply in Hindi. If they write romanised Hindi or a mix of Hindi and
-English — "mera PAN card kaise banega" — reply the same way, naturally, not in
-formal English and not in Devanagari unless they used it. Keep technical terms
-in English where that is how people actually say them.
-""".strip()
 
 
 # =========================================================
@@ -683,7 +609,7 @@ class BlockFilter:
 
 
 def base_prompt(loc: dict) -> str:
-    """System prompt plus the locale block. Use this everywhere, not the raw prompt."""
+    """Build the smallest useful system prompt for every request."""
     return CONBOT_SYSTEM_PROMPT.strip() + "\n\n" + build_locale_note(loc)
 
 
@@ -720,47 +646,46 @@ def build_messages(
     context: Optional[str] = None,
     image: Optional[str] = None,
 ) -> List[dict]:
-    """System prompt, then the conversation so far, then the new question.
-
-    The server stores nothing — the client replays history, trimmed here so a
-    long chat cannot inflate cost or latency without limit. Web results, when
-    present, travel inside the final user message as clearly-labelled data,
-    never in the system role.
-    """
+    """Build a compact request. Recent history is capped by turns and total chars."""
     messages = [{"role": "system", "content": system}]
 
+    # Keep only recent turns and enforce a total history budget.
     recent = history[-MAX_HISTORY_TURNS:]
-    # Chat APIs expect the conversation to open with a user turn.
     while recent and recent[0].role != "user":
         recent = recent[1:]
-    for turn in recent:
-        messages.append({"role": turn.role, "content": clip(turn.content, MAX_HISTORY_CHARS)})
+
+    total = 0
+    compact_history = []
+    for turn in reversed(recent):
+        content = clip(turn.content, MAX_HISTORY_CHARS)
+        if total + len(content) > MAX_HISTORY_CHARS * 2:
+            break
+        compact_history.append((turn.role, content))
+        total += len(content)
+
+    for role, content in reversed(compact_history):
+        messages.append({"role": role, "content": content})
 
     final = question if not context else f"{context}\n\nMY QUESTION:\n{question}"
+
     if image:
-        # Vision request: the final turn carries text + the image. Images are
-        # never added to history, so this only ever affects the current turn.
-        messages.append({"role": "user", "content": [
-            {"type": "text", "text": final},
-            {"type": "image_url", "image_url": {"url": image}},
-        ]})
+        messages.append({
+            "role": "user",
+            "content": [
+                {"type": "text", "text": final},
+                {"type": "image_url", "image_url": {"url": image}},
+            ],
+        })
     else:
         messages.append({"role": "user", "content": final})
 
-    # Smaller models reliably drop an instruction buried in a long system
-    # prompt. Repeating it as the last thing they read is what makes it stick.
-    messages.append({
-        "role": "system",
-        "content": (
-            "Reminder: after the answer, end your reply with this block, "
-            "exactly as written:\n\n"
-            "[[FOLLOWUPS]]\n- <question>\n- <question>\n\n"
-            "Two specific questions this answer just opened, in the "
-            "same language as the answer. This block is required. If instead "
-            "you need one detail before you can answer at all, reply with "
-            "only a [[CLARIFY]] block."
-        ),
-    })
+    # Keep the control instruction short. This is intentionally one system message
+    # rather than another large prompt.
+    messages[0]["content"] += (
+        "\n\nOutput control: If clarification is essential, output only "
+        "[[CLARIFY]] with one question and 2-4 options. Otherwise answer normally "
+        "and finish with [[FOLLOWUPS]] followed by exactly 2 useful next questions."
+    )
     return messages
 
 
@@ -769,66 +694,63 @@ def build_messages(
 # OPENROUTER (PRIMARY)
 # =========================================================
 
-# Devanagari and other non-Latin scripts tokenize far less efficiently than
-# English — the same answer can cost 3-4x the tokens. A cap tuned for English
-# silently truncates Hindi mid-sentence.
-MAX_OUTPUT_TOKENS = int(os.getenv("MAX_OUTPUT_TOKENS", "1200"))
-
+MAX_OUTPUT_TOKENS = int(os.getenv("MAX_OUTPUT_TOKENS", "600"))
 
 def openrouter_payload(messages: List[dict], model: str, stream: bool) -> dict:
     return {
         "model": OPENROUTER_MODEL_MAP.get(model, model),
         "messages": messages,
         "max_tokens": MAX_OUTPUT_TOKENS,
-        "temperature": 0.7,
+        "temperature": 0.4,
         "stream": stream,
     }
 
-
 OPENROUTER_HEADERS = {"Content-Type": "application/json"}
-
 
 def auth_headers() -> dict:
     return {**OPENROUTER_HEADERS, "Authorization": f"Bearer {OPENROUTER_API_KEY}"}
 
+# Reuse one HTTP connection pool instead of creating a new AsyncClient per request.
+http_client: Optional[httpx.AsyncClient] = None
 
 async def ask_openrouter(messages: List[dict], model: str, request_id: str) -> str:
-    """Non-streaming call. Used by /ask."""
+    """Non-streaming OpenRouter call with connection reuse and timing diagnostics."""
+    if http_client is None:
+        raise RuntimeError("HTTP client is not initialized")
 
+    started = time.perf_counter()
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                OPENROUTER_URL,
-                json=openrouter_payload(messages, model, stream=False),
-                headers=auth_headers(),
-                timeout=OPENROUTER_TIMEOUT,
-            )
-            response.raise_for_status()
-            data = response.json()
+        response = await http_client.post(
+            OPENROUTER_URL,
+            json=openrouter_payload(messages, model, stream=False),
+            headers=auth_headers(),
+        )
+        elapsed = time.perf_counter() - started
+        response.raise_for_status()
+        data = response.json()
 
-            if isinstance(data, dict) and data.get("error"):
-                raise ValueError(f"OpenRouter error payload: {data['error']}")
+        if isinstance(data, dict) and data.get("error"):
+            raise ValueError(f"OpenRouter error payload: {data['error']}")
 
-            answer = data["choices"][0]["message"]["content"]
+        answer = data["choices"][0]["message"]["content"]
+        if not isinstance(answer, str) or not answer.strip():
+            raise ValueError("Empty OpenRouter response")
 
-            if not isinstance(answer, str) or not answer.strip():
-                raise ValueError("Empty OpenRouter response")
-
-            logger.info(f"[{request_id}] OpenRouter success")
-            return answer.strip()
+        logger.info("[%s] ask upstream_total=%.2fs", request_id, elapsed)
+        return answer.strip()
 
     except httpx.TimeoutException:
-        logger.error(f"[{request_id}] OpenRouter timeout after {OPENROUTER_TIMEOUT}s")
+        elapsed = time.perf_counter() - started
+        logger.error("[%s] OpenRouter timeout after %.2fs", request_id, elapsed)
         raise
     except httpx.HTTPStatusError as e:
-        # HTTPStatusError has no .status_code — it is on .response.
         logger.error(
-            f"[{request_id}] OpenRouter HTTP {e.response.status_code}: "
-            f"{e.response.text[:500]}"
+            "[%s] OpenRouter HTTP %s: %s",
+            request_id, e.response.status_code, e.response.text[:500]
         )
         raise
     except Exception as e:
-        logger.error(f"[{request_id}] OpenRouter error: {type(e).__name__}: {e}")
+        logger.error("[%s] OpenRouter error %s: %s", request_id, type(e).__name__, e)
         raise
 
 
@@ -838,51 +760,68 @@ async def stream_openrouter(
     request_id: str,
     state: Optional[dict] = None,
 ) -> AsyncIterator[str]:
-    """Yield answer text as it arrives. Raises before the first token if the
-    upstream call fails, so the caller can still return a clean error."""
+    """Stream from OpenRouter and log TTFT + total generation time."""
+    if http_client is None:
+        raise RuntimeError("HTTP client is not initialized")
 
-    async with httpx.AsyncClient(timeout=OPENROUTER_TIMEOUT) as client:
-        async with client.stream(
-            "POST",
-            OPENROUTER_URL,
-            json=openrouter_payload(messages, model, stream=True),
-            headers=auth_headers(),
-        ) as response:
-            if response.status_code >= 400:
-                body = (await response.aread()).decode("utf-8", "replace")
-                logger.error(
-                    f"[{request_id}] OpenRouter HTTP {response.status_code}: {body[:500]}"
-                )
-                response.raise_for_status()
+    started = time.perf_counter()
+    first_token_at = None
 
-            async for line in response.aiter_lines():
-                if not line.startswith("data: "):
-                    continue
+    timeout = httpx.Timeout(60.0, connect=10.0)
 
-                chunk = line[6:].strip()
-                if chunk == "[DONE]":
-                    break
+    async with http_client.stream(
+        "POST",
+        OPENROUTER_URL,
+        json=openrouter_payload(messages, model, stream=True),
+        headers=auth_headers(),
+        timeout=timeout,
+    ) as response:
+        if response.status_code >= 400:
+            body = (await response.aread()).decode("utf-8", "replace")
+            logger.error(
+                "[%s] OpenRouter HTTP %s: %s",
+                request_id, response.status_code, body[:500]
+            )
+            response.raise_for_status()
 
-                try:
-                    data = json.loads(chunk)
-                except json.JSONDecodeError:
-                    continue
+        async for line in response.aiter_lines():
+            if not line.startswith("data: "):
+                continue
 
-                if data.get("error"):
-                    raise ValueError(f"OpenRouter error payload: {data['error']}")
+            chunk = line[6:].strip()
+            if chunk == "[DONE]":
+                break
 
-                for choice in data.get("choices", []):
-                    # "length" means the token cap cut the answer off, not
-                    # that the model finished. The UI needs to say so.
-                    if state is not None and choice.get("finish_reason"):
-                        state["finish_reason"] = choice["finish_reason"]
+            try:
+                data = json.loads(chunk)
+            except json.JSONDecodeError:
+                continue
 
-                    piece = (choice.get("delta") or {}).get("content")
-                    if piece:
-                        yield piece
+            if data.get("error"):
+                raise ValueError(f"OpenRouter error payload: {data['error']}")
 
+            for choice in data.get("choices", []):
+                if state is not None and choice.get("finish_reason"):
+                    state["finish_reason"] = choice["finish_reason"]
 
+                piece = (choice.get("delta") or {}).get("content")
+                if piece:
+                    if first_token_at is None:
+                        first_token_at = time.perf_counter()
+                        logger.info(
+                            "[%s] upstream_ttft=%.2fs model=%s",
+                            request_id, first_token_at - started,
+                            OPENROUTER_MODEL_MAP.get(model, model),
+                        )
+                    yield piece
 
+    total = time.perf_counter() - started
+    logger.info(
+        "[%s] upstream_total=%.2fs ttft=%s",
+        request_id,
+        total,
+        f"{first_token_at - started:.2f}s" if first_token_at else "none",
+    )
 # =========================================================
 # DISPATCH
 # =========================================================
@@ -987,9 +926,10 @@ async def prepare(request: ChatRequest, request_id: str) -> dict:
     system = base_prompt(loc)
 
     logger.info(
-        "[%s] request q_hash=%s q_len=%d model=%s country=%s history=%d image=%s",
+        "[%s] request q_hash=%s q_len=%d model=%s country=%s history=%d image=%s prompt_chars=%d",
         request_id, question_fingerprint(question), len(question),
         request.model, loc["country"], len(request.history), bool(image),
+        len(json.dumps(build_messages(system, request.history, question, None, image), ensure_ascii=False)),
     )
 
     return {
@@ -1009,6 +949,7 @@ async def ask(request: ChatRequest, http_request: Request) -> dict:
     Returns {answer, web_used, sources, followups, clarify}. `answer` is prose
     only — the structured blocks are parsed out, never shown raw.
     """
+    request_started = time.perf_counter()
     request_id = new_request_id()
     validate_model(request, request_id)
     enforce_rate_limit(http_request, request_id)
@@ -1026,7 +967,10 @@ async def ask(request: ChatRequest, http_request: Request) -> dict:
         logger.warning("[%s] ask=empty_answer", request_id)
         raise HTTPException(status_code=502, detail="ConBOT returned an empty answer. Please try again.")
 
-    logger.info("[%s] ask=complete clarify=%s", request_id, bool(clarify))
+    logger.info(
+        "[%s] ask=complete total=%.2fs clarify=%s",
+        request_id, time.perf_counter() - request_started, bool(clarify)
+    )
     return {
         "answer": answer,
         "web_used": bool(prepared["sources"]),
@@ -1046,8 +990,9 @@ def sse(event: dict) -> str:
 
 @app.post("/stream")
 async def stream(request: ChatRequest, http_request: Request) -> StreamingResponse:
-    """Server-sent events: sources first, then answer text as it is generated."""
+    """Server-sent events: stream upstream tokens directly to the browser."""
 
+    request_started = time.perf_counter()
     request_id = new_request_id()
     validate_model(request, request_id)
 
@@ -1112,7 +1057,10 @@ async def stream(request: ChatRequest, http_request: Request) -> StreamingRespon
             if followups:
                 yield sse({"type": "followups", "questions": followups})
 
-        logger.info("[%s] stream=complete", request_id)
+        logger.info(
+            "[%s] stream=complete total=%.2fs",
+            request_id, time.perf_counter() - request_started
+        )
         yield sse({"type": "done"})
 
     return StreamingResponse(
