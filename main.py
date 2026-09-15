@@ -177,6 +177,7 @@ app.add_middleware(
         "https://conbot.in",
         "https://www.conbot.in",
         "https://llama-chatbot-fe.onrender.com",
+         "https://kumar6-vinay.github.io",
     ],
     allow_credentials=False,
     allow_methods=["GET", "POST"],
