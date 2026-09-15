@@ -248,3 +248,82 @@ def test_per_ip_daily_cap(client, monkeypatch):
 def test_health(client):
     body = client.get("/health").json()
     assert body["status"] == "healthy"
+
+
+# ---------------------------------------------------------------- image understanding
+
+_PNG_1PX = (
+    "data:image/png;base64,"
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+)
+
+
+def test_valid_image_builds_multimodal_final_turn():
+    msgs = main.build_messages("sys", [], "what is this?", None, _PNG_1PX)
+    final = msgs[-2]  # last is the followups reminder
+    assert final["role"] == "user"
+    assert isinstance(final["content"], list)
+    kinds = {part["type"] for part in final["content"]}
+    assert kinds == {"text", "image_url"}
+    assert final["content"][1]["image_url"]["url"] == _PNG_1PX
+
+
+def test_image_is_not_added_to_history_or_reused():
+    # History carries text only; images never persist across turns.
+    hist = [main.Turn(role="user", content="earlier"), main.Turn(role="assistant", content="ok")]
+    msgs = main.build_messages("sys", hist, "next", None, None)
+    assert all(isinstance(m["content"], str) for m in msgs)
+
+
+def test_validate_image_rejects_non_image_data_url():
+    with pytest.raises(main.HTTPException) as e:
+        main.validate_image("data:text/html;base64,PHNjcmlwdD4=")
+    assert e.value.status_code == 400
+
+
+def test_validate_image_rejects_garbage():
+    with pytest.raises(main.HTTPException):
+        main.validate_image("not-a-data-url")
+
+
+def test_validate_image_passes_png_and_none():
+    assert main.validate_image(_PNG_1PX) == _PNG_1PX
+    assert main.validate_image(None) is None
+
+
+def test_oversized_image_is_rejected_by_schema(client):
+    big = "data:image/png;base64," + "A" * (main.MAX_IMAGE_CHARS + 10)
+    assert client.post("/stream", json={"prompt": "hi", "image": big}).status_code == 422
+
+
+def test_image_on_stream_reaches_the_model(client, monkeypatch):
+    seen = {}
+    async def capture(messages, model, request_id, state=None):
+        seen["final"] = messages[-2]
+        yield "I see a red dot.\n"
+    monkeypatch.setattr(main, "stream_answer", capture)
+    r = client.post("/stream", json={"prompt": "what is this?", "image": _PNG_1PX})
+    assert r.status_code == 200
+    assert isinstance(seen["final"]["content"], list)
+
+
+def test_image_skips_web_search(client, monkeypatch):
+    called = {"search": False}
+    async def spy(q, rid):
+        called["search"] = True
+        return []
+    monkeypatch.setattr(main, "search_web", spy)
+    # "latest" would normally trigger search; the image must suppress it.
+    client.post("/stream", json={"prompt": "what is the latest in this image?", "image": _PNG_1PX})
+    assert called["search"] is False
+
+
+def test_image_request_blocked_without_openrouter(client, monkeypatch):
+    monkeypatch.setattr(main, "OPENROUTER_API_KEY", "")
+    monkeypatch.setattr(main, "ALLOW_OLLAMA_FALLBACK", True)
+    r = client.post("/stream", json={"prompt": "what is this?", "image": _PNG_1PX})
+    assert r.status_code == 503
+
+
+def test_vision_model_detection():
+    assert main.model_supports_vision("text")  # maps to gemma-4, a vision model

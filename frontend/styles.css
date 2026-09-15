@@ -813,3 +813,70 @@ body.chatting .thread { padding-bottom: 190px; }
 @media (min-width: 901px) {
   .side-scrim { display: none !important; }
 }
+
+/* =========================================================
+   Image attach — button, staged-image chip, in-thread thumbnail
+   Mirrors the .mic button so the composer stays visually consistent.
+========================================================= */
+
+.attach {
+  flex: none;
+  width: 34px; height: 34px;
+  margin-right: -2px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  color: var(--ink-2);
+  transition: color 0.2s var(--ease), background 0.2s var(--ease), transform 0.15s var(--ease);
+}
+.attach:hover { color: var(--ink); background: var(--surface); }
+.attach:active { transform: scale(0.92); }
+.attach svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.attach.attach-error { color: #d70015; }
+body.dark .attach.attach-error { color: #ff6961; }
+
+/* Staged image sits just above the composer until the question is sent. */
+.img-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  margin: 0 auto 8px;
+  padding: 6px 8px 6px 6px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.img-chip img {
+  width: 40px; height: 40px;
+  object-fit: cover;
+  border-radius: 10px;
+  flex: none;
+}
+.img-chip-name {
+  font-size: 13px;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+.img-chip-x {
+  flex: none;
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  font-size: 16px; line-height: 1;
+  color: var(--ink-2);
+}
+.img-chip-x:hover { color: var(--ink); background: var(--canvas); }
+
+/* An attached image shown in the user's own turn. */
+.turn.you .you-image {
+  display: block;
+  max-width: min(260px, 70%);
+  max-height: 260px;
+  margin: 0 0 8px auto;         /* right-aligned, like the user bubble */
+  border-radius: 14px;
+  border: 1px solid var(--hairline);
+  object-fit: cover;
+}

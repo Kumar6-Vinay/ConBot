@@ -15,6 +15,7 @@ const TIMEOUT_MS = 120000;   // free dyno can cold-start
 const WAKE_HINT_MS = 7000;
 const MAX_TURNS = 16;        // messages replayed; server keeps the last 8
 const MAX_CHARS = 3000;      // per question, and per replayed message
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;   // matches the server's 4 MB cap
 
 const $ = (id) => document.getElementById(id);
 
@@ -30,6 +31,7 @@ const send = $('send');
 let history = [];
 let pending = null;
 let stuckToBottom = true;
+let attachedImage = null;   // base64 data URL for the NEXT question only
 
 /* =========================================================
    Markdown — escape first, then format. Never raw innerHTML.
@@ -122,10 +124,17 @@ function resetToHero() {
    Rendering
 ========================================================= */
 
-function addYou(text) {
+function addYou(text, imageUrl) {
   startThread();
   const turn = document.createElement('div');
   turn.className = 'turn you';
+  if (imageUrl) {
+    const img = document.createElement('img');
+    img.className = 'you-image';
+    img.src = imageUrl;                    // data URL, never remote
+    img.alt = 'Attached image';
+    turn.appendChild(img);
+  }
   const body = document.createElement('div');
   body.className = 'text';
   body.textContent = text;                // user text is never parsed
@@ -332,11 +341,22 @@ function locale() {
    Asking
 ========================================================= */
 
+function sendWith(prompt) {
+  input.value = prompt;
+  grow();
+  return ask();
+}
+
 async function ask() {
   if (pending) { pending.abort(); return; }
 
   const text = input.value.trim();
-  if (!text) return;
+  const sentImage = attachedImage;        // this question's image, if any
+  if (!text && !sentImage) return;
+  if (!text && sentImage) {
+    // A picture with no words: ask the model to describe it.
+    return sendWith('What is in this image?');
+  }
   if (text.length > MAX_CHARS) {
     input.value = text;
     grow();
@@ -351,7 +371,8 @@ async function ask() {
     return;
   }
 
-  addYou(text);
+  addYou(text, sentImage);
+  clearImage();                           // consumed — never reused next turn
   input.value = '';
   grow();
   lock(true);
@@ -381,6 +402,7 @@ async function ask() {
       body: JSON.stringify({
         prompt: text,
         model: MODEL,
+        image: sentImage,                 // null unless one was attached
         history: outgoingHistory(),
         timezone: where.timezone,
         language: where.language,
@@ -499,7 +521,7 @@ function grow() {
 
 input.addEventListener('input', () => {
   grow();
-  if (!pending) send.disabled = !input.value.trim();
+  if (!pending) send.disabled = !input.value.trim() && !attachedImage;
 });
 
 input.addEventListener('keydown', (e) => {
@@ -530,6 +552,7 @@ function newChat() {
   currentId = null;                 // a fresh session; saved on first answer
   history = [];
   thread.innerHTML = '';
+  clearImage();
   input.value = '';
   resetToHero();
   grow();
@@ -721,6 +744,107 @@ input.focus();
     if (e.key === 'Enter' && !e.shiftKey && listening) stop();
   });
 })();
+
+/* =========================================================
+   Image attach — read a file to a data URL for the next question
+
+   The image is held in memory only, sent with one question, then cleared.
+   It is never stored in history and never replayed. Size and type are
+   checked here so the server rejects far fewer requests.
+========================================================= */
+
+(function setupAttach() {
+  const attach = $('attach');
+  const file = $('file');
+  if (!attach || !file) return;
+
+  attach.addEventListener('click', () => { if (!pending) file.click(); });
+
+  file.addEventListener('change', () => {
+    const chosen = file.files && file.files[0];
+    file.value = '';                       // allow re-picking the same file
+    if (!chosen) return;
+
+    if (!/^image\/(png|jpeg|webp|gif)$/.test(chosen.type)) {
+      flashAttach('Please choose a PNG, JPEG, WebP or GIF.');
+      return;
+    }
+    if (chosen.size > MAX_IMAGE_BYTES) {
+      flashAttach('That image is over 4 MB. Please choose a smaller one.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => { attachedImage = reader.result; showImageChip(chosen.name); };
+    reader.onerror = () => flashAttach('That image could not be read.');
+    reader.readAsDataURL(chosen);
+  });
+
+  attach.addEventListener('keydown', (e) => {
+    // Backspace/Delete on the attach button clears a staged image.
+    if ((e.key === 'Backspace' || e.key === 'Delete') && attachedImage) {
+      e.preventDefault();
+      clearImage();
+    }
+  });
+})();
+
+/* A small chip above the composer showing the staged image, with a remove X. */
+function showImageChip(name) {
+  clearImageChip();
+  const composerEl = document.querySelector('.composer');
+  if (!composerEl) return;
+
+  const chip = document.createElement('div');
+  chip.className = 'img-chip';
+  chip.id = 'imgChip';
+
+  const thumb = document.createElement('img');
+  thumb.src = attachedImage;
+  thumb.alt = '';
+  chip.appendChild(thumb);
+
+  const label = document.createElement('span');
+  label.className = 'img-chip-name';
+  label.textContent = name || 'image';
+  chip.appendChild(label);
+
+  const x = document.createElement('button');
+  x.type = 'button';
+  x.className = 'img-chip-x';
+  x.setAttribute('aria-label', 'Remove image');
+  x.textContent = '\u00d7';
+  x.onclick = clearImage;
+  chip.appendChild(x);
+
+  composerEl.parentNode.insertBefore(chip, composerEl);
+  if (!pending) send.disabled = false;     // an image alone is now sendable
+}
+
+function clearImageChip() {
+  const chip = $('imgChip');
+  if (chip) chip.remove();
+}
+
+function clearImage() {
+  attachedImage = null;
+  clearImageChip();
+  if (!pending) send.disabled = !input.value.trim();
+}
+
+/* Brief inline warning on the attach button, no alert() popups. */
+function flashAttach(message) {
+  const attach = $('attach');
+  if (!attach) return;
+  const prev = attach.getAttribute('aria-label');
+  attach.classList.add('attach-error');
+  attach.setAttribute('aria-label', message);
+  setTimeout(() => {
+    attach.classList.remove('attach-error');
+    attach.setAttribute('aria-label', prev || 'Attach an image');
+  }, 2600);
+}
+
 
 /* =========================================================
    SESSIONS — saved conversations (browser storage only)

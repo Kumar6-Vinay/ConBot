@@ -74,13 +74,27 @@ OPENROUTER_API_KEY = _clean_key(os.getenv("OPENROUTER_API_KEY", ""))
 ALLOW_OLLAMA_FALLBACK = os.getenv("ALLOW_OLLAMA_FALLBACK", "false").lower() == "true"
 
 OPENROUTER_MODEL_MAP = {
-    "text": os.getenv("OPENROUTER_TEXT_MODEL", "mistralai/mistral-small-3.2-24b-instruct:free"),
+    "text": os.getenv("OPENROUTER_TEXT_MODEL", "google/gemma-4-31b-it:free"),
 }
 
 # Ollama needs a real local model name — "text" is a ConBOT mode, not a model.
 OLLAMA_MODEL_MAP = {
     "text": os.getenv("OLLAMA_MODEL", "llama3:latest"),
 }
+
+# OpenRouter models that accept image input. A request with an image must go
+# to one of these; anything else gets a clear error instead of a silent drop.
+# Keep in sync with OPENROUTER_MODEL_MAP as models change.
+VISION_MODELS = {
+    m.strip() for m in os.getenv(
+        "OPENROUTER_VISION_MODELS",
+        "google/gemma-4-31b-it:free,google/gemma-4-26b-a4b-it:free",
+    ).split(",") if m.strip()
+}
+
+
+def model_supports_vision(mode: str) -> bool:
+    return OPENROUTER_MODEL_MAP.get(mode, mode) in VISION_MODELS
 
 # DuckDuckGo Instant Answer API — free, keyless, but it returns encyclopedia
 # abstracts, not live results. It is the fallback only.
@@ -385,6 +399,16 @@ Return only the answer intended for the user, plus these blocks.
 
 MAX_PROMPT_CHARS = 3000
 
+# Image input. The client sends a base64 data URL; the ceiling is on the
+# encoded string, which is ~33% larger than the raw file. 4 MB of file is
+# ~5.5 MB of base64, so allow a little headroom.
+MAX_IMAGE_MB = float(os.getenv("MAX_IMAGE_MB", "4"))
+MAX_IMAGE_CHARS = int(MAX_IMAGE_MB * 1024 * 1024 * 4 / 3) + 2048
+ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
+
+# data:image/png;base64,AAAA...  — capture the mime type and confirm base64.
+_DATA_URL_RE = re.compile(r"^data:(image/[a-zA-Z0-9.+-]+);base64,[A-Za-z0-9+/=\s]+$")
+
 # How much conversation to carry, and how much of each message. These cap
 # cost and latency. The server TRIMS to them; it does not reject — a long
 # answer must never break the next question.
@@ -407,6 +431,10 @@ class ChatRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=MAX_PROMPT_CHARS)
     model: str = Field(default=DEFAULT_MODEL, max_length=50)
     history: List[Turn] = Field(default_factory=list, max_length=HISTORY_LEN_CEILING)
+    # Optional image as a base64 data URL. Sent to the model with this one
+    # question only; never stored in history. Pydantic checks the ceiling so
+    # an oversized body is rejected before it reaches any handler.
+    image: Optional[str] = Field(default=None, max_length=MAX_IMAGE_CHARS)
     # Sent by the browser. Neither is precise location and neither needs a
     # permission prompt — a timezone is city-level at best.
     timezone: Optional[str] = Field(default=None, max_length=64)
@@ -850,11 +878,29 @@ def clip(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[:limit].rstrip() + " …[trimmed]"
 
 
+def validate_image(image: Optional[str]) -> Optional[str]:
+    """Return the data URL if it is a well-formed, allowed image, else raise.
+
+    The Pydantic ceiling already bounds the length; here we confirm it is a
+    base64 image data URL of a type the vision models accept.
+    """
+    if not image:
+        return None
+    match = _DATA_URL_RE.match(image.strip())
+    if not match or match.group(1).lower() not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail="That image could not be read. Please attach a PNG, JPEG, WebP or GIF.",
+        )
+    return image.strip()
+
+
 def build_messages(
     system: str,
     history: List[Turn],
     question: str,
     context: Optional[str] = None,
+    image: Optional[str] = None,
 ) -> List[dict]:
     """System prompt, then the conversation so far, then the new question.
 
@@ -873,7 +919,15 @@ def build_messages(
         messages.append({"role": turn.role, "content": clip(turn.content, MAX_HISTORY_CHARS)})
 
     final = question if not context else f"{context}\n\nMY QUESTION:\n{question}"
-    messages.append({"role": "user", "content": final})
+    if image:
+        # Vision request: the final turn carries text + the image. Images are
+        # never added to history, so this only ever affects the current turn.
+        messages.append({"role": "user", "content": [
+            {"type": "text", "text": final},
+            {"type": "image_url", "image_url": {"url": image}},
+        ]})
+    else:
+        messages.append({"role": "user", "content": final})
 
     # Smaller models reliably drop an instruction buried in a long system
     # prompt. Repeating it as the last thing they read is what makes it stick.
@@ -1328,21 +1382,37 @@ async def prepare(request: ChatRequest, request_id: str) -> dict:
     if not question:
         raise HTTPException(status_code=400, detail="Please type a question.")
 
+    image = validate_image(request.image)
+    if image and not model_supports_vision(request.model):
+        # OpenRouter must be the backend, and on a vision model. The local
+        # Ollama fallback and non-vision models can't read the image.
+        raise HTTPException(
+            status_code=400,
+            detail="This model can't read images. Please remove the image and ask in text.",
+        )
+    if image and not OPENROUTER_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="Image questions aren't available right now. Please ask in text.",
+        )
+
     loc = resolve_location(request.timezone, request.language)
     system = base_prompt(loc)
 
     logger.info(
-        "[%s] request q_hash=%s q_len=%d model=%s country=%s history=%d",
+        "[%s] request q_hash=%s q_len=%d model=%s country=%s history=%d image=%s",
         request_id, question_fingerprint(question), len(question),
-        request.model, loc["country"], len(request.history),
+        request.model, loc["country"], len(request.history), bool(image),
     )
 
     sources: list = []
     context: Optional[str] = None
     results: list = []
 
-    weather = is_weather_question(question)
-    if weather or needs_web_search(question):
+    # An attached image is the subject of the question, so skip web/weather
+    # search — the answer comes from the picture, not the web.
+    weather = False if image else is_weather_question(question)
+    if not image and (weather or needs_web_search(question)):
         if weather:
             # "weather in Delhi" -> Delhi; bare "what's the weather" -> the
             # user's own city, not a hardcoded one.
@@ -1367,7 +1437,7 @@ async def prepare(request: ChatRequest, request_id: str) -> dict:
             )
 
     return {
-        "messages": build_messages(system, request.history, question, context),
+        "messages": build_messages(system, request.history, question, context, image),
         "sources": sources,
     }
 
