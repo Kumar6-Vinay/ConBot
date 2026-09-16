@@ -16,6 +16,7 @@ import hashlib
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, List, Optional
+from image_generation import generate_image, get_available_models
 
 # =========================================================
 # LOGGING
@@ -420,6 +421,28 @@ class ChatRequest(BaseModel):
     # permission prompt — a timezone is city-level at best.
     timezone: Optional[str] = Field(default=None, max_length=64)
     language: Optional[str] = Field(default=None, max_length=32)
+
+
+
+
+# Image Generation Models
+class ImageGenerationRequest(BaseModel):
+    """Request for image generation."""
+    prompt: str = Field(..., min_length=1, max_length=1000)
+    model: str = Field(default="dreamshaper-8")
+    width: int = Field(default=1024, ge=512, le=2048)
+    height: int = Field(default=1024, ge=512, le=2048)
+    seed: Optional[int] = Field(default=None)
+
+
+class ImageGenerationResponse(BaseModel):
+    """Response from image generation."""
+    url: str
+    prompt: str
+    model: str
+    width: int
+    height: int
+    cost: float
 
 
 # =========================================================
@@ -1281,6 +1304,45 @@ async def health() -> dict:
         "llm_configured": bool(GEMINI_API_KEY),
         "model": GEMINI_MODEL_MAP["text"],
     }
+
+
+
+# =========================================================
+# IMAGE GENERATION (POLLINATIONS.AI)
+# =========================================================
+
+@app.post("/generate-image", response_model=ImageGenerationResponse)
+async def generate_image_endpoint(request: ImageGenerationRequest):
+    """Generate an image via Pollinations.ai."""
+    request_id = uuid.uuid4().hex[:8]
+
+    if not request.prompt.strip():
+        raise HTTPException(status_code=400, detail="Prompt cannot be empty")
+
+    try:
+        result = await generate_image(
+            prompt=request.prompt,
+            model=request.model,
+            width=request.width,
+            height=request.height,
+            seed=request.seed,
+            request_id=request_id,
+        )
+        logger.info("[%s] image generation success", request_id)
+        return result
+
+    except ValueError as e:
+        logger.warning("[%s] image generation validation: %s", request_id, str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error("[%s] image generation error: %s", request_id, str(e))
+        raise HTTPException(status_code=502, detail="Image generation failed")
+
+
+@app.get("/models/image")
+async def list_image_models():
+    """List available image generation models."""
+    return get_available_models()
 
 
 # =========================================================
