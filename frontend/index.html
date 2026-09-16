@@ -113,6 +113,68 @@
 
   <section class="thread" id="thread" aria-live="polite" aria-label="Conversation"></section>
 
+  <section class="imggen" id="imggenView" aria-label="Generate image">
+    <div class="imggen-bar">
+      <button class="ghost imggen-back" id="imggenBack" type="button" aria-label="Back to chat">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+      </button>
+      <span class="imggen-title">Generate image</span>
+    </div>
+
+    <div class="imggen-body">
+      <div class="imggen-controls">
+        <label class="sr" for="imgPrompt">Describe the image</label>
+        <div class="imggen-prompt-wrap">
+          <textarea id="imgPrompt" rows="4" maxlength="1000"
+            placeholder="A quiet mountain lake at sunrise, soft mist, warm light"></textarea>
+          <button class="imgmic" id="imgMic" type="button" aria-label="Speak your description" hidden>
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+              <path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>
+            </svg>
+          </button>
+        </div>
+
+        <label class="sr" for="imgModel">Model</label>
+        <select id="imgModel">
+          <option value="lykon/dreamshaper-8-lcm">DreamShaper 8 — fast &amp; free</option>
+          <option value="black-forest-labs/flux.1-schnell">FLUX.1 Schnell — best quality</option>
+          <option value="tongyi-mai/z-image-turbo">Z-Image Turbo — fastest</option>
+        </select>
+
+        <button class="imggen-generate" id="imgGenerate" type="button">Generate</button>
+
+        <div class="imggen-history" id="imggenHistory" hidden>
+          <p class="imggen-history-label">This session</p>
+          <div class="imggen-history-row" id="imggenHistoryRow"></div>
+        </div>
+      </div>
+
+      <div class="imggen-canvas">
+        <div class="imggen-frame" id="imggenFrame">
+          <div class="imggen-placeholder" id="imggenPlaceholder">
+            <svg viewBox="0 0 24 24" width="40" height="40" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="16" rx="3"/>
+              <circle cx="8.2" cy="8.2" r="1.4"/>
+              <path d="M4 16l4.5-6 3.5 4.5 2.5-3L20 16"/>
+            </svg>
+          </div>
+        </div>
+        <p class="imggen-error" id="imgResult" hidden></p>
+        <div class="imggen-actions" id="imggenActions" hidden>
+          <button class="imggen-action" id="imggenRegenerate" type="button">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 4v6h6M20 20v-6h-6"/><path d="M20 10a8 8 0 0 0-14-4.5M4 14a8 8 0 0 0 14 4.5"/></svg>
+            Regenerate
+          </button>
+          <a class="imggen-action" id="imggenDownload" download="conbot-image.png" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 3v13m0 0-4-4m4 4 4-4"/><path d="M5 19h14"/></svg>
+            Download
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
 </main>
 
 <!-- Composer docks here once the conversation starts -->
@@ -121,42 +183,6 @@
   <p class="fineprint">ConBOT can make mistakes. Check anything important.</p>
 </div>
 
-<!-- Image generation dialog -->
-<div class="imgdlg-scrim" id="imgdlgScrim" hidden></div>
-<div class="imgdlg" id="imgdlg" role="dialog" aria-modal="true" aria-labelledby="imgdlgTitle" hidden>
-  <div class="imgdlg-head">
-    <h2 id="imgdlgTitle">Generate image</h2>
-    <button class="ghost imgdlg-close" id="imgdlgClose" type="button" aria-label="Close">
-      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-    </button>
-  </div>
-
-  <div class="imgdlg-body">
-    <label class="sr" for="imgPrompt">Describe the image</label>
-    <div class="imgdlg-prompt-row">
-      <textarea id="imgPrompt" rows="3" maxlength="1000"
-        placeholder="A quiet mountain lake at sunrise, soft mist, warm light"></textarea>
-      <button class="imgmic" id="imgMic" type="button" aria-label="Speak your description" hidden>
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-          <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-          <path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>
-        </svg>
-      </button>
-    </div>
-
-    <div class="imgdlg-row">
-      <label class="sr" for="imgModel">Model</label>
-      <select id="imgModel">
-        <option value="lykon/dreamshaper-8-lcm">DreamShaper 8 — fast &amp; free</option>
-        <option value="black-forest-labs/flux.1-schnell">FLUX.1 Schnell — best quality</option>
-        <option value="tongyi-mai/z-image-turbo">Z-Image Turbo — fastest</option>
-      </select>
-      <button class="imgdlg-generate" id="imgGenerate" type="button">Generate</button>
-    </div>
-
-    <div class="imgdlg-result" id="imgResult"></div>
-  </div>
-</div>
 
 <script src="app.js"></script>
 </body>

@@ -921,57 +921,64 @@ body.dark .attach.attach-error { color: #ff6961; }
    Image generation dialog
 ========================================================= */
 
-.imgdlg-scrim {
-  position: fixed; inset: 0; z-index: 60;
-  background: color-mix(in srgb, #000 40%, transparent);
-  backdrop-filter: blur(2px);
+   Image generation — dedicated view (not a dialog)
+   A sibling of .hero and .thread inside <main>. body.imggen-active hides
+   the other two and the composer dock, and shows this instead — same
+   pattern as the existing hero<->thread swap, one class further.
+========================================================= */
+
+.imggen { display: none; }
+
+body.imggen-active .hero,
+body.imggen-active .thread,
+body.imggen-active .dock { display: none !important; }
+
+body.imggen-active .imggen {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - var(--bar-h));
+  margin-top: var(--bar-h);
 }
 
-.imgdlg {
-  position: fixed;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 61;
-  width: min(480px, calc(100vw - 32px));
-  max-height: min(640px, calc(100vh - 48px));
-  overflow-y: auto;
-  background: var(--canvas);
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-lg);
-  box-shadow: 0 20px 60px color-mix(in srgb, #000 25%, transparent);
+.imggen-bar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--hairline);
 }
 
-.imgdlg-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 18px 18px 8px;
-}
-.imgdlg-head h2 {
-  margin: 0;
-  font-size: 18px; font-weight: 600;
-  color: var(--accent-image);
-}
-.imgdlg-close {
-  width: 30px; height: 30px;
+.imggen-back {
+  width: 32px; height: 32px;
   display: grid; place-items: center;
   border-radius: 50%;
   color: var(--ink-2);
 }
-.imgdlg-close:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink); }
+.imggen-back:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink); }
 
-.imgdlg-body {
-  padding: 4px 18px 20px;
-  display: flex; flex-direction: column; gap: 12px;
+.imggen-title {
+  font-size: 16px; font-weight: 600;
+  color: var(--accent-image);
 }
 
-.imgdlg-prompt-row {
-  position: relative;
+.imggen-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
 }
+
+.imggen-controls {
+  padding: 20px;
+  border-right: 1px solid var(--hairline);
+  display: flex; flex-direction: column; gap: 14px;
+  align-content: start;
+}
+
+.imggen-prompt-wrap { position: relative; }
 
 #imgPrompt {
   width: 100%;
   resize: vertical;
-  min-height: 64px;
-  padding: 12px 44px 12px 14px;   /* room for the mic on the right */
+  min-height: 90px;
+  padding: 12px 44px 12px 14px;
   font: inherit;
   font-size: 15px;
   color: var(--ink);
@@ -1009,12 +1016,8 @@ body.dark .attach.attach-error { color: #ff6961; }
   100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-image) 0%, transparent); }
 }
 
-.imgdlg-row {
-  display: flex; align-items: center; gap: 10px;
-}
-
 #imgModel {
-  flex: 1;
+  width: 100%;
   padding: 10px 12px;
   font: inherit;
   font-size: 14px;
@@ -1024,60 +1027,94 @@ body.dark .attach.attach-error { color: #ff6961; }
   border-radius: var(--r-sm);
 }
 
-.imgdlg-generate {
-  flex: none;
-  padding: 10px 18px;
+.imggen-generate {
+  width: 100%;
+  padding: 10px;
   font-size: 14px; font-weight: 600;
   color: var(--accent-image-ink);
   background: var(--accent-image);
   border-radius: var(--r-sm);
   transition: opacity 0.2s var(--ease), transform 0.1s var(--ease);
 }
-.imgdlg-generate:hover { opacity: 0.9; }
-.imgdlg-generate:active { transform: scale(0.97); }
-.imgdlg-generate:disabled { opacity: 0.5; cursor: default; }
+.imggen-generate:hover { opacity: 0.9; }
+.imggen-generate:active { transform: scale(0.97); }
+.imggen-generate:disabled { opacity: 0.5; cursor: default; }
 
-.imgdlg-result {
-  min-height: 0;
-}
-
-.imgdlg-result .img-loading {
-  display: flex; align-items: center; gap: 10px;
-  padding: 24px 4px;
+.imggen-history-label {
+  font-size: 12px;
   color: var(--ink-2);
-  font-size: 14px;
-}
-.imgdlg-result .img-loading .dots { display: flex; gap: 4px; }
-.imgdlg-result .img-loading .dots i {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--accent-image);
-  animation: imgdlgPulse 1.2s infinite ease-in-out;
-}
-.imgdlg-result .img-loading .dots i:nth-child(2) { animation-delay: 0.15s; }
-.imgdlg-result .img-loading .dots i:nth-child(3) { animation-delay: 0.3s; }
-@keyframes imgdlgPulse {
-  0%, 80%, 100% { opacity: 0.25; transform: scale(0.85); }
-  40% { opacity: 1; transform: scale(1); }
+  margin: 0 0 8px;
 }
 
-.imgdlg-result .img-error {
-  padding: 14px 16px;
+.imggen-history-row {
+  display: flex; gap: 8px;
+  flex-wrap: wrap;
+}
+
+.imggen-thumb {
+  width: 48px; height: 48px;
+  flex: none;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-size: cover;
+  background-position: center;
+  transition: border-color 0.2s var(--ease);
+}
+.imggen-thumb.active { border-color: var(--accent-image); }
+.imggen-thumb:hover { border-color: color-mix(in srgb, var(--accent-image) 50%, var(--hairline)); }
+
+.imggen-canvas {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 32px;
+  gap: 16px;
+}
+
+.imggen-frame {
+  width: 100%;
+  max-width: 480px;
+  aspect-ratio: 1;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+
+.imggen-placeholder { color: var(--ink-2); }
+.imggen-placeholder svg { stroke: var(--ink-2); }
+
+.imggen-frame img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.imggen-frame.loading .imggen-placeholder {
+  animation: imggenPulse 1.4s infinite ease-in-out;
+}
+
+@keyframes imggenPulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.8; }
+}
+
+.imggen-error {
+  max-width: 480px;
+  width: 100%;
+  padding: 12px 16px;
   font-size: 14px;
   color: #d92c2c;
   background: color-mix(in srgb, #d92c2c 8%, transparent);
   border-radius: var(--r-md);
+  text-align: center;
 }
 
-.imgdlg-result img {
-  display: block;
-  width: 100%;
-  border-radius: var(--r-md);
-  border: 1px solid var(--hairline);
-  margin-bottom: 10px;
+.imggen-actions {
+  display: flex; gap: 8px;
 }
 
-.imgdlg-download {
-  display: inline-flex; align-items: center; gap: 8px;
+.imggen-action {
+  display: inline-flex; align-items: center; gap: 6px;
   padding: 9px 16px;
   font-size: 14px; font-weight: 500;
   color: var(--ink);
@@ -1086,8 +1123,33 @@ body.dark .attach.attach-error { color: #ff6961; }
   border-radius: var(--r-sm);
   transition: border-color 0.2s var(--ease);
 }
-.imgdlg-download:hover { border-color: color-mix(in srgb, var(--accent-image) 40%, var(--hairline)); }
+.imggen-action svg { stroke: currentColor; }
+.imggen-action:hover { border-color: color-mix(in srgb, var(--accent-image) 40%, var(--hairline)); }
 
-@media (max-width: 520px) {
-  .imgdlg { width: calc(100vw - 24px); }
+/* Tablet: controls become a row above the canvas instead of a sidebar. */
+@media (max-width: 900px) {
+  .imggen-body {
+    grid-template-columns: 1fr;
+  }
+  .imggen-controls {
+    border-right: none;
+    border-bottom: 1px solid var(--hairline);
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .imggen-prompt-wrap { flex: 1 1 100%; }
+  #imgModel { flex: 1; width: auto; }
+  .imggen-generate { width: auto; padding: 10px 20px; }
+  .imggen-history { flex: 1 1 100%; }
+}
+
+/* Mobile: fully stacked, single column. */
+@media (max-width: 640px) {
+  .imggen-controls {
+    flex-direction: column;
+  }
+  #imgModel { width: 100%; }
+  .imggen-generate { width: 100%; }
+  .imggen-canvas { padding: 20px; }
 }

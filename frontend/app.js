@@ -1142,29 +1142,77 @@ loadSessions();
 renderSessions();
 
 /* =========================================================
-   IMAGE GENERATION — a small dialog, separate from chat.
+   IMAGE GENERATION — a dedicated view, not a dialog.
+   A sibling of .hero/.thread; body.imggen-active swaps to it, the same
+   way .chatting swaps hero for thread. History lives in memory only,
+   for this tab, this session — resets on reload, same spirit as `history`.
    Calls POST /generate-image {prompt, model} -> {url, ...}.
 ========================================================= */
 
-const imgdlgScrim = $('imgdlgScrim');
-const imgdlg = $('imgdlg');
+const imggenView = $('imggenView');
+const imggenBack = $('imggenBack');
 const imgPrompt = $('imgPrompt');
 const imgModel = $('imgModel');
 const imgGenerate = $('imgGenerate');
+const imggenFrame = $('imggenFrame');
+const imggenPlaceholder = $('imggenPlaceholder');
 const imgResult = $('imgResult');
+const imggenActions = $('imggenActions');
+const imggenRegenerate = $('imggenRegenerate');
+const imggenDownload = $('imggenDownload');
+const imggenHistory = $('imggenHistory');
+const imggenHistoryRow = $('imggenHistoryRow');
 
-function openImageDialog() {
+let imggenSessionHistory = [];   // [{url, prompt, model}], most recent first
+
+function openImageGenView() {
   closeSidebar();
-  imgdlgScrim.hidden = false;
-  imgdlg.hidden = false;
-  document.body.classList.add('imgdlg-open');
+  document.body.classList.add('imggen-active');
   setTimeout(() => imgPrompt.focus(), 0);
 }
 
-function closeImageDialog() {
-  imgdlgScrim.hidden = true;
-  imgdlg.hidden = true;
-  document.body.classList.remove('imgdlg-open');
+function closeImageGenView() {
+  document.body.classList.remove('imggen-active');
+}
+
+function showImageInFrame(url, prompt) {
+  imggenFrame.classList.remove('loading');
+  imggenFrame.innerHTML = '';
+  const img = document.createElement('img');
+  img.src = url;
+  img.alt = prompt;
+  imggenFrame.appendChild(img);
+  imggenDownload.href = url;
+  imggenActions.hidden = false;
+  imgResult.hidden = true;
+}
+
+function resetFrameToPlaceholder() {
+  imggenFrame.classList.remove('loading');
+  imggenFrame.innerHTML = '';
+  imggenFrame.appendChild(imggenPlaceholder);
+}
+
+function renderImggenHistory() {
+  if (!imggenSessionHistory.length) {
+    imggenHistory.hidden = true;
+    return;
+  }
+  imggenHistory.hidden = false;
+  imggenHistoryRow.innerHTML = '';
+  imggenSessionHistory.forEach((entry, index) => {
+    const thumb = document.createElement('button');
+    thumb.type = 'button';
+    thumb.className = 'imggen-thumb' + (index === 0 ? ' active' : '');
+    thumb.style.backgroundImage = 'url(' + entry.url + ')';
+    thumb.setAttribute('aria-label', entry.prompt);
+    thumb.addEventListener('click', () => {
+      imggenHistoryRow.querySelectorAll('.imggen-thumb').forEach((t) => t.classList.remove('active'));
+      thumb.classList.add('active');
+      showImageInFrame(entry.url, entry.prompt);
+    });
+    imggenHistoryRow.appendChild(thumb);
+  });
 }
 
 async function runImageGeneration() {
@@ -1172,7 +1220,11 @@ async function runImageGeneration() {
   if (!prompt || imgGenerate.disabled) return;
 
   imgGenerate.disabled = true;
-  imgResult.innerHTML = '<div class="img-loading"><div class="dots"><i></i><i></i><i></i></div><span>Generating…</span></div>';
+  imggenActions.hidden = true;
+  imgResult.hidden = true;
+  imggenFrame.classList.add('loading');
+  imggenFrame.innerHTML = '';
+  imggenFrame.appendChild(imggenPlaceholder);
 
   try {
     const res = await fetch(API_BASE + '/generate-image', {
@@ -1186,32 +1238,22 @@ async function runImageGeneration() {
       throw new Error(data.detail || 'Image generation failed. Please try again.');
     }
 
-    imgResult.innerHTML = '';
-    const img = document.createElement('img');
-    img.src = data.url;
-    img.alt = prompt;
-    imgResult.appendChild(img);
-
-    const dl = document.createElement('a');
-    dl.className = 'imgdlg-download';
-    dl.href = data.url;
-    dl.download = 'conbot-image.png';
-    dl.target = '_blank';
-    dl.rel = 'noopener noreferrer';
-    dl.textContent = 'Download';
-    imgResult.appendChild(dl);
+    showImageInFrame(data.url, prompt);
+    imggenSessionHistory.unshift({ url: data.url, prompt: prompt, model: data.model });
+    renderImggenHistory();
   } catch (e) {
-    imgResult.innerHTML = '<div class="img-error"></div>';
-    imgResult.querySelector('.img-error').textContent = e.message || 'Something went wrong. Please try again.';
+    resetFrameToPlaceholder();
+    imgResult.hidden = false;
+    imgResult.textContent = e.message || 'Something went wrong. Please try again.';
   } finally {
     imgGenerate.disabled = false;
   }
 }
 
-$('sideImageGen').addEventListener('click', openImageDialog);
-$('imgdlgClose').addEventListener('click', closeImageDialog);
-imgdlgScrim.addEventListener('click', closeImageDialog);
+$('sideImageGen').addEventListener('click', openImageGenView);
+imggenBack.addEventListener('click', closeImageGenView);
 imgGenerate.addEventListener('click', runImageGeneration);
+imggenRegenerate.addEventListener('click', runImageGeneration);
 imgPrompt.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
     e.preventDefault();
@@ -1219,12 +1261,12 @@ imgPrompt.addEventListener('keydown', (e) => {
   }
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !imgdlg.hidden) closeImageDialog();
+  if (e.key === 'Escape' && document.body.classList.contains('imggen-active')) closeImageGenView();
 });
 
 /* =========================================================
-   Mic for the image dialog — same Web Speech API approach as
-   the chat mic, pointed at #imgPrompt instead of #input.
+   Mic for the image generation view — same Web Speech API approach
+   as the chat mic, pointed at #imgPrompt instead of #input.
 ========================================================= */
 
 (function setupImageMic() {
