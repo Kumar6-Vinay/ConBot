@@ -12,7 +12,7 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main.py .
+COPY main.py image_generation.py .
 
 RUN chown -R appuser:appuser /app
 
