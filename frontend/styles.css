@@ -13,6 +13,10 @@
   --bubble: #0071e3;
   --code-bg: #f5f5f7;
 
+  /* A distinct accent for the image generator, separate from chat's blue */
+  --accent-image: #8a3ffc;
+  --accent-image-ink: #ffffff;
+
   --bar-h: 52px;
   --col: 692px;
 
@@ -32,6 +36,7 @@ body.dark {
   --accent: #0a84ff;
   --bubble: #0a84ff;
   --code-bg: #1c1c1e;
+  --accent-image: #a76bff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -44,6 +49,7 @@ body.dark {
     --accent: #0a84ff;
     --bubble: #0a84ff;
     --code-bg: #1c1c1e;
+    --accent-image: #a76bff;
   }
 }
 
@@ -879,4 +885,163 @@ body.dark .attach.attach-error { color: #ff6961; }
   border-radius: 14px;
   border: 1px solid var(--hairline);
   object-fit: cover;
+}
+/* =========================================================
+   Sidebar — "Generate image" entry (distinct accent)
+========================================================= */
+
+.side-foot-btn--accent {
+  color: var(--accent-image);
+}
+.side-foot-btn--accent:hover {
+  background: color-mix(in srgb, var(--accent-image) 12%, transparent);
+  color: var(--accent-image);
+}
+.side-foot-btn--accent svg { stroke: var(--accent-image); }
+
+/* =========================================================
+   Image generation dialog
+========================================================= */
+
+.imgdlg-scrim {
+  position: fixed; inset: 0; z-index: 60;
+  background: color-mix(in srgb, #000 40%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.imgdlg {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 61;
+  width: min(480px, calc(100vw - 32px));
+  max-height: min(640px, calc(100vh - 48px));
+  overflow-y: auto;
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  box-shadow: 0 20px 60px color-mix(in srgb, #000 25%, transparent);
+}
+
+.imgdlg-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 18px 8px;
+}
+.imgdlg-head h2 {
+  margin: 0;
+  font-size: 18px; font-weight: 600;
+  color: var(--accent-image);
+}
+.imgdlg-close {
+  width: 30px; height: 30px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  color: var(--ink-2);
+}
+.imgdlg-close:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink); }
+
+.imgdlg-body {
+  padding: 4px 18px 20px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+
+#imgPrompt {
+  width: 100%;
+  resize: vertical;
+  min-height: 64px;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  transition: border-color 0.2s var(--ease);
+}
+#imgPrompt:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent-image) 55%, var(--hairline));
+}
+
+.imgdlg-row {
+  display: flex; align-items: center; gap: 10px;
+}
+
+#imgModel {
+  flex: 1;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+}
+
+.imgdlg-generate {
+  flex: none;
+  padding: 10px 18px;
+  font-size: 14px; font-weight: 600;
+  color: var(--accent-image-ink);
+  background: var(--accent-image);
+  border-radius: var(--r-sm);
+  transition: opacity 0.2s var(--ease), transform 0.1s var(--ease);
+}
+.imgdlg-generate:hover { opacity: 0.9; }
+.imgdlg-generate:active { transform: scale(0.97); }
+.imgdlg-generate:disabled { opacity: 0.5; cursor: default; }
+
+.imgdlg-result {
+  min-height: 0;
+}
+
+.imgdlg-result .img-loading {
+  display: flex; align-items: center; gap: 10px;
+  padding: 24px 4px;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+.imgdlg-result .img-loading .dots { display: flex; gap: 4px; }
+.imgdlg-result .img-loading .dots i {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent-image);
+  animation: imgdlgPulse 1.2s infinite ease-in-out;
+}
+.imgdlg-result .img-loading .dots i:nth-child(2) { animation-delay: 0.15s; }
+.imgdlg-result .img-loading .dots i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes imgdlgPulse {
+  0%, 80%, 100% { opacity: 0.25; transform: scale(0.85); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+.imgdlg-result .img-error {
+  padding: 14px 16px;
+  font-size: 14px;
+  color: #d92c2c;
+  background: color-mix(in srgb, #d92c2c 8%, transparent);
+  border-radius: var(--r-md);
+}
+
+.imgdlg-result img {
+  display: block;
+  width: 100%;
+  border-radius: var(--r-md);
+  border: 1px solid var(--hairline);
+  margin-bottom: 10px;
+}
+
+.imgdlg-download {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px;
+  font-size: 14px; font-weight: 500;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  transition: border-color 0.2s var(--ease);
+}
+.imgdlg-download:hover { border-color: color-mix(in srgb, var(--accent-image) 40%, var(--hairline)); }
+
+@media (max-width: 520px) {
+  .imgdlg { width: calc(100vw - 24px); }
 }

@@ -1140,3 +1140,84 @@ document.addEventListener('keydown', (e) => {
 
 loadSessions();
 renderSessions();
+
+/* =========================================================
+   IMAGE GENERATION — a small dialog, separate from chat.
+   Calls POST /generate-image {prompt, model} -> {url, ...}.
+========================================================= */
+
+const imgdlgScrim = $('imgdlgScrim');
+const imgdlg = $('imgdlg');
+const imgPrompt = $('imgPrompt');
+const imgModel = $('imgModel');
+const imgGenerate = $('imgGenerate');
+const imgResult = $('imgResult');
+
+function openImageDialog() {
+  closeSidebar();
+  imgdlgScrim.hidden = false;
+  imgdlg.hidden = false;
+  document.body.classList.add('imgdlg-open');
+  setTimeout(() => imgPrompt.focus(), 0);
+}
+
+function closeImageDialog() {
+  imgdlgScrim.hidden = true;
+  imgdlg.hidden = true;
+  document.body.classList.remove('imgdlg-open');
+}
+
+async function runImageGeneration() {
+  const prompt = imgPrompt.value.trim();
+  if (!prompt || imgGenerate.disabled) return;
+
+  imgGenerate.disabled = true;
+  imgResult.innerHTML = '<div class="img-loading"><div class="dots"><i></i><i></i><i></i></div><span>Generating…</span></div>';
+
+  try {
+    const res = await fetch(API_BASE + '/generate-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: prompt, model: imgModel.value }),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(data.detail || 'Image generation failed. Please try again.');
+    }
+
+    imgResult.innerHTML = '';
+    const img = document.createElement('img');
+    img.src = data.url;
+    img.alt = prompt;
+    imgResult.appendChild(img);
+
+    const dl = document.createElement('a');
+    dl.className = 'imgdlg-download';
+    dl.href = data.url;
+    dl.download = 'conbot-image.png';
+    dl.target = '_blank';
+    dl.rel = 'noopener noreferrer';
+    dl.textContent = 'Download';
+    imgResult.appendChild(dl);
+  } catch (e) {
+    imgResult.innerHTML = '<div class="img-error"></div>';
+    imgResult.querySelector('.img-error').textContent = e.message || 'Something went wrong. Please try again.';
+  } finally {
+    imgGenerate.disabled = false;
+  }
+}
+
+$('sideImageGen').addEventListener('click', openImageDialog);
+$('imgdlgClose').addEventListener('click', closeImageDialog);
+imgdlgScrim.addEventListener('click', closeImageDialog);
+imgGenerate.addEventListener('click', runImageGeneration);
+imgPrompt.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+    e.preventDefault();
+    runImageGeneration();
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !imgdlg.hidden) closeImageDialog();
+});
