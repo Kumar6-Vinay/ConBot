@@ -933,6 +933,17 @@ body.imggen-active .hero,
 body.imggen-active .thread,
 body.imggen-active .dock { display: none !important; }
 
+/* .stage caps at --col (692px) for chat's reading width. This view isn't
+   reading prose, so let it use the full width the .imggen-inner clamp
+   below actually allows — otherwise the parent silently overrides every
+   width decision made here, which is exactly what happened before this
+   rule existed: .imggen-inner grew, but .stage never let it show. */
+body.imggen-active .stage {
+  max-width: none;
+  padding-left: 0;
+  padding-right: 0;
+}
+
 body.imggen-active .imggen {
   display: flex;
   flex-direction: column;
