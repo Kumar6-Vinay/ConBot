@@ -942,10 +942,15 @@ body.imggen-active .imggen {
 
 /* Wider than --col (692px) on purpose — this view's job is showing a
    generated image at a useful size, not reading prose, so it earns more
-   room. Still capped and centred, never full-bleed. */
+   room. Scales with the viewport instead of a fixed ceiling: chat is
+   capped because long lines of prose get hard to read past a width;
+   there's no equivalent reason to cap a canvas that could use the space
+   a wide screen actually has. 1400px keeps it from going absurd on an
+   ultrawide monitor; clamp's lower bound is a no-op below that width,
+   since width:100% already shrinks it on narrow viewports. */
 .imggen-inner {
   width: 100%;
-  max-width: 880px;
+  max-width: clamp(880px, 92vw, 1400px);
   margin: 0 auto;
   padding: 24px 24px 40px;
 }
@@ -970,8 +975,8 @@ body.imggen-active .imggen {
 
 .imggen-body {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
-  gap: 32px;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 40px;
 }
 
 .imggen-controls {
@@ -1077,7 +1082,8 @@ body.imggen-active .imggen {
 
 .imggen-frame {
   width: 100%;
-  max-width: 480px;
+  max-width: min(720px, 100%);
+  max-height: 65vh;
   aspect-ratio: 1;
   border-radius: var(--r-lg);
   background: var(--surface);
