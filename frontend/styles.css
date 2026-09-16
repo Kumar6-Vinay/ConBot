@@ -899,6 +899,24 @@ body.dark .attach.attach-error { color: #ff6961; }
 }
 .side-foot-btn--accent svg { stroke: var(--accent-image); }
 
+.side-imagegen {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  margin-bottom: 12px;
+  font-size: 15px; font-weight: 500;
+  color: var(--accent-image);
+  background: color-mix(in srgb, var(--accent-image) 10%, var(--canvas));
+  border: 1px solid color-mix(in srgb, var(--accent-image) 30%, var(--hairline));
+  border-radius: var(--r-md);
+  transition: background 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+.side-imagegen svg { stroke: var(--accent-image); }
+.side-imagegen:hover {
+  background: color-mix(in srgb, var(--accent-image) 16%, var(--canvas));
+  border-color: color-mix(in srgb, var(--accent-image) 45%, var(--hairline));
+}
+
 /* =========================================================
    Image generation dialog
 ========================================================= */
@@ -945,11 +963,15 @@ body.dark .attach.attach-error { color: #ff6961; }
   display: flex; flex-direction: column; gap: 12px;
 }
 
+.imgdlg-prompt-row {
+  position: relative;
+}
+
 #imgPrompt {
   width: 100%;
   resize: vertical;
   min-height: 64px;
-  padding: 12px 14px;
+  padding: 12px 44px 12px 14px;   /* room for the mic on the right */
   font: inherit;
   font-size: 15px;
   color: var(--ink);
@@ -961,6 +983,30 @@ body.dark .attach.attach-error { color: #ff6961; }
 #imgPrompt:focus-visible {
   outline: none;
   border-color: color-mix(in srgb, var(--accent-image) 55%, var(--hairline));
+}
+
+.imgmic {
+  position: absolute;
+  top: 8px; right: 8px;
+  width: 30px; height: 30px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  color: var(--ink-2);
+  transition: color 0.2s var(--ease), background 0.2s var(--ease), transform 0.15s var(--ease);
+}
+.imgmic:hover { color: var(--ink); background: var(--canvas); }
+.imgmic:active { transform: scale(0.92); }
+
+.imgmic.listening {
+  color: var(--accent-image-ink);
+  background: var(--accent-image);
+  animation: imgmicPulse 1.6s var(--ease) infinite;
+}
+
+@keyframes imgmicPulse {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-image) 45%, transparent); }
+  70%  { box-shadow: 0 0 0 9px color-mix(in srgb, var(--accent-image) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-image) 0%, transparent); }
 }
 
 .imgdlg-row {

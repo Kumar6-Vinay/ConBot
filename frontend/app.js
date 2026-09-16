@@ -1221,3 +1221,71 @@ imgPrompt.addEventListener('keydown', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !imgdlg.hidden) closeImageDialog();
 });
+
+/* =========================================================
+   Mic for the image dialog — same Web Speech API approach as
+   the chat mic, pointed at #imgPrompt instead of #input.
+========================================================= */
+
+(function setupImageMic() {
+  const mic = $('imgMic');
+  if (!mic) return;
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return;                       // unsupported: leave hidden
+
+  mic.hidden = false;
+
+  const recog = new SR();
+  recog.continuous = false;
+  recog.interimResults = true;
+  recog.lang = navigator.language || 'en-IN';
+
+  let listening = false;
+  let committed = '';
+
+  function start() {
+    committed = imgPrompt.value ? imgPrompt.value.trimEnd() + ' ' : '';
+    try { recog.start(); } catch (e) { /* already starting */ }
+  }
+
+  function stop() {
+    try { recog.stop(); } catch (e) { /* not running */ }
+  }
+
+  mic.addEventListener('click', () => {
+    if (listening) { stop(); return; }
+    start();
+  });
+
+  recog.onstart = () => {
+    listening = true;
+    mic.classList.add('listening');
+    mic.setAttribute('aria-label', 'Stop listening');
+  };
+
+  recog.onresult = (event) => {
+    let interim = '';
+    let final = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const chunk = event.results[i][0].transcript;
+      if (event.results[i].isFinal) final += chunk;
+      else interim += chunk;
+    }
+    imgPrompt.value = committed + final + interim;
+    if (final) committed += final;
+  };
+
+  recog.onerror = (event) => {
+    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+      mic.setAttribute('aria-label', 'Microphone blocked — allow access in your browser');
+    }
+  };
+
+  recog.onend = () => {
+    listening = false;
+    mic.classList.remove('listening');
+    mic.setAttribute('aria-label', 'Speak your description');
+    imgPrompt.focus();
+  };
+})();
