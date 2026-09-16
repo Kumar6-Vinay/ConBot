@@ -940,14 +940,23 @@ body.imggen-active .imggen {
   margin-top: var(--bar-h);
 }
 
+/* Wider than --col (692px) on purpose — this view's job is showing a
+   generated image at a useful size, not reading prose, so it earns more
+   room. Still capped and centred, never full-bleed. */
+.imggen-inner {
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 24px 24px 40px;
+}
+
 .imggen-bar {
-  display: flex; align-items: center; gap: 12px;
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--hairline);
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 20px;
 }
 
 .imggen-back {
-  width: 32px; height: 32px;
+  width: 30px; height: 30px;
   display: grid; place-items: center;
   border-radius: 50%;
   color: var(--ink-2);
@@ -955,20 +964,18 @@ body.imggen-active .imggen {
 .imggen-back:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink); }
 
 .imggen-title {
-  font-size: 16px; font-weight: 600;
+  font-size: 16px; font-weight: 500;
   color: var(--accent-image);
 }
 
 .imggen-body {
-  flex: 1;
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 32px;
 }
 
 .imggen-controls {
-  padding: 20px;
-  border-right: 1px solid var(--hairline);
-  display: flex; flex-direction: column; gap: 14px;
+  display: flex; flex-direction: column; gap: 12px;
   align-content: start;
 }
 
@@ -1064,9 +1071,8 @@ body.imggen-active .imggen {
 .imggen-thumb:hover { border-color: color-mix(in srgb, var(--accent-image) 50%, var(--hairline)); }
 
 .imggen-canvas {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 32px;
-  gap: 16px;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  gap: 14px;
 }
 
 .imggen-frame {
@@ -1132,7 +1138,8 @@ body.imggen-active .imggen {
     grid-template-columns: 1fr;
   }
   .imggen-controls {
-    border-right: none;
+    padding-bottom: 16px;
+    margin-bottom: 16px;
     border-bottom: 1px solid var(--hairline);
     flex-direction: row;
     flex-wrap: wrap;
@@ -1146,10 +1153,10 @@ body.imggen-active .imggen {
 
 /* Mobile: fully stacked, single column. */
 @media (max-width: 640px) {
+  .imggen-inner { padding: 20px 16px 32px; }
   .imggen-controls {
     flex-direction: column;
   }
   #imgModel { width: 100%; }
   .imggen-generate { width: 100%; }
-  .imggen-canvas { padding: 20px; }
 }
