@@ -1,22 +1,26 @@
-"""Image generation via Pollinations.ai"""
+"""Image generation via Pollinations.ai (gen.pollinations.ai, paid platform)."""
 
 import os
-import httpx
+import base64
 import logging
+import urllib.parse
+
+import httpx
 
 logger = logging.getLogger("conbot")
 
-POLLINATIONS_BASE = "https://api.pollinations.ai/v1"
-POLLINATIONS_API_KEY = os.getenv("POLLINATIONS_API_KEY", "")
-POLLINATIONS_MODEL = os.getenv("POLLINATIONS_MODEL", "dreamshaper-8")
-GENERATION_TIMEOUT = 60
+POLLINATIONS_BASE = "https://gen.pollinations.ai/image"
+POLLINATIONS_API_KEY = os.getenv("POLLINATIONS_API_KEY", "").strip()
+POLLINATIONS_MODEL = os.getenv("POLLINATIONS_MODEL", "lykon/dreamshaper-8-lcm")
+GENERATION_TIMEOUT = 90  # image generation can take a while on some models
 
-# Available models from Pollinations.ai with pricing
+# Model IDs exactly as listed on enter.pollinations.ai/models, with pricing
+# from that same page (cost is per generation, USD).
 AVAILABLE_MODELS = {
-    "dreamshaper-8": {"name": "DreamShaper 8 LCM", "cost": 0.0001, "rpm": 10},
-    "flux-1-schnell": {"name": "FLUX.1 Schnell", "cost": 0.002, "rpm": 5},
-    "z-image-turbo": {"name": "Z-Image Turbo", "cost": 0.0004, "rpm": 15},
-    "pruna-p-image": {"name": "Pruna p-image", "cost": 0.0001, "rpm": 10},
+    "lykon/dreamshaper-8-lcm": {"name": "DreamShaper 8 LCM", "cost": 0.0001},
+    "black-forest-labs/flux.1-schnell": {"name": "FLUX.1 Schnell", "cost": 0.002},
+    "tongyi-mai/z-image-turbo": {"name": "Z-Image Turbo", "cost": 0.0004},
+    "prunaai/p-image": {"name": "Pruna p-image", "cost": 0.0001},
 }
 
 
@@ -28,87 +32,83 @@ async def generate_image(
     seed: int = None,
     request_id: str = "unknown",
 ) -> dict:
-    """Generate an image via Pollinations.ai.
-    
-    Args:
-        prompt: Image description (max 1000 chars)
-        model: Model ID (dreamshaper-8, flux-1-schnell, etc)
-        width: Image width (512-2048)
-        height: Image height (512-2048)
-        seed: Optional random seed for reproducibility
-        request_id: For logging
-        
+    """Generate an image via gen.pollinations.ai.
+
+    The API returns raw image bytes for a successful request, authenticated
+    with a Bearer token. That token must stay server-side, so this function
+    fetches the bytes here and hands the caller a self-contained data: URL
+    rather than a link back to Pollinations (which would require leaking
+    the key into a client-visible URL).
+
     Returns:
-        {
-            "url": "image_url",
-            "prompt": "...",
-            "model": "...",
-            "width": 1024,
-            "height": 1024,
-            "cost": 0.0001
-        }
+        {"url": "data:image/...;base64,...", "prompt", "model", "width",
+         "height", "cost"}
     """
-    # Validation
     if model not in AVAILABLE_MODELS:
         models = ", ".join(AVAILABLE_MODELS.keys())
         raise ValueError(f"Unknown model. Available: {models}")
-    
+
     if not prompt or len(prompt.strip()) == 0:
         raise ValueError("Prompt cannot be empty")
-    
+
     if len(prompt) > 1000:
         raise ValueError("Prompt too long (max 1000 characters)")
-    
+
     if not (512 <= width <= 2048):
         raise ValueError("Width must be 512-2048")
-    
+
     if not (512 <= height <= 2048):
         raise ValueError("Height must be 512-2048")
-    
-    # Build the image URL with parameters
-    params = {
-        "prompt": prompt.replace(" ", "%20"),
-        "model": model,
-        "width": width,
-        "height": height,
-    }
-    
+
+    if not POLLINATIONS_API_KEY:
+        raise ValueError("Image generation is not configured (missing API key)")
+
+    encoded_prompt = urllib.parse.quote(prompt)
+    params = {"model": model, "width": str(width), "height": str(height), "nologo": "true"}
     if seed is not None:
-        params["seed"] = seed
-    
-    # Build query string
-    query_parts = []
-    for key, value in params.items():
-        query_parts.append(f"{key}={value}")
-    
-    query_string = "&".join(query_parts)
-    image_url = f"{POLLINATIONS_BASE}/image?{query_string}"
-    
+        params["seed"] = str(seed)
+
+    url = f"{POLLINATIONS_BASE}/{encoded_prompt}?{urllib.parse.urlencode(params)}"
+    headers = {"Authorization": f"Bearer {POLLINATIONS_API_KEY}"}
+
     try:
         async with httpx.AsyncClient(timeout=GENERATION_TIMEOUT) as client:
-            # Make a HEAD request to verify the URL is valid
-            response = await client.head(image_url)
+            response = await client.get(url, headers=headers)
+
             if response.status_code >= 400:
-                logger.error(f"[{request_id}] pollinations HTTP {response.status_code}")
+                body = response.text[:300]
+                logger.error(
+                    "[%s] pollinations HTTP %d: %s", request_id, response.status_code, body
+                )
                 raise ValueError(f"Generation failed: HTTP {response.status_code}")
-            
-            logger.info(f"[{request_id}] image=generated model={model} cost=${AVAILABLE_MODELS[model]['cost']}")
-            
-            return {
-                "url": image_url,
-                "prompt": prompt,
-                "model": model,
-                "width": width,
-                "height": height,
-                "cost": AVAILABLE_MODELS[model]["cost"],
-            }
-    
+
+            content_type = response.headers.get("content-type", "image/jpeg").split(";")[0].strip()
+            if not content_type.startswith("image/"):
+                logger.error("[%s] pollinations returned non-image content-type: %s", request_id, content_type)
+                raise ValueError("Generation failed: unexpected response from image service")
+
+            encoded = base64.b64encode(response.content).decode("ascii")
+            data_url = f"data:{content_type};base64,{encoded}"
+
+        logger.info("[%s] image=generated model=%s bytes=%d", request_id, model, len(response.content))
+
+        return {
+            "url": data_url,
+            "prompt": prompt,
+            "model": model,
+            "width": width,
+            "height": height,
+            "cost": AVAILABLE_MODELS[model]["cost"],
+        }
+
     except httpx.TimeoutException:
-        logger.error(f"[{request_id}] pollinations timeout after {GENERATION_TIMEOUT}s")
-        raise ValueError("Image generation timed out")
+        logger.error("[%s] pollinations timeout after %ds", request_id, GENERATION_TIMEOUT)
+        raise ValueError("Image generation timed out. Please try again.")
+    except ValueError:
+        raise
     except Exception as e:
-        logger.error(f"[{request_id}] pollinations error: {str(e)}")
-        raise ValueError(f"Generation error: {str(e)}")
+        logger.error("[%s] pollinations error: %s: %s", request_id, type(e).__name__, str(e)[:200])
+        raise ValueError("Generation error. Please try again.")
 
 
 def get_available_models() -> dict:
