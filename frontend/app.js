@@ -1133,7 +1133,6 @@ $('sideClose').addEventListener('click', closeSidebar);
 sideScrim.addEventListener('click', closeSidebar);
 $('sideNew').addEventListener('click', newChat);
 $('sideMark').addEventListener('click', newChat);
-$('sideTheme').addEventListener('click', toggleTheme);
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeSidebar();
