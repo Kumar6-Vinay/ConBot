@@ -23,6 +23,7 @@ class _Env(BaseSettings):
     RATE_LIMIT_WINDOW: int = 600
     DAILY_REQUEST_LIMIT: int = 45
     DAILY_PER_IP_LIMIT: int = 15
+    MAX_CONCURRENT_STREAMS: int = 8
     CLIENT_IP_HEADER: str = ""
     TRUSTED_PROXY_HOPS: int = 1
     ALLOWED_ORIGINS: str = ""
@@ -112,6 +113,13 @@ RATE_LIMIT_WINDOW = _env.RATE_LIMIT_WINDOW  # seconds (10 min)
 # one visitor from spending the whole day's allowance for everyone.
 DAILY_REQUEST_LIMIT = _env.DAILY_REQUEST_LIMIT
 DAILY_PER_IP_LIMIT = _env.DAILY_PER_IP_LIMIT
+
+# The window/daily caps above limit how often a client can START a stream,
+# not how many it can hold open at once — a handful of IPs each opening
+# several long-lived /stream connections within their own quota can still
+# pin down that many concurrent Gemini calls and server tasks at the same
+# time. This bounds total in-flight streams regardless of who opened them.
+MAX_CONCURRENT_STREAMS = _env.MAX_CONCURRENT_STREAMS
 
 # How the client address is found behind proxies.
 #  - CLIENT_IP_HEADER: a header your edge overwrites (never passes through),

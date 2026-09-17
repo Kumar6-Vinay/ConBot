@@ -33,62 +33,74 @@ async def stream(request: ChatRequest, http_request: Request) -> StreamingRespon
         raise no_llm_error()
 
     rate_limit.enforce_rate_limit(http_request, request_id)
-    prepared = await deps.prepare(request, request_id)
+    rate_limit.acquire_stream_slot(request_id)
+    try:
+        prepared = await deps.prepare(request, request_id)
+    except Exception:
+        rate_limit.release_stream_slot()
+        raise
+
     async def events() -> AsyncIterator[str]:
-        if prepared["sources"]:
-            yield sse({"type": "sources", "sources": prepared["sources"]})
-
-        produced = False
-        state = {}
-        blocks = BlockFilter()
         try:
-            async for piece in deps.stream_answer(
-                prepared["messages"], request.model, request_id, state
-            ):
-                visible = blocks.feed(piece)
-                if visible:
+            if prepared["sources"]:
+                yield sse({"type": "sources", "sources": prepared["sources"]})
+
+            produced = False
+            state = {}
+            blocks = BlockFilter()
+            try:
+                async for piece in deps.stream_answer(
+                    prepared["messages"], request.model, request_id, state
+                ):
+                    visible = blocks.feed(piece)
+                    if visible:
+                        produced = True
+                        yield sse({"type": "delta", "text": visible})
+
+                tail = blocks.flush()
+                if tail:
                     produced = True
-                    yield sse({"type": "delta", "text": visible})
+                    yield sse({"type": "delta", "text": tail})
 
-            tail = blocks.flush()
-            if tail:
-                produced = True
-                yield sse({"type": "delta", "text": tail})
+            except Exception as e:
+                logger.warning(
+                    "[%s] stream=failed type=%s produced=%s", request_id, type(e).__name__, produced
+                )
+                # Nothing sent yet — a clean error still reads well in the UI.
+                # Mid-stream, the client keeps what it has and shows the notice.
+                yield sse({
+                    "type": "error",
+                    "detail": "ConBOT could not finish that answer. Please try again.",
+                })
+                return
 
-        except Exception as e:
-            logger.warning(
-                "[%s] stream=failed type=%s produced=%s", request_id, type(e).__name__, produced
-            )
-            # Nothing sent yet — a clean error still reads well in the UI.
-            # Mid-stream, the client keeps what it has and shows the notice.
-            yield sse({
-                "type": "error",
-                "detail": "ConBOT could not finish that answer. Please try again.",
-            })
-            return
+            clarify = blocks.clarify()
+            if clarify:
+                # A clarify reply has no prose at all — the question is the answer.
+                logger.info("[%s] stream=clarify", request_id)
+                yield sse({"type": "clarify", **clarify})
+                yield sse({"type": "done"})
+                return
 
-        clarify = blocks.clarify()
-        if clarify:
-            # A clarify reply has no prose at all — the question is the answer.
-            logger.info("[%s] stream=clarify", request_id)
-            yield sse({"type": "clarify", **clarify})
+            if not produced:
+                yield sse({"type": "error", "detail": "ConBOT returned an empty answer."})
+                return
+
+            if state.get("finish_reason") == "length":
+                logger.info("[%s] stream=truncated", request_id)
+                yield sse({"type": "truncated"})
+            else:
+                followups = blocks.followups()
+                if followups:
+                    yield sse({"type": "followups", "questions": followups})
+
+            logger.info("[%s] stream=complete", request_id)
             yield sse({"type": "done"})
-            return
-
-        if not produced:
-            yield sse({"type": "error", "detail": "ConBOT returned an empty answer."})
-            return
-
-        if state.get("finish_reason") == "length":
-            logger.info("[%s] stream=truncated", request_id)
-            yield sse({"type": "truncated"})
-        else:
-            followups = blocks.followups()
-            if followups:
-                yield sse({"type": "followups", "questions": followups})
-
-        logger.info("[%s] stream=complete", request_id)
-        yield sse({"type": "done"})
+        finally:
+            # Runs on normal completion, on the early returns above, and on
+            # client disconnect (Starlette closes this generator with
+            # GeneratorExit, which a bare finally still catches).
+            rate_limit.release_stream_slot()
 
     return StreamingResponse(
         events(),

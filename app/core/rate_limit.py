@@ -18,6 +18,7 @@ from app.config import (
     CLIENT_IP_HEADER,
     DAILY_PER_IP_LIMIT,
     DAILY_REQUEST_LIMIT,
+    MAX_CONCURRENT_STREAMS,
     RATE_LIMIT_MAX,
     RATE_LIMIT_WINDOW,
     TRUSTED_PROXY_HOPS,
@@ -28,6 +29,7 @@ _rate_buckets: dict[str, deque] = defaultdict(deque)
 _daily_per_ip: dict[str, int] = defaultdict(int)
 _daily_request_count = 0
 _daily_request_day: Optional[str] = None
+_in_flight_streams = 0
 
 
 def client_ip(request: Request) -> str:
@@ -100,3 +102,26 @@ def enforce_rate_limit(request: Request, request_id: str) -> None:
         stale = [k for k, v in _rate_buckets.items() if not v]
         for k in stale[:2000]:
             del _rate_buckets[k]
+
+
+def acquire_stream_slot(request_id: str) -> None:
+    """Cap total concurrent /stream connections, across all clients.
+
+    Plain sync function with no `await` inside — under asyncio's cooperative
+    scheduling that makes the check-then-increment atomic with respect to
+    other requests, no lock needed. Pair every call with release_stream_slot()
+    in a finally block, on every exit path.
+    """
+    global _in_flight_streams
+    if _in_flight_streams >= MAX_CONCURRENT_STREAMS:
+        logger.warning("[%s] rate_limit=concurrency in_flight=%d", request_id, _in_flight_streams)
+        raise HTTPException(
+            status_code=429,
+            detail="ConBOT is handling a lot of requests right now. Please try again in a moment.",
+        )
+    _in_flight_streams += 1
+
+
+def release_stream_slot() -> None:
+    global _in_flight_streams
+    _in_flight_streams = max(0, _in_flight_streams - 1)
