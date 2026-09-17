@@ -236,6 +236,10 @@ body.dark .ic-moon { display: block; }
   margin: 34px 0 0;
 }
 
+.text {
+  max-width: 70ch;   /* readable line length, independent of the wider column */
+}
+
 .turn.you .text {
   font-size: 20px;
   font-weight: 600;
@@ -265,13 +269,13 @@ body.dark .ic-moon { display: block; }
 .text code {
   font-family: "SF Mono", ui-monospace, Menlo, monospace;
   font-size: 14.5px;
-  background: var(--code-bg);
+  background: color-mix(in srgb, var(--ink) 5%, var(--code-bg));
   padding: 2px 6px;
   border-radius: 6px;
 }
 
 .text pre {
-  background: var(--code-bg);
+  background: color-mix(in srgb, var(--ink) 5%, var(--code-bg));
   border: 1px solid var(--hairline);
   border-radius: var(--r-md);
   padding: 16px 18px;
@@ -323,9 +327,9 @@ body.dark .ic-moon { display: block; }
 
 /* ===== Thinking ===== */
 
-.dots { display: flex; gap: 5px; padding: 6px 0; }
+.dots { display: flex; gap: 6px; padding: 8px 0; }
 .dots i {
-  width: 7px; height: 7px; border-radius: 50%;
+  width: 8px; height: 8px; border-radius: 50%;
   background: var(--ink-2);
   animation: pulse 1.3s var(--ease) infinite;
 }
@@ -333,8 +337,8 @@ body.dark .ic-moon { display: block; }
 .dots i:nth-child(3) { animation-delay: 0.32s; }
 
 @keyframes pulse {
-  0%, 60%, 100% { opacity: 0.25; transform: scale(0.8); }
-  30% { opacity: 1; transform: scale(1); }
+  0%, 60%, 100% { opacity: 0.3; transform: scale(0.7); }
+  30% { opacity: 1; transform: scale(1.15); }
 }
 
 .waking {
