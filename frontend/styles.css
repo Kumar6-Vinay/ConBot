@@ -424,16 +424,20 @@ body.dark .ic-moon { display: block; }
 /* =========================================================
    The one bold element
    Everything else on this page is quiet, so the identity lives in a
-   single mark: the aperture beside the wordmark. It opens once on
-   load and then holds still.
+   single mark: two overlapping arcs beside the wordmark — two voices in
+   conversation. It opens once on load and then holds still.
 ========================================================= */
 
-.wordmark { display: inline-flex; align-items: baseline; gap: 6px; }
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: opacity 0.2s var(--ease);
+}
+.wordmark:hover { opacity: 0.72; }
 
-.wordmark .dot {
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  background: var(--accent);
+.wordmark .mark {
+  stroke: var(--accent);
   animation: open 0.9s var(--ease) 0.3s both;
 }
 
