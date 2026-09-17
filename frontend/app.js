@@ -536,7 +536,7 @@ send.addEventListener('click', ask);
 document.querySelectorAll('.chip').forEach((chip) => {
   chip.addEventListener('click', () => {
     if (pending) return;
-    input.value = chip.textContent;
+    input.value = chip.textContent.trim();
     grow();
     send.disabled = false;
     ask();

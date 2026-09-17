@@ -190,19 +190,34 @@ body.dark .ic-moon { display: block; }
   margin-top: 22px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
   animation: rise 0.7s var(--ease) 0.18s both;
 }
 
 .chip {
-  padding: 9px 16px;
-  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 10px 16px;
+  font-size: 14.5px;
+  text-align: left;
   color: var(--ink-2);
-  background: var(--surface);
-  border-radius: 999px;
-  transition: color 0.2s var(--ease), transform 0.2s var(--ease);
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  transition: color 0.2s var(--ease), transform 0.18s var(--ease),
+    background 0.2s var(--ease), border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
-.chip:hover { color: var(--ink); transform: translateY(-1px); }
+.chip svg { flex: none; }
+
+.chip:hover {
+  color: var(--ink);
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline));
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--ink) 6%, transparent);
+}
+.chip:active { transform: translateY(0); }
 
 /* =========================================================
    Thread
@@ -597,19 +612,6 @@ body.chatting .thread { padding-bottom: 190px; }
 }
 .send:not(:disabled):hover { transform: scale(1.06); }
 .send:not(:disabled):active { transform: scale(0.9); }
-
-/* Chips gain a gentle lift and a faint accent tint — tactile, not loud. */
-.chip {
-  transition: color 0.2s var(--ease), transform 0.18s var(--ease),
-    background 0.2s var(--ease), box-shadow 0.2s var(--ease);
-}
-.chip:hover {
-  color: var(--ink);
-  transform: translateY(-2px);
-  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
-  box-shadow: 0 3px 12px color-mix(in srgb, var(--ink) 6%, transparent);
-}
-.chip:active { transform: translateY(0); }
 
 /* Thinking dots: warmer tint and a slightly more organic rhythm. */
 .dots i {
