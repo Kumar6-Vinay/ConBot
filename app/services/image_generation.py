@@ -80,7 +80,9 @@ async def generate_image(
                 logger.error(
                     "[%s] pollinations HTTP %d: %s", request_id, response.status_code, body
                 )
-                raise ValueError(f"Generation failed: HTTP {response.status_code}")
+                # The upstream status code is an implementation detail — the
+                # full status/body is already in the log line above.
+                raise ValueError("Generation failed. Please try again.")
 
             content_type = response.headers.get("content-type", "image/jpeg").split(";")[0].strip()
             if not content_type.startswith("image/"):

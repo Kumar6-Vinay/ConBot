@@ -9,7 +9,9 @@ class ImageGenerationRequest(BaseModel):
     model: str = Field(default="lykon/dreamshaper-8-lcm", max_length=80)
     width: int = Field(default=1024, ge=512, le=2048)
     height: int = Field(default=1024, ge=512, le=2048)
-    seed: Optional[int] = Field(default=None)
+    # Pollinations treats this as a 32-bit RNG seed; bound it so a client
+    # can't hand upstream an arbitrarily huge integer.
+    seed: Optional[int] = Field(default=None, ge=0, le=2**32 - 1)
 
 
 class ImageGenerationResponse(BaseModel):

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.config import GEMINI_API_KEY, GEMINI_MODEL_MAP
+from app.config import GEMINI_API_KEY
 
 router = APIRouter()
 
@@ -11,5 +11,4 @@ async def health() -> dict:
     return {
         "status": "healthy" if GEMINI_API_KEY else "degraded",
         "llm_configured": bool(GEMINI_API_KEY),
-        "model": GEMINI_MODEL_MAP["text"],
     }
