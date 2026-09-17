@@ -1092,7 +1092,7 @@ function renderSessions() {
   if (!sessions.length) {
     const empty = document.createElement('p');
     empty.className = 'side-empty';
-    empty.textContent = 'Your chats will appear here. They stay on this device.';
+    empty.textContent = 'Start a chat to see it here — everything stays on this device.';
     sideList.appendChild(empty);
     return;
   }

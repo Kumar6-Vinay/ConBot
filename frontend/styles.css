@@ -691,15 +691,15 @@ body.chatting .thread { padding-bottom: 190px; }
   display: flex; align-items: center; gap: 10px;
   width: 100%;
   padding: 11px 14px;
-  margin-bottom: 12px;
-  font-size: 15px; font-weight: 500;
-  color: var(--ink);
-  background: var(--canvas);
-  border: 1px solid var(--hairline);
+  margin-bottom: 8px;
+  font-size: 15px; font-weight: 600;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: 1px solid transparent;
   border-radius: var(--r-md);
-  transition: background 0.2s var(--ease), border-color 0.2s var(--ease);
+  transition: background 0.2s var(--ease);
 }
-.side-new:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline)); }
+.side-new:hover { background: color-mix(in srgb, var(--accent) 88%, black); }
 
 .side-list {
   flex: 1;
@@ -913,18 +913,18 @@ body.dark .attach.attach-error { color: #ff6961; }
   display: flex; align-items: center; gap: 10px;
   width: 100%;
   padding: 11px 14px;
-  margin-bottom: 12px;
+  margin-bottom: 18px;
   font-size: 15px; font-weight: 500;
   color: var(--accent-image);
-  background: color-mix(in srgb, var(--accent-image) 10%, var(--canvas));
-  border: 1px solid color-mix(in srgb, var(--accent-image) 30%, var(--hairline));
+  background: transparent;
+  border: 1px solid var(--hairline);
   border-radius: var(--r-md);
   transition: background 0.2s var(--ease), border-color 0.2s var(--ease);
 }
 .side-imagegen svg { stroke: var(--accent-image); }
 .side-imagegen:hover {
-  background: color-mix(in srgb, var(--accent-image) 16%, var(--canvas));
-  border-color: color-mix(in srgb, var(--accent-image) 45%, var(--hairline));
+  background: color-mix(in srgb, var(--accent-image) 8%, transparent);
+  border-color: color-mix(in srgb, var(--accent-image) 35%, var(--hairline));
 }
 
 /* =========================================================
