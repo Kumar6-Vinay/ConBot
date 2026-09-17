@@ -1,15 +1,15 @@
 # ConBOT
 
-A general-purpose AI assistant (conbot.in). FastAPI backend calling OpenRouter
-(optional local Ollama fallback), vanilla-JS frontend. Goal: a production chat
-product, not a demo.
+A general-purpose AI assistant (conbot.in). FastAPI backend calling Google's
+Gemini API, vanilla-JS frontend. Goal: a production chat product, not a demo.
 
 ## Repo map
 
 | Path | What it is |
 |---|---|
-| `main.py` | Entire FastAPI backend. `/health`, `/ask`, `/stream`. |
-| `tests/test_main.py` | Regression tests. No network, no API key. |
+| `main.py` | FastAPI backend. `/health`, `/ask`, `/stream`, `/generate-image`, `/models/image`. |
+| `image_generation.py` | Image generation via Pollinations.ai. Used by `/generate-image`. |
+| `tests/` | `test_main.py` (chat/stream) and `test_image_generation.py`. No network, no API key. |
 | `frontend/index.html` | Single-page shell: sidebar, composer, message list. |
 | `frontend/app.js` | All client logic — SSE reader, markdown, sessions, voice, theme. |
 | `frontend/styles.css` | All styling. Light/dark via `body.dark` / `body.light`. |
@@ -28,9 +28,11 @@ must run as a single instance.
 - **`/stream` is the primary path** (SSE: `sources`, `delta`, `clarify`,
   `followups`, `truncated`, `error`, `done`). `/ask` is the non-streaming
   equivalent and returns `{answer, web_used, sources, followups, clarify}`.
-- **OpenRouter is primary.** Ollama is used only when
-  `ALLOW_OLLAMA_FALLBACK=true`, and on `/stream` only if OpenRouter fails
-  before the first token. Ollama model names come from `OLLAMA_MODEL_MAP`.
+- **Google Gemini is the only LLM backend.** Calls go straight to Gemini
+  (`GEMINI_BASE`) — there is no OpenRouter or Ollama fallback anymore. The
+  key env var is `GEMINI_API_KEY`; `GOOGLE_API_KEY` and `OPENROUTER_API_KEY`
+  are read only as legacy aliases. Mode-to-model mapping is
+  `GEMINI_MODEL_MAP`.
 - **The model emits `[[FOLLOWUPS]]` / `[[CLARIFY]]` blocks.** `BlockFilter`
   strips them from prose. Mid-stream, a tag only counts once its line has
   ended (`TAG_LINE_RE`); the end of the buffer is not the end of a line.

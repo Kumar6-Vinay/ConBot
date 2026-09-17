@@ -2,7 +2,7 @@
 
 **A general-purpose AI assistant (conbot.in) — FastAPI backend, vanilla-JS frontend.**
 
-ConBOT answers questions through OpenRouter (with an optional local Ollama fallback), adds live weather and web results when a question needs current information, and answers for the user's country and language by default. It is a prototype working toward a production chat product.
+ConBOT answers questions through Google's Gemini API, adds live weather and web results when a question needs current information, generates images via Pollinations.ai, and answers for the user's country and language by default. It is a prototype working toward a production chat product.
 
 ---
 
@@ -28,7 +28,8 @@ ConBOT is an intelligent conversational platform designed for:
 - **Multi-language Support**: Responds in the user's language with localized information
 - **Location Awareness**: Provides location-specific answers based on timezone and regional settings
 - **Real-time Information**: Integrates web search and weather APIs for current data
-- **Flexible LLM Backend**: Seamlessly switches between OpenRouter (cloud) and Ollama (local) models
+- **LLM Backend**: Google's Gemini API (multimodal — text and image input in the same chat)
+- **Image Generation**: On-demand image generation via Pollinations.ai
 - **Rate Limiting**: Per-IP window and daily caps, plus a global daily cost cap (in-memory, single instance)
 - **Streaming Responses**: Server-sent events (SSE) for real-time answer generation
 - **Safe errors & logs**: Request-id log lines without question text; users only ever see safe messages
@@ -40,7 +41,8 @@ ConBOT is an intelligent conversational platform designed for:
 ### Core Capabilities
 - **Smart Web Search**: Detects questions that need current information. Uses the Brave Search API when `BRAVE_SEARCH_API_KEY` is set; otherwise falls back to DuckDuckGo Instant Answers (encyclopedia abstracts only — weak for news, prices and scores)
 - **Weather Integration**: Current conditions or tomorrow's forecast via Open-Meteo (free, no API key)
-- **One mode, `text`**: served by an OpenRouter model (`OPENROUTER_TEXT_MODEL`), or a local Ollama model (`OLLAMA_MODEL`) as fallback
+- **One chat mode, `text`**: served by a Gemini model (`GEMINI_TEXT_MODEL`, mapped in `GEMINI_MODEL_MAP`)
+- **Image Generation**: A separate `/generate-image` endpoint calling Pollinations.ai, with a choice of models via `/models/image`
 - **Intelligent Prompting**: Custom system prompts with behavioral guidelines
 - **Structured Responses**: Automatic parsing of follow-up questions and clarification blocks
 - **Conversation History**: Maintains context with configurable conversation depth
@@ -48,7 +50,6 @@ ConBOT is an intelligent conversational platform designed for:
 
 ### Technical Features
 - **Server-Sent Events (SSE)**: Real-time streaming for instant user feedback
-- **Fallback Mechanisms**: Optional OpenRouter → Ollama fallback, before the first token only
 - **Rate Limiting**: Sliding-window + daily caps per client IP, and a global daily cap
 - **Request Tracking**: UUID-based request IDs for comprehensive logging
 - **Error Resilience**: Detailed error handling with meaningful user messages
@@ -68,7 +69,8 @@ ConBOT is an intelligent conversational platform designed for:
 ┌─────────────────────────────────────────────────────────────┐
 │              ConBOT FastAPI Backend                          │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │ API Endpoints (/ask, /stream, /health)               │   │
+│  │ API Endpoints (/ask, /stream, /health,               │   │
+│  │                /generate-image, /models/image)       │   │
 │  ├──────────────────────────────────────────────────────┤   │
 │  │ Request Processing & Validation                      │   │
 │  ├──────────────────────────────────────────────────────┤   │
@@ -80,10 +82,10 @@ ConBOT is an intelligent conversational platform designed for:
 │  └──────────────────────────────────────────────────────┘   │
 └────────┬─────────────────────────────────────────┬───────────┘
          │                                         │
-         ▼ Primary                      ▼ Fallback
+         ▼ Chat (/ask, /stream)         ▼ Image generation (/generate-image)
     ┌─────────────┐               ┌──────────────┐
-    │ OpenRouter  │               │    Ollama    │
-    │ Cloud API   │               │   Local LLM  │
+    │ Google      │               │ Pollinations │
+    │ Gemini API  │               │    .ai API   │
     └─────────────┘               └──────────────┘
 ```
 
@@ -94,7 +96,7 @@ ConBOT is an intelligent conversational platform designed for:
 3. **Context Resolution**: Timezone/location parsing and system prompt construction
 4. **Search Decision**: Determines if web search is required based on keywords
 5. **Augmentation**: Fetches web search results or weather data if needed
-6. **LLM Invocation**: Sends augmented prompt to OpenRouter or Ollama
+6. **LLM Invocation**: Sends augmented prompt to Google's Gemini API
 7. **Post-Processing**: Parses structured blocks (clarifications, follow-ups)
 8. **Response**: Streams or returns complete answer with metadata
 
@@ -120,8 +122,8 @@ ConBOT is an intelligent conversational platform designed for:
 - **Security**: Non-root user execution
 
 ### External Services
-- **LLM Cloud**: OpenRouter API
-- **Local LLM**: Ollama
+- **LLM**: Google Gemini API
+- **Image Generation**: Pollinations.ai
 - **Web Search**: Brave Search API (optional, keyed) → DuckDuckGo Instant Answer API
 - **Weather**: Open-Meteo API (Free)
 - **Geocoding**: Open-Meteo Geocoding API
@@ -133,7 +135,7 @@ ConBOT is an intelligent conversational platform designed for:
 ### Prerequisites
 - Python 3.12+
 - Docker & Docker Compose (optional)
-- OpenRouter API Key (or local Ollama setup)
+- Gemini API Key (Google AI Studio)
 
 ### Local Development
 
@@ -151,7 +153,7 @@ pip install -r requirements.txt -r requirements-dev.txt
 
 # 4. Configure environment
 cp .env.example .env
-# Edit .env and add your OpenRouter API key
+# Edit .env and add your Gemini API key
 
 # 5. Run the backend
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
@@ -169,8 +171,7 @@ docker build -t conbot:latest .
 
 # Run container
 docker run -p 8000:8000 \
-  -e OPENROUTER_API_KEY=your_key_here \
-  -e ALLOW_OLLAMA_FALLBACK=false \
+  -e GEMINI_API_KEY=your_key_here \
   conbot:latest
 ```
 
@@ -181,14 +182,16 @@ docker run -p 8000:8000 \
 Environment variables (see `.env.example`):
 
 ```env
-# Required (unless running Ollama-only locally)
-OPENROUTER_API_KEY=sk-or-...
-OPENROUTER_TEXT_MODEL=mistralai/mistral-small-3.2-24b-instruct:free
+# Required — Google AI Studio key for the Gemini API.
+# GOOGLE_API_KEY and OPENROUTER_API_KEY are read as legacy aliases if
+# GEMINI_API_KEY is unset, so an old deployment keeps working until renamed.
+GEMINI_API_KEY=...
+GEMINI_TEXT_MODEL=gemini-3.6-flash
 
-# Local fallback (development only — there is no Ollama on a managed host)
-ALLOW_OLLAMA_FALLBACK=false
-OLLAMA_URL=http://host.docker.internal:11434/api/generate
-OLLAMA_MODEL=llama3:latest
+# Image generation (Pollinations.ai). Required for /generate-image; the
+# rest of the app works without it.
+POLLINATIONS_API_KEY=
+POLLINATIONS_MODEL=lykon/dreamshaper-8-lcm
 
 # Live web search (optional — costs money per request once set)
 BRAVE_SEARCH_API_KEY=
@@ -197,6 +200,7 @@ BRAVE_SEARCH_API_KEY=
 MAX_HISTORY_TURNS=8          # messages replayed to the model
 MAX_HISTORY_CHARS=3000       # each replayed message is trimmed to this
 MAX_OUTPUT_TOKENS=1200
+MAX_IMAGE_MB=4                # ceiling for an image attached to a chat message
 
 # Rate limits
 RATE_LIMIT_MAX=20            # per IP, per window
@@ -216,7 +220,11 @@ FALLBACK_TIMEZONE=Asia/Kolkata
 
 ### Modes
 
-The API accepts `model: "text"` only. Image, video and image-generation modes were removed until the request body can carry attachments and the client can render images.
+The chat API (`/ask`, `/stream`) accepts `model: "text"` only, though every
+current Gemini model is natively multimodal — a chat request can carry a
+`prompt` plus an optional `image` (base64 data URL) in the same turn. Image
+*generation* is a separate concern, served by `/generate-image` and backed by
+Pollinations.ai rather than Gemini.
 
 ### Client IP
 
@@ -234,9 +242,10 @@ Health check endpoint.
 {
   "status": "healthy",
   "llm_configured": true,
-  "ollama_fallback": false
+  "model": "gemini-3.6-flash"
 }
 ```
+`status` is `"degraded"` when `GEMINI_API_KEY` is missing.
 
 ### `/ask` (POST)
 Non-streaming endpoint for full responses.
@@ -283,6 +292,37 @@ data: {"type": "done"}
 
 Errors before the stream starts are normal HTTP errors: `400` bad model, `422` invalid body (`detail` is a list), `429` rate limited, `503` not configured.
 
+### `/generate-image` (POST)
+Generates an image via Pollinations.ai.
+
+**Request**:
+```json
+{
+  "prompt": "a cat astronaut",
+  "model": "lykon/dreamshaper-8-lcm",
+  "width": 1024,
+  "height": 1024,
+  "seed": null
+}
+```
+Limits: `prompt` ≤ 1000 characters, `width`/`height` 512–2048. `model` must be one of the ids from `/models/image`.
+
+**Response**:
+```json
+{
+  "url": "data:image/jpeg;base64,...",
+  "prompt": "a cat astronaut",
+  "model": "lykon/dreamshaper-8-lcm",
+  "width": 1024,
+  "height": 1024,
+  "cost": 0.0001
+}
+```
+The image is returned inline as a base64 data URL — the Pollinations key stays server-side and is never exposed to the client. Errors: `400` bad prompt/model/dimensions or generation not configured, `502` upstream generation failure.
+
+### `/models/image` (GET)
+Lists the image generation models available to `/generate-image`, each with a display name and per-generation cost in USD.
+
 ---
 
 ## 🔧 Development
@@ -291,10 +331,12 @@ Errors before the stream starts are normal HTTP errors: `400` bad model, `422` i
 ```
 ConBot/
 ├── main.py                      # Main FastAPI application
+├── image_generation.py          # Pollinations.ai client, used by /generate-image
 ├── requirements.txt             # Python dependencies
 ├── requirements-dev.txt         # Test-only dependencies (pytest)
 ├── tests/
-│   └── test_main.py             # Regression tests, no network needed
+│   ├── test_main.py             # Chat/stream regression tests, no network needed
+│   └── test_image_generation.py # Image generation regression tests, no network needed
 ├── Dockerfile                   # Container configuration
 ├── .env.example                 # Environment template
 ├── .gitignore                   # Git ignore rules
@@ -323,8 +365,10 @@ ConBot/
 9. **Block Processing** - Parsing structured blocks in responses
 10. **Web Search** - Brave (optional) and DuckDuckGo
 11. **Weather** - Open-Meteo current conditions and forecast
-12. **LLM Backends** - OpenRouter and Ollama clients
-13. **Endpoints** - API route handlers
+12. **LLM Backend** - Gemini client
+13. **Endpoints** - API route handlers (`/health`, `/ask`, `/stream`, `/generate-image`, `/models/image`)
+
+Image generation lives in its own module, `image_generation.py`, imported by `main.py` rather than defined inline.
 
 ### Testing
 
@@ -341,6 +385,11 @@ curl -X POST http://localhost:8000/ask \
 curl -X POST http://localhost:8000/stream \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Tell me a joke"}'
+
+# Test image generation
+curl -X POST http://localhost:8000/generate-image \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "a cat astronaut"}'
 ```
 
 ---
@@ -349,11 +398,7 @@ curl -X POST http://localhost:8000/stream \
 
 ### Environment Considerations
 
-| Environment | LLM Backend | Configuration |
-|-------------|-------------|---------------|
-| **Development** | Ollama (local) | `ALLOW_OLLAMA_FALLBACK=true` |
-| **Production** | OpenRouter | `OPENROUTER_API_KEY` required |
-| **Hybrid** | Both | Fallback enabled + API key |
+Both development and production use the same backend: Google's Gemini API, configured with `GEMINI_API_KEY`. There is no local-model fallback.
 
 ### Deployment Platforms
 
@@ -389,7 +434,7 @@ Set `ALLOWED_ORIGINS` (comma-separated) to replace this list without editing cod
    - Environment variable separation from code
 
 3. **Error Handling**
-   - Graceful fallbacks (OpenRouter → Ollama)
+   - Upstream errors mapped to safe, generic messages
    - Meaningful error messages
    - Comprehensive exception handling
    - Request-scoped error tracking
@@ -510,12 +555,12 @@ For bugs, feature requests, or questions:
 ## 🔗 Resources
 
 - [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [OpenRouter API](https://openrouter.ai/docs)
-- [Ollama Documentation](https://github.com/ollama/ollama)
+- [Gemini API](https://ai.google.dev/gemini-api/docs)
+- [Pollinations.ai](https://pollinations.ai/)
 - [Open-Meteo API](https://open-meteo.com/en/docs)
 - [DuckDuckGo API](https://duckduckgo.com/api)
 
 ---
 
-**Last Updated**: September 15, 2026  
+**Last Updated**: September 17, 2026  
 **Version**: 1.0.0
