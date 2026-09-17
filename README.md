@@ -359,7 +359,8 @@ ConBot/
 ├── tests/
 │   ├── test_main.py              # Chat/stream regression tests, no network needed
 │   └── test_image_generation.py  # Image generation regression tests, no network needed
-├── Dockerfile                    # Container configuration
+├── Dockerfile                    # Container configuration (backend)
+├── wrangler.json                 # Cloudflare Workers config (serves frontend/ as static assets)
 ├── .env.example                  # Environment template
 ├── .gitignore                    # Git ignore rules
 ├── README.md                     # This file
@@ -416,7 +417,7 @@ Both development and production use the same backend: Google's Gemini API, confi
 ### Deployment Platforms
 
 - **Backend — Render** (current): Git-connected Docker deployment. Rate limits are in-memory, so run one instance
-- **Frontend — Cloudflare Pages** (current): static deploy of `frontend/`, no build step. The repo is private, so this is a Git-connected Cloudflare Pages project (Cloudflare's GitHub App supports private repos, unlike GitHub Pages on the free plan) with custom domain `conbot.in`
+- **Frontend — Cloudflare Workers (static assets)** (current): `frontend/` served as static assets via a Worker, configured by `wrangler.json` (`assets.directory`), not classic Cloudflare Pages — Cloudflare's newer unified "Workers & Pages" onboarding defaults to a Worker/`wrangler deploy` project. Git-connected (Cloudflare's GitHub App supports private repos, unlike GitHub Pages on the free plan), custom domain `conbot.in`
 - **Docker**: Any container runtime, for the backend
 
 ### CORS Configuration
@@ -426,7 +427,7 @@ Built-in origins:
 - Production: `conbot.in`, `www.conbot.in`
 - Render frontend: `llama-chatbot-fe.onrender.com`
 
-Set `ALLOWED_ORIGINS` (comma-separated) to replace this list without editing code — needed for the Cloudflare Pages preview URL (`*.pages.dev`) if you test against the live backend from there before DNS cutover.
+Set `ALLOWED_ORIGINS` (comma-separated) to replace this list without editing code — needed for the Cloudflare Workers preview URL (`*.workers.dev`) if you test against the live backend from there before DNS cutover.
 
 ---
 
@@ -487,7 +488,7 @@ Set `ALLOWED_ORIGINS` (comma-separated) to replace this list without editing cod
    - Consider: Prometheus, Sentry, New Relic integration
 
 4. **CI/CD**
-   - No GitHub Actions workflows — frontend deploys via Cloudflare Pages' own Git integration, backend via Render's
+   - No GitHub Actions workflows — frontend deploys via Cloudflare's own Git integration, backend via Render's
    - Missing: linting, automated testing on push
    - Should add: Black, Flake8, a test-on-push workflow
 
