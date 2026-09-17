@@ -1,7 +1,8 @@
 import uuid
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
+from app.core import rate_limit
 from app.logging_config import logger
 from app.models.image import ImageGenerationRequest, ImageGenerationResponse
 from app.services import image_generation
@@ -10,12 +11,16 @@ router = APIRouter()
 
 
 @router.post("/generate-image", response_model=ImageGenerationResponse)
-async def generate_image_endpoint(request: ImageGenerationRequest):
+async def generate_image_endpoint(request: ImageGenerationRequest, http_request: Request):
     """Generate an image via Pollinations.ai."""
     request_id = uuid.uuid4().hex[:8]
 
     if not request.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt cannot be empty")
+
+    # Same shared limiter /ask and /stream use — this endpoint previously had
+    # none at all, so a script could loop it with no cap on real billing.
+    rate_limit.enforce_rate_limit(http_request, request_id)
 
     try:
         result = await image_generation.generate_image(
