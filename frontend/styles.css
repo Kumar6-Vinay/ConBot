@@ -371,7 +371,7 @@ body.dark .ic-moon { display: block; }
   background: var(--canvas);
   border: 1px solid var(--hairline);
   border-radius: var(--r-lg);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--ink) 7%, transparent);
   transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
 
@@ -389,7 +389,7 @@ body.dark .ic-moon { display: block; }
   letter-spacing: -0.01em;
 }
 .composer textarea:focus { outline: none; }
-.composer textarea::placeholder { color: var(--ink-2); }
+.composer textarea::placeholder { color: color-mix(in srgb, var(--ink) 55%, var(--ink-2)); }
 
 .send {
   flex: none;
@@ -398,9 +398,13 @@ body.dark .ic-moon { display: block; }
   border-radius: 50%;
   background: var(--accent);
   color: var(--accent-ink);
-  transition: opacity 0.2s var(--ease), transform 0.15s var(--ease);
+  transition: background 0.2s var(--ease), color 0.2s var(--ease), transform 0.15s var(--ease);
 }
-.send:disabled { opacity: 0.28; cursor: default; }
+.send:disabled {
+  background: var(--surface);
+  color: var(--ink-2);
+  cursor: default;
+}
 .send:not(:disabled):active { transform: scale(0.92); }
 .send.stop svg { stroke-width: 0; }
 
