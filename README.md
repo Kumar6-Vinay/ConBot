@@ -156,7 +156,7 @@ cp .env.example .env
 # Edit .env and add your Gemini API key
 
 # 5. Run the backend
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # 6. Serve frontend (in another terminal)
 # Use any static server, e.g.:
@@ -330,45 +330,61 @@ Lists the image generation models available to `/generate-image`, each with a di
 ### Project Structure
 ```
 ConBot/
-├── main.py                      # Main FastAPI application
-├── image_generation.py          # Pollinations.ai client, used by /generate-image
-├── requirements.txt             # Python dependencies
-├── requirements-dev.txt         # Test-only dependencies (pytest)
+├── app/                          # Backend package
+│   ├── main.py                   # FastAPI app creation, lifespan, CORS, routers
+│   ├── config.py                 # Settings from env vars (pydantic-settings)
+│   ├── logging_config.py         # Structured logger setup
+│   ├── api/
+│   │   ├── deps.py                # Shared pipeline: prepare(), Gemini dispatch
+│   │   └── routes/
+│   │       ├── health.py          # GET /health
+│   │       ├── ask.py             # POST /ask
+│   │       ├── stream.py          # POST /stream
+│   │       └── image.py           # POST /generate-image, GET /models/image
+│   ├── services/                  # Business logic, no FastAPI imports
+│   │   ├── gemini_client.py       # Gemini API calls
+│   │   ├── image_generation.py    # Pollinations.ai client
+│   │   ├── web_search.py          # Brave (optional) and DuckDuckGo
+│   │   ├── weather.py             # Open-Meteo current conditions and forecast
+│   │   └── conversation.py        # System prompt, locale, BlockFilter, message assembly
+│   ├── models/                    # Pydantic request/response schemas
+│   │   ├── ask.py
+│   │   └── image.py
+│   └── core/
+│       ├── errors.py              # no_llm_error()
+│       ├── rate_limit.py          # In-memory rate limiting
+│       └── security.py            # validate_image(), clip()
+├── requirements.txt              # Python dependencies
+├── requirements-dev.txt          # Test-only dependencies (pytest)
 ├── tests/
-│   ├── test_main.py             # Chat/stream regression tests, no network needed
-│   └── test_image_generation.py # Image generation regression tests, no network needed
-├── Dockerfile                   # Container configuration
-├── .env.example                 # Environment template
-├── .gitignore                   # Git ignore rules
-├── README.md                    # This file
+│   ├── test_main.py              # Chat/stream regression tests, no network needed
+│   └── test_image_generation.py  # Image generation regression tests, no network needed
+├── Dockerfile                    # Container configuration
+├── .env.example                  # Environment template
+├── .gitignore                    # Git ignore rules
+├── README.md                     # This file
 ├── frontend/
-│   ├── index.html              # Web interface
-│   ├── app.js                  # Client-side logic
-│   └── styles.css              # Styling
+│   ├── index.html               # Web interface
+│   ├── app.js                   # Client-side logic
+│   └── styles.css               # Styling
 └── .github/
     └── workflows/
-        └── pages.yml           # GitHub Pages deployment
+        └── pages.yml            # GitHub Pages deployment
 ```
 
 ### Code Organization
 
-**main.py** is organized into logical sections:
+The backend is a package (`app/`), not a single file. Route handlers in
+`app/api/routes/` are thin — they call into `app/services/` (business logic,
+no FastAPI imports), `app/core/` (rate limiting, errors, security), and
+`app/api/deps.py` (the shared `/ask` + `/stream` pipeline: `prepare()`,
+model validation, Gemini dispatch). Callers import these as modules
+(`from app.services import web_search`) rather than importing bare
+functions, so tests can monkeypatch them at the module level.
 
-1. **Imports & Logging** - Dependencies and logging setup
-2. **Application Setup** - FastAPI initialization
-3. **Configuration** - Environment variables and constants
-4. **Rate Limiting** - Request throttling logic
-5. **CORS** - Cross-origin resource sharing
-6. **Behavior** - System prompts and guidelines
-7. **Models** - Pydantic request/response schemas
-8. **Location** - Timezone and language resolution
-9. **Block Processing** - Parsing structured blocks in responses
-10. **Web Search** - Brave (optional) and DuckDuckGo
-11. **Weather** - Open-Meteo current conditions and forecast
-12. **LLM Backend** - Gemini client
-13. **Endpoints** - API route handlers (`/health`, `/ask`, `/stream`, `/generate-image`, `/models/image`)
-
-Image generation lives in its own module, `image_generation.py`, imported by `main.py` rather than defined inline.
+Image generation (`app/services/image_generation.py`) is a self-contained
+Pollinations.ai client with its own env var reads, used only by
+`app/api/routes/image.py`.
 
 ### Testing
 
@@ -464,30 +480,26 @@ Set `ALLOWED_ORIGINS` (comma-separated) to replace this list without editing cod
 
 ### ⚠️ Areas for Improvement
 
-1. **Project Structure**
-   - All code in single `main.py` (consider modular structure for larger teams)
-   - Should split into: `models/`, `services/`, `routers/`, `config/`
-
-2. **Testing**
+1. **Testing**
    - Regression suite in `tests/` (pytest); not yet run in CI
 
-3. **Documentation**
+2. **Documentation**
    - API documentation could be richer
 
-4. **Monitoring**
+3. **Monitoring**
    - No metrics/observability setup
    - Consider: Prometheus, Sentry, New Relic integration
 
-5. **CI/CD**
+4. **CI/CD**
    - Only GitHub Pages workflow present
    - Missing: linting, testing, deployment pipelines
    - Should add: Black, Flake8, GitHub Actions
 
-6. **Database**
+5. **Database**
    - No persistent storage for conversations
    - Consider: PostgreSQL for chat history if needed
 
-7. **Frontend**
+6. **Frontend**
    - Vanilla JS without build tooling
    - Consider: React/Vue for larger frontend
 
@@ -504,7 +516,6 @@ Set `ALLOWED_ORIGINS` (comma-separated) to replace this list without editing cod
 
 ### Short-term (Month 1)
 ```
-- Modularize main.py
 - Run the test suite in CI
 - Setup CI/CD pipeline with GitHub Actions
 - Add API documentation (FastAPI Swagger)

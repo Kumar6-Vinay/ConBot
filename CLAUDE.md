@@ -7,8 +7,13 @@ Gemini API, vanilla-JS frontend. Goal: a production chat product, not a demo.
 
 | Path | What it is |
 |---|---|
-| `main.py` | FastAPI backend. `/health`, `/ask`, `/stream`, `/generate-image`, `/models/image`. |
-| `image_generation.py` | Image generation via Pollinations.ai. Used by `/generate-image`. |
+| `app/main.py` | FastAPI app creation, lifespan, CORS, and route registration only — no business logic. |
+| `app/config.py` | All settings derived from env vars (pydantic-settings + plain derived constants). |
+| `app/api/routes/` | Route handlers, one file per endpoint: `health.py`, `ask.py`, `stream.py`, `image.py` (`/generate-image`, `/models/image`). |
+| `app/api/deps.py` | The shared request pipeline both `/ask` and `/stream` call: `prepare()`, `validate_model()`, Gemini dispatch (`get_ai_answer`/`stream_answer`). |
+| `app/services/` | Business logic, no FastAPI imports: `gemini_client.py`, `image_generation.py` (Pollinations.ai), `web_search.py`, `weather.py`, `conversation.py` (system prompt, locale, `BlockFilter`, message assembly). |
+| `app/core/` | `rate_limit.py`, `errors.py` (`no_llm_error`), `security.py` (`validate_image`, `clip`). |
+| `app/models/` | Pydantic request/response schemas: `ask.py` (`Turn`, `ChatRequest`), `image.py`. |
 | `tests/` | `test_main.py` (chat/stream) and `test_image_generation.py`. No network, no API key. |
 | `frontend/index.html` | Single-page shell: sidebar, composer, message list. |
 | `frontend/app.js` | All client logic — SSE reader, markdown, sessions, voice, theme. |
@@ -21,6 +26,13 @@ must run as a single instance.
 
 ## Architecture facts you must not get wrong
 
+- **The backend is the `app/` package, not a single file.** Route handlers
+  (`app/api/routes/`) are thin — they call into `app/services/`, `app/core/`
+  and `app/api/deps.py`. Always import those as modules
+  (`from app.services import web_search`) and call `web_search.search_web(...)`,
+  never `from app.services.web_search import search_web` — tests monkeypatch
+  these at the module level (e.g. `monkeypatch.setattr(web_search, "search_web", ...)`),
+  and patching a bare imported name silently does nothing.
 - **The server is stateless; the client owns the conversation.** `app.js`
   keeps `history` and replays it on each request. The server trims it to
   `MAX_HISTORY_TURNS` messages, each clipped to `MAX_HISTORY_CHARS`. Trim,
@@ -85,7 +97,7 @@ must run as a single instance.
 ```bash
 pytest -q
 
-uvicorn main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8000
 curl -s localhost:8000/health
 curl -s localhost:8000/ask -H 'content-type: application/json' \
   -d '{"prompt":"say hi in 3 words"}'
