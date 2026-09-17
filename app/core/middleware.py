@@ -34,3 +34,18 @@ class MaxBodySizeMiddleware(BaseHTTPMiddleware):
                     {"detail": "Request body too large."}, status_code=413
                 )
         return await call_next(request)
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """A few standard response headers with no functional effect on a pure
+    JSON/SSE API, but expected baseline hygiene. The frontend (which actually
+    serves HTML to a browser) carries the equivalent CSP in its own
+    frontend/_headers file — these are for the API's own responses."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Content-Security-Policy"] = "default-src 'none'"
+        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+        return response

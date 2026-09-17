@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import config
-from app.core.middleware import MaxBodySizeMiddleware
+from app.core.middleware import MaxBodySizeMiddleware, SecurityHeadersMiddleware
 from app.logging_config import logger
 from app.api.routes import ask, health, image, stream
 
@@ -50,6 +50,7 @@ app.add_middleware(
 # registration order) — reject an oversized body before anything else,
 # including CORS preflight handling, touches it.
 app.add_middleware(MaxBodySizeMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 app.include_router(health.router)
