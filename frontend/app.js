@@ -103,6 +103,7 @@ function markdown(raw) {
 ========================================================= */
 
 function startThread() {
+  closeImageGenView();   // showing a thread always means the generator is done
   if (dock.hidden) {
     stopRotator();                          // the welcome is over
     dockSlot.appendChild(composer);         // same node, new home
