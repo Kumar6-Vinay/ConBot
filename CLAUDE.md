@@ -18,11 +18,12 @@ Gemini API, vanilla-JS frontend. Goal: a production chat product, not a demo.
 | `frontend/index.html` | Single-page shell: sidebar, composer, message list. |
 | `frontend/app.js` | All client logic — SSE reader, markdown, sessions, voice, theme. |
 | `frontend/styles.css` | All styling. Light/dark via `body.dark` / `body.light`. |
-| `Dockerfile` | Backend image only. Frontend deploys to GitHub Pages. |
-| `.github/workflows/` | `pages.yml` (frontend deploy), `test.yml` (pytest). |
+| `Dockerfile` | Backend image only. Frontend deploys to Cloudflare Pages. |
 
 There is no database and no auth. Rate limits are in-memory, so the backend
-must run as a single instance.
+must run as a single instance. The repo is private; the frontend is on
+Cloudflare Pages (not GitHub Pages) because GitHub Pages requires a public
+repo on the free plan. There is no CI workflow — `pytest -q` is run manually.
 
 ## Architecture facts you must not get wrong
 

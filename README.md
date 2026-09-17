@@ -363,13 +363,10 @@ ConBot/
 ├── .env.example                  # Environment template
 ├── .gitignore                    # Git ignore rules
 ├── README.md                     # This file
-├── frontend/
-│   ├── index.html               # Web interface
-│   ├── app.js                   # Client-side logic
-│   └── styles.css               # Styling
-└── .github/
-    └── workflows/
-        └── pages.yml            # GitHub Pages deployment
+└── frontend/
+    ├── index.html               # Web interface
+    ├── app.js                   # Client-side logic
+    └── styles.css               # Styling
 ```
 
 ### Code Organization
@@ -418,9 +415,9 @@ Both development and production use the same backend: Google's Gemini API, confi
 
 ### Deployment Platforms
 
-- **Render** (current): Git-connected Docker deployment. Rate limits are in-memory, so run one instance
-- **Heroku**: Traditional Docker/buildpack deployment
-- **Docker**: Any container runtime
+- **Backend — Render** (current): Git-connected Docker deployment. Rate limits are in-memory, so run one instance
+- **Frontend — Cloudflare Pages** (current): static deploy of `frontend/`, no build step. The repo is private, so this is a Git-connected Cloudflare Pages project (Cloudflare's GitHub App supports private repos, unlike GitHub Pages on the free plan) with custom domain `conbot.in`
+- **Docker**: Any container runtime, for the backend
 
 ### CORS Configuration
 
@@ -428,9 +425,8 @@ Built-in origins:
 - Local development: `localhost:3000`, `localhost:3001`
 - Production: `conbot.in`, `www.conbot.in`
 - Render frontend: `llama-chatbot-fe.onrender.com`
-- GitHub Pages: `kumar6-vinay.github.io`
 
-Set `ALLOWED_ORIGINS` (comma-separated) to replace this list without editing code.
+Set `ALLOWED_ORIGINS` (comma-separated) to replace this list without editing code — needed for the Cloudflare Pages preview URL (`*.pages.dev`) if you test against the live backend from there before DNS cutover.
 
 ---
 
@@ -491,9 +487,9 @@ Set `ALLOWED_ORIGINS` (comma-separated) to replace this list without editing cod
    - Consider: Prometheus, Sentry, New Relic integration
 
 4. **CI/CD**
-   - Only GitHub Pages workflow present
-   - Missing: linting, testing, deployment pipelines
-   - Should add: Black, Flake8, GitHub Actions
+   - No GitHub Actions workflows — frontend deploys via Cloudflare Pages' own Git integration, backend via Render's
+   - Missing: linting, automated testing on push
+   - Should add: Black, Flake8, a test-on-push workflow
 
 5. **Database**
    - No persistent storage for conversations
