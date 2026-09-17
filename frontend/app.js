@@ -554,6 +554,7 @@ function newChat() {
   thread.innerHTML = '';
   clearImage();
   input.value = '';
+  closeImageGenView();
   resetToHero();
   grow();
   send.disabled = true;
