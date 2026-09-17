@@ -27,6 +27,7 @@ class _Env(BaseSettings):
     TRUSTED_PROXY_HOPS: int = 1
     ALLOWED_ORIGINS: str = ""
     MAX_IMAGE_MB: float = 4
+    MAX_BODY_MB: float = 8
     MAX_HISTORY_TURNS: int = 8
     MAX_HISTORY_CHARS: int = 3000
     FALLBACK_TIMEZONE: str = "Asia/Kolkata"
@@ -155,6 +156,14 @@ MAX_PROMPT_CHARS = 3000
 # ~5.5 MB of base64, so allow a little headroom.
 MAX_IMAGE_MB = _env.MAX_IMAGE_MB
 MAX_IMAGE_CHARS = int(MAX_IMAGE_MB * 1024 * 1024 * 4 / 3) + 2048
+
+# Largest request body we'll fully read and JSON-parse, checked by
+# Content-Length before FastAPI/Pydantic ever touch the body — those only
+# reject an oversized field *after* the whole body is buffered and parsed,
+# which is too late to protect memory/CPU. Sized with headroom above the
+# largest legitimate body (image + full history + prompt, ~6.5 MB).
+MAX_BODY_MB = _env.MAX_BODY_MB
+MAX_BODY_BYTES = int(MAX_BODY_MB * 1024 * 1024)
 
 # How much conversation to carry, and how much of each message. These cap
 # cost and latency. The server TRIMS to them; it does not reject — a long
