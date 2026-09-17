@@ -34,9 +34,11 @@ body.dark {
   --ink-2: #98989d;
   --hairline: #2c2c2e;
   --accent: #0a84ff;
+  --accent-ink: #000000;
   --bubble: #0a84ff;
   --code-bg: #1c1c1e;
   --accent-image: #a76bff;
+  --accent-image-ink: #000000;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -47,9 +49,11 @@ body.dark {
     --ink-2: #98989d;
     --hairline: #2c2c2e;
     --accent: #0a84ff;
+    --accent-ink: #000000;
     --bubble: #0a84ff;
     --code-bg: #1c1c1e;
     --accent-image: #a76bff;
+    --accent-image-ink: #000000;
   }
 }
 
@@ -203,7 +207,7 @@ body.dark .ic-moon { display: block; }
   font-size: 14.5px;
   text-align: left;
   color: var(--ink-2);
-  background: var(--canvas);
+  background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: var(--r-md);
   transition: color 0.2s var(--ease), transform 0.18s var(--ease),
