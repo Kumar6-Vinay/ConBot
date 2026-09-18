@@ -1168,11 +1168,13 @@ let imggenSessionHistory = [];   // [{url, prompt, model}], most recent first
 
 function openImageGenView() {
   closeSidebar();
-  document.body.classList.add('imggen-active');
-  setTimeout(() => imgPrompt.focus(), 0);
+  imggenView.hidden = false;             // belt-and-suspenders alongside the
+  document.body.classList.add('imggen-active'); // class: same proven pattern
+  setTimeout(() => imgPrompt.focus(), 0);        // as #dock's own .hidden toggle
 }
 
 function closeImageGenView() {
+  imggenView.hidden = true;
   document.body.classList.remove('imggen-active');
 }
 

@@ -933,9 +933,6 @@ body.dark .attach.attach-error { color: #ff6961; }
 }
 
 /* =========================================================
-   Image generation dialog
-========================================================= */
-
    Image generation — dedicated view (not a dialog)
    A sibling of .hero and .thread inside <main>. body.imggen-active hides
    the other two and the composer dock, and shows this instead — same
@@ -943,6 +940,12 @@ body.dark .attach.attach-error { color: #ff6961; }
 ========================================================= */
 
 .imggen { display: none; }
+
+/* Decisive, independent of the imggen-active class below: whatever state
+   that class ends up in, the hidden attribute (toggled in lockstep with it
+   in app.js) always wins. Belt-and-suspenders — same proven pattern as
+   #dock's own [hidden] toggle elsewhere on this page. */
+.imggen[hidden] { display: none !important; }
 
 body.imggen-active .hero,
 body.imggen-active .thread,
