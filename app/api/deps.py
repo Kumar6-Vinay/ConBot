@@ -8,7 +8,7 @@ from app.core import security
 from app.core.errors import no_llm_error
 from app.logging_config import logger
 from app.models.ask import ChatRequest
-from app.services import conversation, gemini_client, weather, web_search
+from app.services import conversation, fallback, weather, web_search
 
 
 def new_request_id() -> str:
@@ -86,9 +86,9 @@ async def get_ai_answer(messages: List[dict], model: str, request_id: str) -> st
     if not GEMINI_API_KEY:
         raise no_llm_error()
     try:
-        return await gemini_client.ask_gemini(messages, model, request_id)
+        return await fallback.get_answer(messages, model, request_id)
     except Exception as e:
-        logger.warning("[%s] gemini failed: %s: %s", request_id, type(e).__name__, str(e)[:300])
+        logger.warning("[%s] fallback chain failed: %s: %s", request_id, type(e).__name__, str(e)[:300])
         raise HTTPException(
             status_code=502,
             detail="ConBOT could not answer that right now. Please try again shortly.",
@@ -103,5 +103,5 @@ async def stream_answer(
 ) -> AsyncIterator[str]:
     if not GEMINI_API_KEY:
         raise no_llm_error()
-    async for piece in gemini_client.stream_gemini(messages, model, request_id, state):
+    async for piece in fallback.stream_answer(messages, model, request_id, state):
         yield piece

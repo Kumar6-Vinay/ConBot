@@ -18,6 +18,15 @@ class _Env(BaseSettings):
     GOOGLE_API_KEY: str = ""
     OPENROUTER_API_KEY: str = ""
     GEMINI_TEXT_MODEL: str = "gemini-3.6-flash"
+    TEXT_FALLBACK_CHAIN: str = (
+        "google:gemini-3.5-flash,google:gemini-3.8-flash,google:gemini-3.1-flash-lite,"
+        "openrouter:nex-agi/nex-n2.5-mini:free,openrouter:dots-studio/dots-3-note-preview:free,"
+        "openrouter:nvidia/nemotron-3-super-120b-a12b:free"
+    )
+    FALLBACK_ATTEMPT_TIMEOUT: int = 10
+    FALLBACK_TOTAL_BUDGET: int = 45
+    BREAKER_FAILURE_THRESHOLD: int = 3
+    BREAKER_COOLDOWN_SECONDS: int = 60
     BRAVE_SEARCH_API_KEY: str = ""
     RATE_LIMIT_MAX: int = 20
     RATE_LIMIT_WINDOW: int = 600
@@ -54,13 +63,15 @@ def _clean_key(raw: str) -> str:
     return raw.strip().strip('"').strip("'").strip()
 
 
-# GEMINI_API_KEY is the new name; fall back to the old GOOGLE/OPENROUTER vars so
-# an existing deployment keeps working until the env is renamed.
-GEMINI_API_KEY = _clean_key(
-    _env.GEMINI_API_KEY or _env.GOOGLE_API_KEY or _env.OPENROUTER_API_KEY
-)
-# Kept so existing references (health, dispatch) read cleanly.
-OPENROUTER_API_KEY = GEMINI_API_KEY
+# GEMINI_API_KEY is the new name; fall back to the old GOOGLE var so an
+# existing deployment keeps working until the env is renamed. OPENROUTER_API_KEY
+# is deliberately NOT part of this chain — it's a different provider entirely
+# (openrouter.ai, OpenAI-compatible schema, Bearer auth), and folding it in
+# here would send an OpenRouter key to Google's endpoint and 401 the moment
+# GEMINI_API_KEY was ever unset.
+GEMINI_API_KEY = _clean_key(_env.GEMINI_API_KEY or _env.GOOGLE_API_KEY)
+OPENROUTER_API_KEY = _clean_key(_env.OPENROUTER_API_KEY)
+OPENROUTER_BASE = "https://openrouter.ai/api/v1"
 
 # ConBOT mode -> Gemini model id. gemini-2.5-flash is the stable free alias;
 # note it is scheduled to retire in Oct 2026 — bump this env var to
@@ -68,6 +79,33 @@ OPENROUTER_API_KEY = GEMINI_API_KEY
 GEMINI_MODEL_MAP = {
     "text": _env.GEMINI_TEXT_MODEL,
 }
+
+# On a 429/5xx/timeout/empty-answer for the primary model, retry with the
+# next (provider, model) pair here before giving up — still the same "text"
+# mode as far as the client and rate limits are concerned, just a different
+# backend answering. "google:<id>" calls Gemini directly; "openrouter:<id>"
+# calls OpenRouter. No model id is hardcoded anywhere else — this string is
+# the only place the fallback chain is defined. See app/services/fallback.py
+# for how it's parsed and walked.
+TEXT_FALLBACK_CHAIN = _env.TEXT_FALLBACK_CHAIN
+
+# Per-attempt timeout (seconds). For a streaming call this bounds time
+# between chunks, not total answer length, so a long-but-flowing answer is
+# never cut short — it only ever fires on a stalled/slow-to-start attempt,
+# which is exactly what should trigger moving to the next link.
+FALLBACK_ATTEMPT_TIMEOUT = _env.FALLBACK_ATTEMPT_TIMEOUT
+
+# Hard wall-clock ceiling for the whole chain, checked before every attempt
+# rather than left as (links x per-attempt timeout) — stays correct even if
+# the chain above grows later. Comfortably under the client's own 120s abort
+# (TIMEOUT_MS in frontend/app.js).
+FALLBACK_TOTAL_BUDGET = _env.FALLBACK_TOTAL_BUDGET
+
+# Circuit breaker: after this many consecutive failures, a (provider, model)
+# pair is treated as cold and skipped entirely (not even attempted) until
+# the cooldown elapses. See app/core/circuit_breaker.py.
+BREAKER_FAILURE_THRESHOLD = _env.BREAKER_FAILURE_THRESHOLD
+BREAKER_COOLDOWN_SECONDS = _env.BREAKER_COOLDOWN_SECONDS
 
 
 def model_supports_vision(mode: str) -> bool:

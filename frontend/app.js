@@ -160,7 +160,7 @@ function addAnswerShell() {
     if (!turn.dataset.started) {
       const p = document.createElement('p');
       p.className = 'waking';
-      p.textContent = 'Waking the server up — the first question of the day takes a moment.';
+      p.textContent = 'Still working on your answer — this can take a few extra seconds.';
       turn.appendChild(p);
       turn._waking = p;
       toBottom();

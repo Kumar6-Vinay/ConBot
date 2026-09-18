@@ -183,8 +183,9 @@ Environment variables (see `.env.example`):
 
 ```env
 # Required — Google AI Studio key for the Gemini API.
-# GOOGLE_API_KEY and OPENROUTER_API_KEY are read as legacy aliases if
-# GEMINI_API_KEY is unset, so an old deployment keeps working until renamed.
+# GOOGLE_API_KEY is read as a legacy alias if GEMINI_API_KEY is unset, so an
+# old deployment keeps working until renamed. OPENROUTER_API_KEY is a
+# separate provider (see "Text fallback chain" below), never a Gemini alias.
 GEMINI_API_KEY=...
 GEMINI_TEXT_MODEL=gemini-3.6-flash
 
@@ -192,6 +193,10 @@ GEMINI_TEXT_MODEL=gemini-3.6-flash
 # rest of the app works without it.
 POLLINATIONS_API_KEY=
 POLLINATIONS_MODEL=lykon/dreamshaper-8-lcm
+
+# OpenRouter key — only needed if TEXT_FALLBACK_CHAIN includes an
+# openrouter: entry (the default chain does). Free at openrouter.ai/keys.
+OPENROUTER_API_KEY=
 
 # Live web search (optional — costs money per request once set)
 BRAVE_SEARCH_API_KEY=
@@ -216,7 +221,43 @@ TRUSTED_PROXY_HOPS=1         # proxies that append to X-Forwarded-For
 ALLOWED_ORIGINS=
 
 FALLBACK_TIMEZONE=Asia/Kolkata
+
+# Text fallback chain — tried in order, after GEMINI_TEXT_MODEL, whenever a
+# link 429s (quota), 5xx's, times out, or returns an empty answer. A 400/401/
+# 403/404 or a content-policy block fails immediately instead — a different
+# model won't fix a bad request or a bad key. "google:" calls Gemini
+# directly; "openrouter:" calls OpenRouter (needs OPENROUTER_API_KEY).
+TEXT_FALLBACK_CHAIN=google:gemini-3.5-flash,google:gemini-3.8-flash,google:gemini-3.1-flash-lite,openrouter:nex-agi/nex-n2.5-mini:free,openrouter:dots-studio/dots-3-note-preview:free,openrouter:nvidia/nemotron-3-super-120b-a12b:free
+FALLBACK_ATTEMPT_TIMEOUT=10   # seconds per attempt
+FALLBACK_TOTAL_BUDGET=45      # seconds, whole chain, worst case
+BREAKER_FAILURE_THRESHOLD=3   # consecutive failures before a link goes cold
+BREAKER_COOLDOWN_SECONDS=60   # how long a cold link is skipped entirely
 ```
+
+### Text fallback chain
+
+Google's Gemini free tier caps request volume per (key, model); once hit, it
+returns 429 until the window resets. Rather than surface that to the user,
+`/ask` and `/stream` walk an ordered chain of (provider, model) pairs — same
+`{prompt, model}` request, same response shape, entirely invisible to the
+frontend. The default chain's picks were chosen live (not from memory) by
+probing OpenRouter's free-tier models and Google's own model list with the
+project's actual keys — most "free" OpenRouter models turned out to be
+unreliable (provider capacity errors, agentic-harness-only access, or
+`content: null` responses hiding a token-burning reasoning trace); only the
+three in the default chain survived a 3-prompt smoke test cleanly.
+
+A circuit breaker (`app/core/circuit_breaker.py`) tracks failures per
+(provider, model): after `BREAKER_FAILURE_THRESHOLD` consecutive failures, a
+link is skipped entirely (not even attempted) for `BREAKER_COOLDOWN_SECONDS`,
+so a request never pays the cost of rediscovering an already-broken link.
+`GET /health`'s `fallback_degraded` field is `true` if anything is currently
+cold — deliberately without naming which link, so an anonymous caller can't
+use it to map out exactly where quota is exhausted.
+
+To add or change fallback models: edit `TEXT_FALLBACK_CHAIN` — no code
+change needed. Order matters: OpenRouter's free tier is more rate-limited
+and queue-prone than a working Google model, so it belongs at the tail.
 
 ### Modes
 

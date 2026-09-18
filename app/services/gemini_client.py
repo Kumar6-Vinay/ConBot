@@ -4,7 +4,8 @@ from typing import AsyncIterator, List, Optional
 
 import httpx
 
-from app.config import GEMINI_API_KEY, GEMINI_BASE, GEMINI_MODEL_MAP, GEMINI_TIMEOUT, MAX_OUTPUT_TOKENS
+from app.config import GEMINI_API_KEY, GEMINI_BASE, MAX_OUTPUT_TOKENS
+from app.core.errors import ContentBlocked
 from app.logging_config import logger
 
 
@@ -79,11 +80,12 @@ def _extract_text(data: dict) -> str:
     return ""
 
 
-async def ask_gemini(messages: List[dict], model: str, request_id: str) -> str:
-    """Non-streaming call. Used by /ask."""
-    model_id = GEMINI_MODEL_MAP.get(model, model)
+async def ask_gemini(messages: List[dict], model_id: str, request_id: str, timeout: float) -> str:
+    """One non-streaming attempt against one Gemini model. No retry, no
+    fallback — that's app.services.fallback's job, since it now spans more
+    than one provider."""
     try:
-        async with httpx.AsyncClient(timeout=GEMINI_TIMEOUT) as client:
+        async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(
                 _gemini_url(model_id, "generateContent"),
                 json=gemini_payload(messages),
@@ -91,49 +93,52 @@ async def ask_gemini(messages: List[dict], model: str, request_id: str) -> str:
             )
             if response.status_code >= 400:
                 body = response.text[:500]
-                logger.error("[%s] gemini HTTP %d: %s", request_id, response.status_code, body)
+                logger.warning("[%s] gemini HTTP %d: %s", request_id, response.status_code, body)
                 response.raise_for_status()
             data = response.json()
 
         answer = _extract_text(data)
         if not answer.strip():
-            # A blocked prompt returns no text but a promptFeedback block.
+            # A blocked prompt returns no text but a promptFeedback block —
+            # a policy refusal, not a transient failure, so it's fail-fast
+            # for the fallback chain. A genuinely empty (unblocked) response
+            # is worth trying the next model for instead.
             reason = (data.get("promptFeedback") or {}).get("blockReason")
-            raise ValueError(f"Empty Gemini response (blockReason={reason})")
+            if reason:
+                raise ContentBlocked(f"Gemini blocked the prompt: {reason}")
+            raise ValueError("Empty Gemini response with no blockReason")
 
-        logger.info("[%s] gemini=ok", request_id)
         return answer.strip()
 
     except httpx.TimeoutException:
-        logger.error("[%s] gemini timeout after %ds", request_id, GEMINI_TIMEOUT)
-        raise
-    except Exception as e:
-        logger.error("[%s] gemini error: %s: %s", request_id, type(e).__name__, str(e)[:200])
+        logger.warning("[%s] gemini timeout after %ss (model=%s)", request_id, timeout, model_id)
         raise
 
 
 async def stream_gemini(
     messages: List[dict],
-    model: str,
+    model_id: str,
     request_id: str,
+    timeout: float,
     state: Optional[dict] = None,
 ) -> AsyncIterator[str]:
-    """Yield answer text as it arrives via Gemini SSE. Raises before the first
-    token if the upstream call fails, so the caller can still return a clean
-    error."""
-    model_id = GEMINI_MODEL_MAP.get(model, model)
+    """One streaming attempt against one Gemini model. Raises before the
+    first token if the upstream call fails, so the caller can still fall
+    back to the next (provider, model) pair cleanly."""
     # alt=sse makes Gemini emit Server-Sent Events instead of a JSON array.
     url = _gemini_url(model_id, "streamGenerateContent") + "?alt=sse"
 
-    async with httpx.AsyncClient(timeout=GEMINI_TIMEOUT) as client:
+    async with httpx.AsyncClient(timeout=timeout) as client:
         async with client.stream(
             "POST", url, json=gemini_payload(messages), headers=_gemini_headers()
         ) as response:
             if response.status_code >= 400:
                 body = (await response.aread()).decode("utf-8", "replace")
-                logger.error("[%s] gemini HTTP %d: %s", request_id, response.status_code, body[:500])
+                logger.warning("[%s] gemini HTTP %d: %s", request_id, response.status_code, body[:500])
                 response.raise_for_status()
 
+            produced = False
+            block_reason = None
             async for line in response.aiter_lines():
                 if not line.startswith("data: "):
                     continue
@@ -145,6 +150,10 @@ async def stream_gemini(
                 except json.JSONDecodeError:
                     continue
 
+                feedback_reason = (data.get("promptFeedback") or {}).get("blockReason")
+                if feedback_reason:
+                    block_reason = feedback_reason
+
                 for cand in data.get("candidates", []):
                     reason = cand.get("finishReason")
                     # MAX_TOKENS means the cap cut the answer off; the UI says so.
@@ -153,4 +162,10 @@ async def stream_gemini(
                     parts = (cand.get("content") or {}).get("parts", [])
                     piece = "".join(p.get("text", "") for p in parts)
                     if piece:
+                        produced = True
                         yield piece
+
+            if not produced:
+                if block_reason:
+                    raise ContentBlocked(f"Gemini blocked the prompt: {block_reason}")
+                raise ValueError("Empty Gemini stream with no blockReason")
