@@ -15,10 +15,9 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """One line at boot that says whether this instance can answer at all."""
     if config.GEMINI_API_KEY:
         logger.info(
-            "startup gemini=configured model=%s key_suffix=...%s web_search=%s "
+            "startup gemini=configured model=%s key_suffix=...%s "
             "client_ip_header=%s proxy_hops=%d",
             config.GEMINI_MODEL_MAP["text"], config.GEMINI_API_KEY[-4:],
-            "brave" if config.BRAVE_SEARCH_API_KEY else "duckduckgo",
             config.CLIENT_IP_HEADER or "-", config.TRUSTED_PROXY_HOPS,
         )
     else:

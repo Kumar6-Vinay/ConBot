@@ -3,12 +3,12 @@ from typing import AsyncIterator, List, Optional
 
 from fastapi import HTTPException
 
-from app.config import AVAILABLE_MODELS, FALLBACK_TIMEZONE, GEMINI_API_KEY
+from app.config import AVAILABLE_MODELS, GEMINI_API_KEY
 from app.core import security
 from app.core.errors import no_llm_error
 from app.logging_config import logger
 from app.models.ask import ChatRequest
-from app.services import conversation, fallback, weather, web_search
+from app.services import conversation, fallback
 
 
 def new_request_id() -> str:
@@ -45,40 +45,9 @@ async def prepare(request: ChatRequest, request_id: str) -> dict:
         request.model, loc["country"], len(request.history), bool(image),
     )
 
-    sources: list = []
-    context: Optional[str] = None
-    results: list = []
-
-    # An attached image is the subject of the question, so skip web/weather
-    # search — the answer comes from the picture, not the web.
-    is_weather = False if image else weather.is_weather_question(question)
-    if not image and (is_weather or conversation.needs_web_search(question)):
-        if is_weather:
-            # "weather in Delhi" -> Delhi; bare "what's the weather" -> the
-            # user's own city, not a hardcoded one.
-            place = weather.extract_place(question) or loc["city"] or FALLBACK_TIMEZONE.split("/")[-1]
-            found = await weather.get_weather(place, weather.is_tomorrow(question), request_id)
-            if found:
-                results = [found]
-
-        if not results:
-            results = await web_search.search_web(question, request_id)
-
-        if results:
-            system += "\n\n" + conversation.WEB_SYSTEM_NOTE
-            context = conversation.build_web_context(results)
-            sources = [{"title": r["title"], "url": r["url"]} for r in results]
-        else:
-            logger.info("[%s] search=empty", request_id)
-            system += (
-                "\n\nThe question may need current information, but live "
-                "information is unavailable right now. Do not invent or guess "
-                "current facts — say plainly that you cannot verify them."
-            )
-
     return {
-        "messages": conversation.build_messages(system, request.history, question, context, image),
-        "sources": sources,
+        "messages": conversation.build_messages(system, request.history, question, None, image),
+        "sources": [],
     }
 
 

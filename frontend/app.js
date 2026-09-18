@@ -469,7 +469,6 @@ async function ask() {
       // in the light of the question it clarifies.
       history.push({ role: 'user', content: text });
       history.push({ role: 'assistant', content: turn.dataset.clarify });
-      saveCurrent();
       return;
     }
 
@@ -477,7 +476,6 @@ async function ask() {
       paint();
       history.push({ role: 'user', content: text });
       history.push({ role: 'assistant', content: answer });
-      saveCurrent();
 
       if (turn.dataset.sources) renderSources(turn, JSON.parse(turn.dataset.sources));
       addActions(turn, () => answer);
@@ -550,7 +548,6 @@ document.querySelectorAll('.chip').forEach((chip) => {
 
 function newChat() {
   if (pending) pending.abort();
-  currentId = null;                 // a fresh session; saved on first answer
   history = [];
   thread.innerHTML = '';
   clearImage();
@@ -559,7 +556,6 @@ function newChat() {
   resetToHero();
   grow();
   send.disabled = true;
-  renderSessions();
   window.scrollTo({ top: 0 });
   closeSidebar();
   input.focus();
@@ -848,299 +844,25 @@ function flashAttach(message) {
 }
 
 
-/* =========================================================
-   SESSIONS — saved conversations (browser storage only)
-
-   Everything here lives in the visitor's own browser under one key.
-   Nothing is sent to the server, so history is per-device and vanishes
-   if they clear browsing data — the accepted trade for having no login.
-
-   Shape:  [{ id, title, pinned, updated, messages: [{role, content}] }]
-   Newest first. Capped so storage cannot grow without limit.
-========================================================= */
-
-const STORE_KEY = 'conbot-sessions';
-const MAX_SESSIONS = 60;
-const TITLE_MAX = 60;
-
-const sidebar = $('sidebar');
-const sideList = $('sideList');
-const sideScrim = $('sideScrim');
-
-let sessions = [];
-let currentId = null;
-
-function loadSessions() {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    sessions = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(sessions)) sessions = [];
-  } catch (e) {
-    sessions = [];                       // corrupt or unavailable storage
-  }
-}
-
-function persist() {
-  try {
-    localStorage.setItem(STORE_KEY, JSON.stringify(sessions));
-  } catch (e) {
-    // Quota exceeded: drop the oldest unpinned chats and retry once.
-    const unpinned = sessions.filter((s) => !s.pinned);
-    if (unpinned.length > 5) {
-      const drop = new Set(unpinned.slice(-5).map((s) => s.id));
-      sessions = sessions.filter((s) => !drop.has(s.id));
-      try { localStorage.setItem(STORE_KEY, JSON.stringify(sessions)); } catch (e2) {}
-    }
-  }
-}
-
-function titleFrom(messages) {
-  const first = messages.find((m) => m.role === 'user');
-  const text = (first ? first.content : 'New chat').trim().replace(/\s+/g, ' ');
-  return text.length > TITLE_MAX ? text.slice(0, TITLE_MAX - 1) + '…' : text;
-}
-
-/* Save (or update) the conversation currently on screen. */
-function saveCurrent() {
-  if (!history.length) return;
-
-  let session = sessions.find((s) => s.id === currentId);
-  if (!session) {
-    session = {
-      id: 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      title: titleFrom(history),
-      pinned: false,
-      updated: Date.now(),
-      messages: [],
-    };
-    currentId = session.id;
-    sessions.unshift(session);
-  }
-
-  session.messages = history.slice();
-  session.updated = Date.now();
-
-  // Keep newest first, but never evict a pinned chat.
-  sessions.sort((a, b) => b.updated - a.updated);
-  if (sessions.length > MAX_SESSIONS) {
-    const keep = [];
-    for (const s of sessions) {
-      if (keep.length < MAX_SESSIONS || s.pinned) keep.push(s);
-    }
-    sessions = keep;
-  }
-
-  persist();
-  renderSessions();
-}
-
-/* Rebuild the on-screen thread from a saved conversation. */
-function openSession(id) {
-  const session = sessions.find((s) => s.id === id);
-  if (!session) return;
-  if (pending) pending.abort();
-
-  currentId = id;
-  history = session.messages.slice();
-
-  thread.innerHTML = '';
-  startThread();
-
-  for (const message of session.messages) {
-    if (message.role === 'user') {
-      const turn = document.createElement('div');
-      turn.className = 'turn you';
-      const body = document.createElement('div');
-      body.className = 'text';
-      body.textContent = message.content;
-      turn.appendChild(body);
-      thread.appendChild(turn);
-    } else {
-      const turn = document.createElement('div');
-      turn.className = 'turn bot';
-      const body = document.createElement('div');
-      body.className = 'text';
-      body.innerHTML = markdown(message.content);
-      turn.appendChild(body);
-      addActions(turn, () => message.content);
-      thread.appendChild(turn);
-    }
-  }
-
-  input.value = '';
-  grow();
-  send.disabled = true;
-  renderSessions();
-  closeSidebar();
-  stuckToBottom = true;
-  toBottom();
-  input.focus();
-}
-
-function deleteSession(id) {
-  sessions = sessions.filter((s) => s.id !== id);
-  persist();
-  if (currentId === id) newChat(); else renderSessions();
-}
-
-function togglePin(id) {
-  const session = sessions.find((s) => s.id === id);
-  if (!session) return;
-  session.pinned = !session.pinned;
-  persist();
-  renderSessions();
-}
-
-function renameSession(id, title) {
-  const session = sessions.find((s) => s.id === id);
-  if (!session) return;
-  const clean = title.trim().replace(/\s+/g, ' ');
-  if (clean) { session.title = clean.slice(0, TITLE_MAX); persist(); }
-  renderSessions();
-}
-
-function clearAll() {
-  if (!sessions.length) return;
-  const ok = window.confirm('Delete all saved chats? This cannot be undone.');
-  if (!ok) return;
-  sessions = [];
-  persist();
-  newChat();
-}
-
-/* ===== Rendering the list ===== */
-
-function icon(paths, cls) {
-  const svg = '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">' + paths + '</svg>';
-  return svg;
-}
-
-const PIN_PATH = '<path d="M12 17v5M9 3h6l-1 7 3 3H7l3-3-1-7Z"/>';
-const EDIT_PATH = '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/>';
-const TRASH_PATH = '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>';
-
-function row(session) {
-  const item = document.createElement('div');
-  item.className = 'side-item' + (session.id === currentId ? ' active' : '');
-
-  const title = document.createElement('span');
-  title.className = 'side-item-title';
-  title.textContent = session.title;
-  title.addEventListener('click', () => openSession(session.id));
-  item.appendChild(title);
-
-  const acts = document.createElement('div');
-  acts.className = 'side-item-acts';
-
-  const pin = document.createElement('button');
-  pin.className = 'side-mini' + (session.pinned ? ' is-pinned' : '');
-  pin.type = 'button';
-  pin.title = session.pinned ? 'Unpin' : 'Pin';
-  pin.setAttribute('aria-label', pin.title);
-  pin.innerHTML = icon(PIN_PATH);
-  pin.addEventListener('click', (e) => { e.stopPropagation(); togglePin(session.id); });
-
-  const edit = document.createElement('button');
-  edit.className = 'side-mini';
-  edit.type = 'button';
-  edit.title = 'Rename';
-  edit.setAttribute('aria-label', 'Rename');
-  edit.innerHTML = icon(EDIT_PATH);
-  edit.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const field = document.createElement('input');
-    field.className = 'side-rename';
-    field.value = session.title;
-    item.replaceChild(field, title);
-    field.focus();
-    field.select();
-    const commit = () => renameSession(session.id, field.value);
-    field.addEventListener('blur', commit, { once: true });
-    field.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Enter') { ev.preventDefault(); field.blur(); }
-      if (ev.key === 'Escape') { field.value = session.title; field.blur(); }
-    });
-  });
-
-  const del = document.createElement('button');
-  del.className = 'side-mini';
-  del.type = 'button';
-  del.title = 'Delete';
-  del.setAttribute('aria-label', 'Delete');
-  del.innerHTML = icon(TRASH_PATH);
-  del.addEventListener('click', (e) => { e.stopPropagation(); deleteSession(session.id); });
-
-  acts.appendChild(pin);
-  acts.appendChild(edit);
-  acts.appendChild(del);
-  item.appendChild(acts);
-  return item;
-}
-
-function section(label) {
-  const head = document.createElement('div');
-  head.className = 'side-section';
-  head.textContent = label;
-  return head;
-}
-
-function renderSessions() {
-  sideList.innerHTML = '';
-
-  const pinned = sessions.filter((s) => s.pinned);
-  const rest = sessions.filter((s) => !s.pinned);
-
-  if (!sessions.length) {
-    const empty = document.createElement('p');
-    empty.className = 'side-empty';
-    empty.textContent = 'Start a chat to see it here — everything stays on this device.';
-    sideList.appendChild(empty);
-    return;
-  }
-
-  if (pinned.length) {
-    sideList.appendChild(section('Pinned'));
-    pinned.forEach((s) => sideList.appendChild(row(s)));
-  }
-
-  if (rest.length) {
-    sideList.appendChild(section(pinned.length ? 'Recent' : 'Chats'));
-    rest.forEach((s) => sideList.appendChild(row(s)));
-  }
-
-  const clear = document.createElement('button');
-  clear.className = 'side-foot-btn';
-  clear.type = 'button';
-  clear.style.marginTop = '10px';
-  clear.innerHTML = icon(TRASH_PATH) + '<span>Clear all chats</span>';
-  clear.addEventListener('click', clearAll);
-  sideList.appendChild(clear);
-}
-
 /* ===== Sidebar open/close (mobile drawer) ===== */
 
 function openSidebar() {
   document.body.classList.add('side-open');
-  sideScrim.hidden = false;
 }
 
 function closeSidebar() {
   document.body.classList.remove('side-open');
-  sideScrim.hidden = true;
 }
 
+const sideScrim = $('sideScrim');
 $('menuBtn').addEventListener('click', openSidebar);
 $('sideClose').addEventListener('click', closeSidebar);
 sideScrim.addEventListener('click', closeSidebar);
 $('sideNew').addEventListener('click', newChat);
-$('sideMark').addEventListener('click', newChat);
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeSidebar();
 });
-
-loadSessions();
-renderSessions();
 
 /* =========================================================
    IMAGE GENERATION — a dedicated view, not a dialog.

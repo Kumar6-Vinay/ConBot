@@ -17,17 +17,16 @@ class _Env(BaseSettings):
     GEMINI_API_KEY: str = ""
     GOOGLE_API_KEY: str = ""
     OPENROUTER_API_KEY: str = ""
-    GEMINI_TEXT_MODEL: str = "gemini-3.6-flash"
+    PRIMARY_MODEL: str = "openrouter:qwen/qwen3.8-27b:free"
     TEXT_FALLBACK_CHAIN: str = (
         "google:gemini-3.5-flash,google:gemini-3.8-flash,google:gemini-3.1-flash-lite,"
         "openrouter:nex-agi/nex-n2.5-mini:free,openrouter:dots-studio/dots-3-note-preview:free,"
-        "openrouter:nvidia/nemotron-3-super-120b-a12b:free"
+        "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free"
     )
     FALLBACK_ATTEMPT_TIMEOUT: int = 10
     FALLBACK_TOTAL_BUDGET: int = 45
     BREAKER_FAILURE_THRESHOLD: int = 3
     BREAKER_COOLDOWN_SECONDS: int = 60
-    BRAVE_SEARCH_API_KEY: str = ""
     RATE_LIMIT_MAX: int = 20
     RATE_LIMIT_WINDOW: int = 600
     DAILY_REQUEST_LIMIT: int = 45
@@ -73,11 +72,12 @@ GEMINI_API_KEY = _clean_key(_env.GEMINI_API_KEY or _env.GOOGLE_API_KEY)
 OPENROUTER_API_KEY = _clean_key(_env.OPENROUTER_API_KEY)
 OPENROUTER_BASE = "https://openrouter.ai/api/v1"
 
-# ConBOT mode -> Gemini model id. gemini-2.5-flash is the stable free alias;
-# note it is scheduled to retire in Oct 2026 — bump this env var to
-# gemini-3.6-flash (or the current flash) when that happens.
+# ConBOT mode -> primary model (provider:model_id format).
+# Examples: "google:gemini-3.5-flash", "openrouter:qwen/qwen3.8-27b:free"
+# Default is OpenRouter's Qwen, free tier.
+PRIMARY_MODEL = _env.PRIMARY_MODEL
 GEMINI_MODEL_MAP = {
-    "text": _env.GEMINI_TEXT_MODEL,
+    "text": PRIMARY_MODEL,
 }
 
 # On a 429/5xx/timeout/empty-answer for the primary model, retry with the
@@ -115,21 +115,6 @@ def model_supports_vision(mode: str) -> bool:
     return True
 
 
-# DuckDuckGo Instant Answer API — free, keyless, but it returns encyclopedia
-# abstracts, not live results. It is the fallback only.
-DUCKDUCKGO_URL = "https://api.duckduckgo.com/"
-
-# Optional real web search (Brave Search API). Off unless a key is set.
-# Setting a key changes cost per request — check Brave's current pricing.
-BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
-BRAVE_SEARCH_API_KEY = _env.BRAVE_SEARCH_API_KEY.strip()
-
-# Weather APIs (Open-Meteo - free, no API key)
-GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
-WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
-
-# Timeouts (in seconds)
-SEARCH_TIMEOUT = 10
 
 
 # =========================================================
@@ -181,7 +166,6 @@ DEFAULT_ORIGINS = [
     "https://conbot.in",
     "https://www.conbot.in",
     "https://llama-chatbot-fe.onrender.com",
-    "https://kumar6-vinay.github.io",
 ]
 
 # Comma-separated override, e.g. to add a GitHub Pages origin

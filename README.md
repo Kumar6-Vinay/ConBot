@@ -2,7 +2,7 @@
 
 **A general-purpose AI assistant (conbot.in) — FastAPI backend, vanilla-JS frontend.**
 
-ConBOT answers questions through Google's Gemini API, adds live weather and web results when a question needs current information, generates images via Pollinations.ai, and answers for the user's country and language by default. It is a prototype working toward a production chat product.
+ConBOT is a stateless chat assistant powered by Google's Gemini API. It generates images via Pollinations.ai, supports multiple languages, and operates without persistent conversation history. A production chat product focused on simplicity and privacy.
 
 ---
 
@@ -27,7 +27,6 @@ ConBOT is an intelligent conversational platform designed for:
 
 - **Multi-language Support**: Responds in the user's language with localized information
 - **Location Awareness**: Provides location-specific answers based on timezone and regional settings
-- **Real-time Information**: Integrates web search and weather APIs for current data
 - **LLM Backend**: Google's Gemini API (multimodal — text and image input in the same chat)
 - **Image Generation**: On-demand image generation via Pollinations.ai
 - **Rate Limiting**: Per-IP window and daily caps, plus a global daily cost cap (in-memory, single instance)
@@ -39,14 +38,12 @@ ConBOT is an intelligent conversational platform designed for:
 ## ✨ Features
 
 ### Core Capabilities
-- **Smart Web Search**: Detects questions that need current information. Uses the Brave Search API when `BRAVE_SEARCH_API_KEY` is set; otherwise falls back to DuckDuckGo Instant Answers (encyclopedia abstracts only — weak for news, prices and scores)
-- **Weather Integration**: Current conditions or tomorrow's forecast via Open-Meteo (free, no API key)
-- **One chat mode, `text`**: served by a Gemini model (`GEMINI_TEXT_MODEL`, mapped in `GEMINI_MODEL_MAP`)
+- **Text Chat**: One mode, `text`, served by a Gemini model (`GEMINI_TEXT_MODEL`, mapped in `GEMINI_MODEL_MAP`)
 - **Image Generation**: A separate `/generate-image` endpoint calling Pollinations.ai, with a choice of models via `/models/image`
 - **Intelligent Prompting**: Custom system prompts with behavioral guidelines
 - **Structured Responses**: Automatic parsing of follow-up questions and clarification blocks
-- **Conversation History**: Maintains context with configurable conversation depth
-- **Locale-Aware Context**: Uses timezone and language data for hyper-local answers
+- **Stateless Design**: No persistent conversation history; each session is independent
+- **Multi-language Support**: Responds in the user's language with localized context
 
 ### Technical Features
 - **Server-Sent Events (SSE)**: Real-time streaming for instant user feedback
@@ -74,9 +71,7 @@ ConBOT is an intelligent conversational platform designed for:
 │  ├──────────────────────────────────────────────────────┤   │
 │  │ Request Processing & Validation                      │   │
 │  ├──────────────────────────────────────────────────────┤   │
-│  │ Location Resolution & Context Building               │   │
-│  ├──────────────────────────────────────────────────────┤   │
-│  │ Web Search (Brave / DuckDuckGo) & Weather APIs       │   │
+│  │ Message Processing & Validation                       │   │
 │  ├──────────────────────────────────────────────────────┤   │
 │  │ Rate Limiting & Security                             │   │
 │  └──────────────────────────────────────────────────────┘   │
@@ -93,12 +88,10 @@ ConBOT is an intelligent conversational platform designed for:
 
 1. **Request Ingestion**: User submits prompt via `/ask` or `/stream` endpoint
 2. **Validation**: Input validation and rate limiting enforcement
-3. **Context Resolution**: Timezone/location parsing and system prompt construction
-4. **Search Decision**: Determines if web search is required based on keywords
-5. **Augmentation**: Fetches web search results or weather data if needed
-6. **LLM Invocation**: Sends augmented prompt to Google's Gemini API
-7. **Post-Processing**: Parses structured blocks (clarifications, follow-ups)
-8. **Response**: Streams or returns complete answer with metadata
+3. **Message Assembly**: Constructs system prompt and message history from request
+4. **LLM Invocation**: Sends prompt to Google's Gemini API
+5. **Post-Processing**: Parses structured blocks (clarifications, follow-ups)
+6. **Response**: Streams or returns complete answer with metadata
 
 ---
 
@@ -124,9 +117,6 @@ ConBOT is an intelligent conversational platform designed for:
 ### External Services
 - **LLM**: Google Gemini API
 - **Image Generation**: Pollinations.ai
-- **Web Search**: Brave Search API (optional, keyed) → DuckDuckGo Instant Answer API
-- **Weather**: Open-Meteo API (Free)
-- **Geocoding**: Open-Meteo Geocoding API
 
 ---
 
@@ -182,24 +172,25 @@ docker run -p 8000:8000 \
 Environment variables (see `.env.example`):
 
 ```env
-# Required — Google AI Studio key for the Gemini API.
-# GOOGLE_API_KEY is read as a legacy alias if GEMINI_API_KEY is unset, so an
-# old deployment keeps working until renamed. OPENROUTER_API_KEY is a
-# separate provider (see "Text fallback chain" below), never a Gemini alias.
-GEMINI_API_KEY=...
-GEMINI_TEXT_MODEL=gemini-3.6-flash
+# Primary LLM model (provider:model_id format). Default: OpenRouter's free Qwen.
+# Examples:
+#   PRIMARY_MODEL=openrouter:qwen/qwen3.8-27b:free (current default, free)
+#   PRIMARY_MODEL=google:gemini-3.5-flash (requires GEMINI_API_KEY)
+# If format is "model_id" without provider prefix, "google" is assumed (legacy).
+PRIMARY_MODEL=openrouter:qwen/qwen3.8-27b:free
+
+# Required for Gemini: Google AI Studio key.
+# GOOGLE_API_KEY is read as a legacy alias if GEMINI_API_KEY is unset.
+GEMINI_API_KEY=
+
+# Required for OpenRouter models in PRIMARY_MODEL or TEXT_FALLBACK_CHAIN.
+# Free models on OpenRouter require a key but may not charge. Get one at openrouter.ai/keys
+OPENROUTER_API_KEY=
 
 # Image generation (Pollinations.ai). Required for /generate-image; the
 # rest of the app works without it.
 POLLINATIONS_API_KEY=
 POLLINATIONS_MODEL=lykon/dreamshaper-8-lcm
-
-# OpenRouter key — only needed if TEXT_FALLBACK_CHAIN includes an
-# openrouter: entry (the default chain does). Free at openrouter.ai/keys.
-OPENROUTER_API_KEY=
-
-# Live web search (optional — costs money per request once set)
-BRAVE_SEARCH_API_KEY=
 
 # Conversation and output size
 MAX_HISTORY_TURNS=8          # messages replayed to the model
@@ -307,22 +298,19 @@ Limits: `prompt` ≤ 3000 characters. History is trimmed server-side to the last
 **Response**:
 ```json
 {
-  "answer": "The current weather in Delhi is...",
-  "web_used": true,
-  "sources": [{"title": "Current weather in Delhi, India", "url": "https://open-meteo.com/"}],
-  "followups": ["Will it rain later today?"],
-  "clarify": null
+  "answer": "To help you best, I need to know which state you're asking about...",
+  "followups": ["What is the tax regime for individuals?"],
+  "clarify": {"question": "Which tax regime?", "options": ["Old regime", "New regime"]}
 }
 ```
 
-`answer` never contains the raw `[[FOLLOWUPS]]` / `[[CLARIFY]]` blocks. When the model needs one detail first, `clarify` is `{"question": ..., "options": [...]}` and `answer` holds the question.
+`answer` never contains the raw `[[FOLLOWUPS]]` / `[[CLARIFY]]` blocks. When the model needs one detail first, `clarify` is `{"question": ..., "options": [...]}` and `answer` holds the question. `sources` is always an empty array (no web search).
 
 ### `/stream` (POST)
 Streaming endpoint using Server-Sent Events (SSE).
 
 **Response Stream Events**:
 ```
-data: {"type": "sources", "sources": [...]}
 data: {"type": "delta", "text": "partial response text"}
 data: {"type": "clarify", "question": "...", "options": [...]}   # instead of deltas
 data: {"type": "followups", "questions": [...]}
@@ -385,9 +373,9 @@ ConBot/
 │   ├── services/                  # Business logic, no FastAPI imports
 │   │   ├── gemini_client.py       # Gemini API calls
 │   │   ├── image_generation.py    # Pollinations.ai client
-│   │   ├── web_search.py          # Brave (optional) and DuckDuckGo
-│   │   ├── weather.py             # Open-Meteo current conditions and forecast
-│   │   └── conversation.py        # System prompt, locale, BlockFilter, message assembly
+│   │   ├── fallback.py            # Multi-provider fallback chain
+│   │   ├── openrouter_client.py   # OpenRouter API calls
+│   │   └── conversation.py        # System prompt, BlockFilter, message assembly
 │   ├── models/                    # Pydantic request/response schemas
 │   │   ├── ask.py
 │   │   └── image.py
@@ -417,8 +405,8 @@ The backend is a package (`app/`), not a single file. Route handlers in
 `app/api/routes/` are thin — they call into `app/services/` (business logic,
 no FastAPI imports), `app/core/` (rate limiting, errors, security), and
 `app/api/deps.py` (the shared `/ask` + `/stream` pipeline: `prepare()`,
-model validation, Gemini dispatch). Callers import these as modules
-(`from app.services import web_search`) rather than importing bare
+model validation, fallback chain dispatch). Callers import these as modules
+(`from app.services import conversation`) rather than importing bare
 functions, so tests can monkeypatch them at the module level.
 
 Image generation (`app/services/image_generation.py`) is a self-contained
@@ -432,17 +420,17 @@ Pollinations.ai client with its own env var reads, used only by
 pytest -q
 
 # Test endpoints locally
-curl -X POST http://localhost:8000/ask \
+curl -s -X POST http://localhost:8000/ask \
   -H "Content-Type: application/json" \
   -d '{"prompt": "What is Python?"}'
 
 # Test streaming
-curl -X POST http://localhost:8000/stream \
+curl -sN -X POST http://localhost:8000/stream \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Tell me a joke"}'
 
 # Test image generation
-curl -X POST http://localhost:8000/generate-image \
+curl -s -X POST http://localhost:8000/generate-image \
   -H "Content-Type: application/json" \
   -d '{"prompt": "a cat astronaut"}'
 ```
@@ -611,5 +599,5 @@ For bugs, feature requests, or questions:
 
 ---
 
-**Last Updated**: September 17, 2026  
-**Version**: 1.0.0
+**Last Updated**: September 19, 2026  
+**Version**: 1.1.0 — Stateless (web search, weather, and session storage removed)

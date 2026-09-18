@@ -1,7 +1,8 @@
 # ConBOT
 
-A general-purpose AI assistant (conbot.in). FastAPI backend calling Google's
-Gemini API, vanilla-JS frontend. Goal: a production chat product, not a demo.
+A general-purpose AI assistant (conbot.in). FastAPI backend, primarily on
+Google's Gemini API with an OpenRouter fallback tier, vanilla-JS frontend.
+Goal: a production chat product, not a demo.
 
 ## Repo map
 
@@ -10,14 +11,15 @@ Gemini API, vanilla-JS frontend. Goal: a production chat product, not a demo.
 | `app/main.py` | FastAPI app creation, lifespan, CORS, and route registration only — no business logic. |
 | `app/config.py` | All settings derived from env vars (pydantic-settings + plain derived constants). |
 | `app/api/routes/` | Route handlers, one file per endpoint: `health.py`, `ask.py`, `stream.py`, `image.py` (`/generate-image`, `/models/image`). |
-| `app/api/deps.py` | The shared request pipeline both `/ask` and `/stream` call: `prepare()`, `validate_model()`, Gemini dispatch (`get_ai_answer`/`stream_answer`). |
-| `app/services/` | Business logic, no FastAPI imports: `gemini_client.py`, `image_generation.py` (Pollinations.ai), `web_search.py`, `weather.py`, `conversation.py` (system prompt, locale, `BlockFilter`, message assembly). |
-| `app/core/` | `rate_limit.py`, `errors.py` (`no_llm_error`), `security.py` (`validate_image`, `clip`). |
+| `app/api/deps.py` | The shared request pipeline both `/ask` and `/stream` call: `prepare()`, `validate_model()`, dispatch to the fallback chain (`get_ai_answer`/`stream_answer`, backed by `app.services.fallback`). |
+| `app/services/` | Business logic, no FastAPI imports: `gemini_client.py` (one Gemini attempt), `openrouter_client.py` (one OpenRouter attempt, mirrors `gemini_client.py`), `fallback.py` (walks `TEXT_FALLBACK_CHAIN` across both, the only place that loops), `image_generation.py` (Pollinations.ai), `conversation.py` (system prompt, `BlockFilter`, message assembly). |
+| `app/core/` | `rate_limit.py`, `circuit_breaker.py` (marks a cold `provider:model` pair so the chain skips it), `middleware.py` (`MaxBodySizeMiddleware`, `SecurityHeadersMiddleware`), `errors.py` (`no_llm_error`, `ContentBlocked`), `security.py` (`validate_image`, `clip`). |
 | `app/models/` | Pydantic request/response schemas: `ask.py` (`Turn`, `ChatRequest`), `image.py`. |
-| `tests/` | `test_main.py` (chat/stream) and `test_image_generation.py`. No network, no API key. |
+| `tests/` | `test_main.py` (chat/stream), `test_image_generation.py`, `test_fallback.py` (chain advance, fail-fast, breaker, budget). No network, no API key. |
 | `frontend/index.html` | Single-page shell: sidebar, composer, message list. |
 | `frontend/app.js` | All client logic — SSE reader, markdown, sessions, voice, theme. |
 | `frontend/styles.css` | All styling. Light/dark via `body.dark` / `body.light`. |
+| `frontend/_headers` | Cloudflare Workers static-assets header rules (CSP, HSTS, etc.) for the frontend's own responses. |
 | `Dockerfile` | Backend image only. |
 | `wrangler.json` | Cloudflare Workers config that serves `frontend/` as static assets — this is how the frontend deploys, not classic Cloudflare Pages. |
 
@@ -32,32 +34,44 @@ is run manually.
 - **The backend is the `app/` package, not a single file.** Route handlers
   (`app/api/routes/`) are thin — they call into `app/services/`, `app/core/`
   and `app/api/deps.py`. Always import those as modules
-  (`from app.services import web_search`) and call `web_search.search_web(...)`,
-  never `from app.services.web_search import search_web` — tests monkeypatch
-  these at the module level (e.g. `monkeypatch.setattr(web_search, "search_web", ...)`),
+  (`from app.services import conversation`) and call module functions,
+  never import bare functions — tests monkeypatch these at the module level
+  (e.g. `monkeypatch.setattr(conversation, "build_messages", ...)`),
   and patching a bare imported name silently does nothing.
-- **The server is stateless; the client owns the conversation.** `app.js`
-  keeps `history` and replays it on each request. The server trims it to
-  `MAX_HISTORY_TURNS` messages, each clipped to `MAX_HISTORY_CHARS`. Trim,
-  never reject: a long answer must not break the next question.
-- **`/stream` is the primary path** (SSE: `sources`, `delta`, `clarify`,
+- **The server is fully stateless; conversations are ephemeral.** `app.js`
+  keeps `history` in memory for the current session and replays it on each request.
+  The server trims it to `MAX_HISTORY_TURNS` messages, each clipped to
+  `MAX_HISTORY_CHARS`. Trim, never reject: a long answer must not break the
+  next question. No persistence to disk, localStorage, or database.
+- **`/stream` is the primary path** (SSE: `delta`, `clarify`,
   `followups`, `truncated`, `error`, `done`). `/ask` is the non-streaming
-  equivalent and returns `{answer, web_used, sources, followups, clarify}`.
-- **Google Gemini is the only LLM backend.** Calls go straight to Gemini
-  (`GEMINI_BASE`) — there is no OpenRouter or Ollama fallback anymore. The
-  key env var is `GEMINI_API_KEY`; `GOOGLE_API_KEY` and `OPENROUTER_API_KEY`
-  are read only as legacy aliases. Mode-to-model mapping is
-  `GEMINI_MODEL_MAP`.
+  equivalent and returns `{answer, followups, clarify}`. No web sources.
+- **Text chat walks a multi-provider fallback chain, not a single model.**
+  `GEMINI_MODEL_MAP[mode]` (Google, direct) is always tried first; on a 429,
+  5xx, timeout, or empty answer it falls through `TEXT_FALLBACK_CHAIN`
+  (`app/config.py`), an ordered `provider:model_id` list mixing more Google
+  models and OpenRouter models — `app/services/fallback.py` is the only
+  place that loops across them. `GEMINI_API_KEY` and `OPENROUTER_API_KEY`
+  are two independent credentials for two different providers, never one
+  aliasing the other — `GOOGLE_API_KEY` remains a legacy alias for
+  `GEMINI_API_KEY` only. A 400/401/403/404 or a Gemini content-policy block
+  (`ContentBlocked`) fails immediately instead of advancing — a different
+  model won't fix a bad request or a policy refusal.
+- **A circuit breaker (`app/core/circuit_breaker.py`) skips known-cold
+  links.** After `BREAKER_FAILURE_THRESHOLD` consecutive failures, a
+  `provider:model` pair is skipped entirely (not attempted) for
+  `BREAKER_COOLDOWN_SECONDS`. `GET /health`'s `fallback_degraded` boolean is
+  the only thing this ever exposes over HTTP — deliberately coarse, no
+  model or provider name, so an anonymous caller can't map out exactly
+  what's currently exhausted.
 - **The model emits `[[FOLLOWUPS]]` / `[[CLARIFY]]` blocks.** `BlockFilter`
   strips them from prose. Mid-stream, a tag only counts once its line has
   ended (`TAG_LINE_RE`); the end of the buffer is not the end of a line.
   Neither endpoint may ever return a raw tag to the client.
-- **Web results are untrusted data.** They go into the final user message
-  inside `<search_results>`, never into the system role.
 - `AVAILABLE_MODELS` is an allow-list and currently only `text`. Adding a
   mode needs end-to-end support (request body, parser, UI), not just a map entry.
-- Client-side session history lives in `localStorage` (`conbot-sessions`)
-  with full messages; it never reaches the server except as replayed history.
+- Client-side conversation history lives in memory (JavaScript `history` array)
+  for the current session only; it is replayed on each request but never persisted.
 - Client limits must stay at or under server limits: prompt 3000 chars,
   `MAX_TURNS` 16, per-message 3000 chars.
 
@@ -92,8 +106,10 @@ is run manually.
 - Do not change the public API shape without updating `frontend/app.js`,
   `README.md` and the tests in the same change.
 - Do not touch `CONBOT_SYSTEM_PROMPT` wording unless asked — it is product copy.
-- Anything that changes cost per request (models, search providers, token
-  caps, rate limits) or exposes a new public endpoint needs a plan first.
+- Anything that changes cost per request (models, token caps, rate limits)
+  or exposes a new public endpoint needs a plan first.
+- Removal of features (web search, weather, sessions, etc.) can be done directly
+  if all cleanup (code, tests, docs) is complete in the same change.
 
 ## How to verify a change
 

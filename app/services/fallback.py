@@ -47,7 +47,14 @@ _FAIL_FAST_CODES = {400, 401, 403, 404}
 
 
 def _parse_chain(mode: str) -> List[Tuple[str, str]]:
-    primary = ("google", GEMINI_MODEL_MAP[mode])
+    primary_spec = GEMINI_MODEL_MAP[mode]
+    # Primary model can be "provider:model_id" (e.g. "openrouter:qwen/qwen3.8-27b:free")
+    # or just "model_id" (legacy, assumed to be Google)
+    if ":" in primary_spec:
+        parts = primary_spec.split(":", 1)
+        primary = (parts[0].strip(), parts[1].strip())
+    else:
+        primary = ("google", primary_spec)
     chain = [primary]
     for entry in TEXT_FALLBACK_CHAIN.split(","):
         entry = entry.strip()
