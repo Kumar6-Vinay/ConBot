@@ -640,7 +640,7 @@ body.chatting .thread { padding-bottom: 190px; }
 
 /* =========================================================
    Mic — voice input (Web Speech API)
-   Sits inside the composer, left of the text. Hidden by default and
+   Sits inside the composer, right of the text, just before send. Hidden by default and
    revealed by JS only when the browser actually supports recognition,
    so an unsupported browser never shows a dead control.
 ========================================================= */
@@ -648,7 +648,6 @@ body.chatting .thread { padding-bottom: 190px; }
 .mic {
   flex: none;
   width: 34px; height: 34px;
-  margin-right: -6px;          /* tuck toward the text, away from send */
   display: grid; place-items: center;
   border-radius: 50%;
   color: var(--ink-2);
@@ -694,7 +693,8 @@ body.chatting .thread { padding-bottom: 190px; }
   padding: 4px 6px 10px;
 }
 .side-mark { font-size: 17px; }
-.side-close { display: none; }        /* only shown on mobile */
+.side-mark { cursor: pointer; }
+.side-close .ic-collapse { display: none; }   /* desktop shows collapse icon, mobile shows X */
 
 .side-new {
   display: flex; align-items: center; gap: 10px;
@@ -810,6 +810,18 @@ body.chatting .thread { padding-bottom: 190px; }
   .menu-btn { display: none; }          /* no hamburger when sidebar is fixed */
   .bar .wordmark { display: none; }     /* sidebar already shows the mark */
   .bar-inner { justify-content: flex-end; }
+
+  /* Collapsed sidebar: content reclaims the space, header brings back
+     the hamburger + wordmark so there is always a way to reopen it. */
+  .sidebar { transition: transform 0.28s var(--ease), visibility 0s linear 0.28s; }
+  body.side-hidden { padding-left: 0; }
+  body.side-hidden .sidebar { transform: translateX(-100%); visibility: hidden; }
+  body.side-hidden .bar, body.side-hidden .dock { left: 0; }
+  body.side-hidden .menu-btn { display: grid; }
+  body.side-hidden .bar .wordmark { display: inline-flex; }
+  body.side-hidden .bar-inner { justify-content: space-between; }
+  .side-close .ic-x { display: none; }
+  .side-close .ic-collapse { display: block; }
 }
 
 /* =========================================================
@@ -822,7 +834,6 @@ body.chatting .thread { padding-bottom: 190px; }
     box-shadow: 0 0 40px rgba(0,0,0,0.18);
   }
   body.side-open .sidebar { transform: translateX(0); }
-  .side-close { display: grid; }
 
   .side-scrim {
     position: fixed; inset: 0; z-index: 39;
