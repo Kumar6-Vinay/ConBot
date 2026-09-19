@@ -855,8 +855,27 @@ function closeSidebar() {
 }
 
 const sideScrim = $('sideScrim');
-$('menuBtn').addEventListener('click', openSidebar);
-$('sideClose').addEventListener('click', closeSidebar);
+
+/* Desktop collapse. The sidebar is fixed there, so hiding it is a body
+   class, remembered per tab in sessionStorage. Mobile keeps the drawer:
+   it always starts closed and is not persisted. openSidebar/closeSidebar
+   stay drawer-only so newChat() etc. never collapse the desktop sidebar. */
+const desktop = window.matchMedia('(min-width: 901px)');
+
+function setSideHidden(hidden) {
+  document.body.classList.toggle('side-hidden', hidden);
+  try { sessionStorage.setItem('conbot-sidebar', hidden ? 'hidden' : 'shown'); } catch (e) {}
+}
+
+try {
+  if (sessionStorage.getItem('conbot-sidebar') === 'hidden') {
+    document.body.classList.add('side-hidden');
+  }
+} catch (e) {}
+
+$('menuBtn').addEventListener('click', () => desktop.matches ? setSideHidden(false) : openSidebar());
+$('sideClose').addEventListener('click', () => desktop.matches ? setSideHidden(true) : closeSidebar());
+$('sideMark').addEventListener('click', () => window.location.reload());
 sideScrim.addEventListener('click', closeSidebar);
 $('sideNew').addEventListener('click', newChat);
 
