@@ -16,7 +16,7 @@ Goal: a production chat product, not a demo.
 | `app/core/` | `rate_limit.py`, `circuit_breaker.py` (marks a cold `provider:model` pair so the chain skips it), `middleware.py` (`MaxBodySizeMiddleware`, `SecurityHeadersMiddleware`), `errors.py` (`no_llm_error`, `ContentBlocked`), `security.py` (`validate_image`, `clip`). |
 | `app/models/` | Pydantic request/response schemas: `ask.py` (`Turn`, `ChatRequest`), `image.py`. |
 | `tests/` | `test_main.py` (chat/stream), `test_image_generation.py`, `test_fallback.py` (chain advance, fail-fast, breaker, budget). No network, no API key. |
-| `frontend/index.html` | Single-page shell: sidebar, composer, message list. |
+| `frontend/index.html` | Single-page shell: landing (navbar, hero, cards), sidebar, composer, message list. |
 | `frontend/app.js` | All client logic — SSE reader, markdown, sessions, voice, theme. |
 | `frontend/styles.css` | All styling. Light/dark via `body.dark` / `body.light`. |
 | `frontend/_headers` | Cloudflare Workers static-assets header rules (CSP, HSTS, etc.) for the frontend's own responses. |

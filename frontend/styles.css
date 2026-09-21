@@ -17,6 +17,9 @@
   --accent-image: #8a3ffc;
   --accent-image-ink: #ffffff;
 
+  --blob-1: #dbeafe;
+  --blob-2: #ede9fe;
+
   --bar-h: 52px;
   --col: 692px;
 
@@ -39,6 +42,8 @@ body.dark {
   --code-bg: #1c1c1e;
   --accent-image: #a76bff;
   --accent-image-ink: #000000;
+  --blob-1: #1e3a5f;
+  --blob-2: #2e1a4a;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -54,6 +59,8 @@ body.dark {
     --code-bg: #1c1c1e;
     --accent-image: #a76bff;
     --accent-image-ink: #000000;
+    --blob-1: #1e3a5f;
+    --blob-2: #2e1a4a;
   }
 }
 
@@ -65,6 +72,7 @@ html, body {
 }
 
 body {
+  transition: background-color 0.2s, color 0.2s;
   background: var(--canvas);
   color: var(--ink);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue",
@@ -153,11 +161,8 @@ body.dark .ic-moon { display: block; }
 /* ===== Hero ===== */
 
 .hero {
-  min-height: calc(100dvh - var(--bar-h) - 40px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-bottom: 15vh;              /* sits noticeably above true centre */
+  position: relative;
+  padding: 40px 0 0;
 }
 
 .hero-inner {
@@ -167,6 +172,7 @@ body.dark .ic-moon { display: block; }
 }
 
 .hero.gone { display: none; }
+.hero-inner { margin: 0 auto; }
 
 .hero h1 {
   margin: 0;
@@ -189,39 +195,6 @@ body.dark .ic-moon { display: block; }
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: none; }
 }
-
-.chips {
-  margin-top: 22px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  animation: rise 0.7s var(--ease) 0.18s both;
-}
-
-.chip {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 48px;
-  padding: 10px 16px;
-  font-size: 14.5px;
-  text-align: left;
-  color: var(--ink-2);
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-md);
-  transition: color 0.2s var(--ease), transform 0.18s var(--ease),
-    background 0.2s var(--ease), border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
-}
-.chip svg { flex: none; }
-
-.chip:hover {
-  color: var(--ink);
-  transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline));
-  box-shadow: 0 3px 12px color-mix(in srgb, var(--ink) 6%, transparent);
-}
-.chip:active { transform: translateY(0); }
 
 /* =========================================================
    Thread
@@ -374,7 +347,8 @@ body.dark .ic-moon { display: block; }
 .composer {
   max-width: var(--col);
   margin: 30px auto 0;
-  display: flex; align-items: flex-end; gap: 8px;
+  position: relative;
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px;
   padding: 7px 7px 7px 18px;
   background: var(--canvas);
   border: 1px solid var(--hairline);
@@ -389,10 +363,11 @@ body.dark .ic-moon { display: block; }
 }
 
 .composer textarea {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   border: 0; background: none; resize: none;
   padding: 9px 0;
-  max-height: 190px;
+  max-height: calc(5 * 1.45em + 18px);   /* five rows, then it scrolls */
   line-height: 1.45;
   letter-spacing: -0.01em;
 }
@@ -433,9 +408,6 @@ body.dark .ic-moon { display: block; }
   body { font-size: 16px; }
   .stage, .bar-inner { padding-left: 16px; padding-right: 16px; }
   .dock { padding-left: 16px; padding-right: 16px; }
-  .hero { min-height: calc(100vh - var(--bar-h) - 250px); }
-  .chips { flex-direction: column; width: 100%; }
-  .chip { width: 100%; }
   .turn.you .text { font-size: 18px; }
   .fineprint { font-size: 11px; }
 }
@@ -497,12 +469,7 @@ body.chatting .thread { padding-bottom: 190px; }
 ========================================================= */
 
 @media (max-width: 640px) {
-  .chips {
-    grid-template-columns: 1fr;
-    margin-top: 18px;
-  }
 
-  .hero { padding-bottom: 6vh; }
   .hero h1 { font-size: clamp(34px, 10vw, 44px); }
 
   /* Cheap Android GPUs drop frames on backdrop blur. Use a solid bar. */
@@ -579,39 +546,118 @@ body.chatting .thread { padding-bottom: 190px; }
 }
 
 /* =========================================================
-   B — Living headline
-   "Ask" is fixed; the trailing phrase rotates and is left-anchored,
-   so swaps read as the sentence extending rather than the whole
-   headline resizing. Reduced-motion users get a static line (below).
+   Landing — two-tone logo, navbar, blobs, pills, cards, trust, footer.
+   Everything here is keyed off body:not(.chatting):not(.imggen-active).
 ========================================================= */
 
-.headline {
-  display: flex;
-  justify-content: center;   /* the whole line stays centred in the column */
-  align-items: baseline;
-  flex-wrap: wrap;
-}
+.lb { color: var(--accent); font-weight: 700; }
+.logo { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; color: var(--ink); text-decoration: none; }
+.logo .lb { font-size: 1.06em; }
 
-.rotator {
-  display: inline-block;
-  color: var(--accent);      /* the live part carries the one accent colour */
-  will-change: opacity, transform;
+.lnav {
+  position: fixed; inset: 0 0 auto 0; z-index: 20;
+  height: var(--bar-h);
+  background: color-mix(in srgb, var(--canvas) 72%, transparent);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
 }
+.lnav-inner {
+  max-width: 1080px; height: 100%; margin: 0 auto; padding: 0 22px;
+  display: flex; align-items: center; gap: 24px;
+}
+.lnav-links { display: flex; gap: 28px; margin: 0 auto; }
+.lnav-links a { font-size: 15px; color: var(--ink-2); text-decoration: none; }
+.lnav-links a:hover { color: var(--ink); }
+.lnav .theme-toggle { margin-left: auto; }
+.lnav-links + .theme-toggle { margin-left: 0; }
 
-.rotator.swap-out {
-  animation: phraseOut 0.32s var(--ease) forwards;
-}
-.rotator.swap-in {
-  animation: phraseIn 0.42s var(--ease) forwards;
-}
+/* Landing vs chat: sidebar and chat bar only exist once a chat starts. */
+body:not(.chatting):not(.imggen-active) .sidebar,
+body:not(.chatting):not(.imggen-active) .bar,
+body:not(.chatting):not(.imggen-active) .side-scrim { display: none !important; }
+body.chatting .lnav, body.imggen-active .lnav { display: none; }
+body:not(.chatting):not(.imggen-active) { padding-left: 0; }
+body:not(.chatting):not(.imggen-active) .stage { max-width: 1080px; }
+body.chatting .stage, body.imggen-active .stage { max-width: var(--col); }
 
-@keyframes phraseOut {
-  from { opacity: 1; transform: translateY(0); }
-  to   { opacity: 0; transform: translateY(-8px); }
+.blob {
+  position: absolute; z-index: -1; pointer-events: none;
+  width: 520px; height: 520px; border-radius: 50%;
+  filter: blur(80px); opacity: 0.85;
 }
-@keyframes phraseIn {
-  from { opacity: 0; transform: translateY(9px); }
-  to   { opacity: 1; transform: translateY(0); }
+.blob-1 { top: -120px; left: -140px; background: radial-gradient(circle, var(--blob-1), transparent 70%); }
+.blob-2 { top: -60px; right: -160px; background: radial-gradient(circle, var(--blob-2), transparent 70%); }
+.stage:has(.hero:not(.gone)) { overflow-x: clip; }
+
+.badge {
+  display: inline-block; margin: 0 0 18px;
+  padding: 6px 14px; font-size: 13.5px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-radius: 999px;
+}
+.hero h1 { font-size: clamp(44px, 8vw, 72px); font-weight: 600; }
+.hero-inner .composer { max-width: 680px; margin-top: 30px; text-align: left; }
+
+.feat {
+  margin: 34px auto 0;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
+}
+.fpill {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 16px 9px 10px; text-align: left;
+  background: var(--canvas);
+  border: 1px solid var(--hairline); border-radius: 999px;
+  transition: transform 0.18s var(--ease), border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.fpill:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline));
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--ink) 6%, transparent);
+}
+.fpill b { display: block; font-size: 14px; }
+.fpill small { display: block; font-size: 12px; color: var(--ink-2); }
+.fic { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; font-size: 16px; }
+.c1 { background: #dbeafe; } .c2 { background: #fef3c7; } .c3 { background: #ede9fe; }
+.c4 { background: #dcfce7; } .c5 { background: #cffafe; }
+body.dark .fic { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); }
+
+.cards-sec { margin-top: 56px; }
+.cards-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+.cards-head h2 { margin: 0; font-size: 18px; letter-spacing: -0.01em; }
+.more { font-size: 14px; color: var(--accent); }
+.more:hover { text-decoration: underline; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px; text-align: left;
+  background: var(--canvas);
+  border: 1px solid var(--hairline); border-radius: var(--r-md);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--ink) 5%, transparent);
+  transition: transform 0.18s var(--ease), border-color 0.2s var(--ease);
+}
+.card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline)); }
+.card-ic { flex: none; width: 64px; height: 64px; display: grid; place-items: center; font-size: 30px; background: var(--surface); border-radius: 12px; }
+.card-txt { flex: 1; min-width: 0; }
+.card-txt b { display: block; font-size: 14.5px; }
+.card-txt em { display: block; margin-top: 2px; font-size: 13px; color: var(--ink-2); }
+.card-go { flex: none; color: var(--accent); }
+
+.trust { margin-top: 56px; text-align: center; color: var(--ink-2); }
+.trust-title { margin: 0 0 10px; font-size: 15px; font-weight: 600; color: var(--ink); }
+.trust ul { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 28px; font-size: 14px; }
+
+.foot {
+  margin-top: 48px; padding: 22px 0 28px;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px;
+  border-top: 1px solid var(--hairline);
+}
+.foot-tag { font-size: 13.5px; color: var(--ink-2); }
+
+@media (max-width: 640px) {
+  .lnav-inner { padding: 0 16px; gap: 12px; }
+  .lnav-links { gap: 16px; }
+  .fpill { width: 100%; }
 }
 
 /* =========================================================
@@ -631,11 +677,8 @@ body.chatting .thread { padding-bottom: 190px; }
   background: color-mix(in srgb, var(--accent) 55%, var(--ink-2));
 }
 
-/* Keep the rotator honest for people who asked for less motion:
-   no phrase animation, and it simply shows whatever word is current. */
 @media (prefers-reduced-motion: reduce) {
-  .rotator.swap-out, .rotator.swap-in { animation: none; }
-  .send:not(:disabled):hover, .chip:hover { transform: none; }
+  .send:not(:disabled):hover, .fpill:hover, .card:hover { transform: none; }
 }
 
 /* =========================================================
@@ -851,20 +894,46 @@ body.chatting .thread { padding-bottom: 190px; }
    Mirrors the .mic button so the composer stays visually consistent.
 ========================================================= */
 
-.attach {
-  flex: none;
-  width: 34px; height: 34px;
-  margin-right: -2px;
-  display: grid; place-items: center;
-  border-radius: 50%;
-  color: var(--ink-2);
-  transition: color 0.2s var(--ease), background 0.2s var(--ease), transform 0.15s var(--ease);
-}
-.attach:hover { color: var(--ink); background: var(--surface); }
-.attach:active { transform: scale(0.92); }
-.attach svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .attach.attach-error { color: #d70015; }
 body.dark .attach.attach-error { color: #ff6961; }
+
+/* Tools row inside the composer: pills left, character counter right. */
+.tools {
+  flex: 0 0 100%;
+  display: flex; align-items: center; gap: 8px;
+  padding: 2px 4px 2px 0;
+}
+.tool {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  transition: color 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+.tool:hover { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline)); }
+.count { margin-left: auto; font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.count.over { color: #d70015; }
+body.dark .count.over { color: #ff6961; }
+
+.tip {
+  position: absolute; bottom: calc(100% + 8px); z-index: 5;
+  padding: 6px 10px;
+  font-size: 12.5px; white-space: nowrap;
+  color: var(--canvas); background: var(--ink);
+  border-radius: 8px;
+  animation: rise 0.2s var(--ease) both;
+}
+
+/* Recording: the composer itself pulses red, so it reads even off-screen. */
+.composer.listening { border-color: #d70015; animation: recPulse 1.4s var(--ease) infinite; }
+@keyframes recPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(215, 0, 21, 0.35); }
+  70%  { box-shadow: 0 0 0 8px rgba(215, 0, 21, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(215, 0, 21, 0); }
+}
 
 /* Staged image sits just above the composer until the question is sent. */
 .img-chip {

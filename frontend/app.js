@@ -27,6 +27,7 @@ const dockSlot = $('dockSlot');
 const composer = $('heroComposer');
 const input = $('input');
 const send = $('send');
+const count = $('count');
 
 let history = [];
 let pending = null;
@@ -105,7 +106,6 @@ function markdown(raw) {
 function startThread() {
   closeImageGenView();   // showing a thread always means the generator is done
   if (dock.hidden) {
-    stopRotator();                          // the welcome is over
     dockSlot.appendChild(composer);         // same node, new home
     dock.hidden = false;
     hero.classList.add('gone');
@@ -114,11 +114,10 @@ function startThread() {
 }
 
 function resetToHero() {
-  hero.querySelector('.hero-inner').insertBefore(composer, $('chips'));
+  $('heroFine').parentNode.insertBefore(composer, $('heroFine'));
   dock.hidden = true;
   hero.classList.remove('gone');
   document.body.classList.remove('chatting');
-  startRotator();                           // welcome again on a fresh chat
 }
 
 /* =========================================================
@@ -515,7 +514,10 @@ function lock(busy) {
 
 function grow() {
   input.style.height = 'auto';
-  input.style.height = input.scrollHeight + 'px';
+  input.style.height = input.scrollHeight + 'px';   // CSS caps it at 5 rows
+  const n = input.value.length;
+  count.textContent = n + '/' + MAX_CHARS;
+  count.classList.toggle('over', n > MAX_CHARS * 0.95);
 }
 
 input.addEventListener('input', () => {
@@ -532,22 +534,151 @@ input.addEventListener('keydown', (e) => {
 
 send.addEventListener('click', ask);
 
-document.querySelectorAll('.chip').forEach((chip) => {
-  chip.addEventListener('click', () => {
-    if (pending) return;
-    input.value = chip.textContent.trim();
-    grow();
-    send.disabled = false;
-    ask();
+/* =========================================================
+   Landing — feature pills and example cards prefill the composer.
+   They never send: the reader can edit first. The two image entries
+   open the generator instead, since the text model cannot draw.
+========================================================= */
+
+const CARDS = [
+  [
+    { i: '🌱', t: 'Explain a topic', p: 'Explain quantum computing in simple words.' },
+    { i: '✈️', t: 'Plan a trip', p: 'Plan a 5-day trip to Italy on a budget.' },
+    { i: '🍛', t: 'Healthy living', p: 'Give me healthy meal ideas for the week.' },
+    { i: '🐶', t: 'Create an image', p: 'A golden retriever in a park', image: true },
+  ],
+  [
+    { i: '💼', t: 'Career advice', p: 'How do I negotiate a higher salary?' },
+    { i: '📚', t: 'Study help', p: 'Summarise the French Revolution in 5 points.' },
+    { i: '🏠', t: 'Home tips', p: 'Best ways to reduce electricity bill at home.' },
+    { i: '🧘', t: 'Wellness', p: 'Give me a 10-minute morning routine.' },
+  ],
+];
+let cardSet = 0;
+
+function prefill(text) {
+  if (pending) return;
+  input.value = text.slice(0, MAX_CHARS);
+  grow();
+  send.disabled = !input.value.trim();
+  input.focus();
+}
+
+function renderCards() {
+  const row = $('cardRow');
+  row.textContent = '';
+  CARDS[cardSet].forEach((c) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'card';
+
+    const ic = document.createElement('span');
+    ic.className = 'card-ic';
+    ic.textContent = c.i;
+
+    const txt = document.createElement('span');
+    txt.className = 'card-txt';
+    const t = document.createElement('b');
+    t.textContent = c.t;
+    const p = document.createElement('em');
+    p.textContent = '“' + c.p + '”';
+    txt.appendChild(t);
+    txt.appendChild(p);
+
+    const go = document.createElement('span');
+    go.className = 'card-go';
+    go.textContent = '→';
+
+    b.appendChild(ic);
+    b.appendChild(txt);
+    b.appendChild(go);
+    b.addEventListener('click', () => {
+      if (c.image) { openImageGenView(c.p); return; }
+      prefill(c.p);
+      composer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    row.appendChild(b);
+  });
+}
+
+$('moreCards').addEventListener('click', () => {
+  cardSet = (cardSet + 1) % CARDS.length;
+  $('moreCards').textContent = cardSet ? '← Back' : 'View more →';
+  renderCards();
+});
+renderCards();
+
+document.querySelectorAll('.fpill').forEach((pill) => {
+  pill.addEventListener('click', () => {
+    if (pill.hasAttribute('data-image')) { openImageGenView(''); return; }
+    prefill(pill.getAttribute('data-fill'));
   });
 });
+
+$('imageTool').addEventListener('click', () => openImageGenView(''));
+
+/* Short-lived note beside a composer control. No alert() popups. */
+function flashTip(anchor, message) {
+  const old = composer.querySelector('.tip');
+  if (old) old.remove();
+  const tip = document.createElement('span');
+  tip.className = 'tip';
+  tip.setAttribute('role', 'status');
+  tip.textContent = message;
+  composer.appendChild(tip);
+  const box = composer.getBoundingClientRect();
+  const at = anchor.getBoundingClientRect();
+  tip.style.left = Math.max(8, Math.min(at.left - box.left, box.width - tip.offsetWidth - 8)) + 'px';
+  setTimeout(() => tip.remove(), 2000);
+}
 
 /* =========================================================
    Chrome
 ========================================================= */
 
+/* Titles of this tab's earlier chats. Display only, in memory: the server
+   is stateless and conversations are never persisted. */
+let sessions = [];
+
+function renderSessions() {
+  const list = $('sideList');
+  list.textContent = '';
+  sessions.forEach((entry) => {
+    const row = document.createElement('div');
+    row.className = 'side-item';
+
+    const title = document.createElement('span');
+    title.className = 'side-item-title';
+    title.textContent = entry.title;
+
+    const acts = document.createElement('span');
+    acts.className = 'side-item-acts';
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'side-mini';
+    del.setAttribute('aria-label', 'Remove from list');
+    del.textContent = '🗑';
+    del.addEventListener('click', () => {
+      sessions = sessions.filter((x) => x.id !== entry.id);
+      renderSessions();
+    });
+
+    acts.appendChild(del);
+    row.appendChild(title);
+    row.appendChild(acts);
+    list.appendChild(row);
+  });
+}
+
 function newChat() {
   if (pending) pending.abort();
+  if (history.length) {
+    const first = history[0].content.replace(/\s+/g, ' ').trim();
+    const title = first.length > 40 ? first.slice(0, 39) + '…' : first;
+    sessions.unshift({ id: Date.now() + Math.random(), title: title });
+    sessions = sessions.slice(0, 50);
+    renderSessions();
+  }
   history = [];
   thread.innerHTML = '';
   clearImage();
@@ -573,7 +704,7 @@ function toggleTheme() {
   localStorage.setItem('conbot-theme', dark ? 'light' : 'dark');
 }
 
-$('themeToggle').addEventListener('click', toggleTheme);
+document.querySelectorAll('.theme-toggle').forEach((b) => b.addEventListener('click', toggleTheme));
 
 /* Let the reader scroll up mid-answer without being yanked back down. */
 window.addEventListener('scroll', () => {
@@ -582,73 +713,6 @@ window.addEventListener('scroll', () => {
   stuckToBottom = room < 120;
 }, { passive: true });
 
-/* =========================================================
-   B — Living headline
-   "Ask __." where the trailing phrase rotates, teaching range across
-   the audience (general -> practical -> everyday -> the differentiator).
-   It is a welcome: it stops the moment a conversation starts, pauses
-   when the tab is hidden, and honours reduced-motion.
-========================================================= */
-
-const PHRASES = ['anything.', 'about tax.', 'for a home remedy.', 'in your language.'];
-const PHRASE_HOLD_MS = 2600;
-
-const rotator = $('rotator');
-const reduceMotion = window.matchMedia &&
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-let phraseIndex = 0;
-let rotatorTimer = null;
-let rotatorLive = false;
-
-function showNextPhrase() {
-  phraseIndex = (phraseIndex + 1) % PHRASES.length;
-  const next = PHRASES[phraseIndex];
-
-  if (reduceMotion) {
-    rotator.textContent = next;
-    return;
-  }
-
-  rotator.classList.remove('swap-in');
-  rotator.classList.add('swap-out');
-
-  const onOut = () => {
-    rotator.removeEventListener('animationend', onOut);
-    rotator.textContent = next;
-    rotator.classList.remove('swap-out');
-    rotator.classList.add('swap-in');
-  };
-  rotator.addEventListener('animationend', onOut);
-}
-
-function scheduleRotator() {
-  clearTimeout(rotatorTimer);
-  rotatorTimer = setTimeout(() => {
-    if (rotatorLive && !document.hidden) showNextPhrase();
-    scheduleRotator();
-  }, PHRASE_HOLD_MS);
-}
-
-function startRotator() {
-  if (!rotator || rotatorLive) return;
-  rotatorLive = true;
-  phraseIndex = 0;
-  rotator.textContent = PHRASES[0];
-  if (!reduceMotion) scheduleRotator();
-}
-
-function stopRotator() {
-  rotatorLive = false;
-  clearTimeout(rotatorTimer);
-}
-
-// Typing is intent — the welcome bows out on the first real keystroke.
-// (Not on focus: the page autofocuses the input on load, which would
-// otherwise kill the rotation before it ever started.)
-input.addEventListener('input', stopRotator, { once: true });
-
-startRotator();
 input.focus();
 
 /* =========================================================
@@ -658,7 +722,7 @@ input.focus();
    the browser's own recognition.
 
    Handled carefully:
-   - Only shown when recognition actually exists (no dead button).
+   - Without recognition the button explains itself instead of failing silently.
    - Interim results preview live; the final result is committed.
    - Language follows the user's locale so Hindi/Hinglish transcribe.
    - Permission denial, no-speech, and errors each recover cleanly.
@@ -670,9 +734,10 @@ input.focus();
   if (!mic) return;
 
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) return;                       // unsupported: leave the mic hidden
-
-  mic.hidden = false;                    // supported: reveal it
+  if (!SR) {                             // unsupported: say so, do nothing else
+    mic.addEventListener('click', () => flashTip(mic, 'Voice not supported in this browser'));
+    return;
+  }
 
   const recog = new SR();
   recog.continuous = false;
@@ -704,7 +769,7 @@ input.focus();
     listening = true;
     mic.classList.add('listening');
     mic.setAttribute('aria-label', 'Stop listening');
-    stopRotator();                       // treat speaking as intent, like typing
+    composer.classList.add('listening');
   };
 
   recog.onresult = (event) => {
@@ -731,6 +796,7 @@ input.focus();
   recog.onend = () => {
     listening = false;
     mic.classList.remove('listening');
+    composer.classList.remove('listening');
     mic.setAttribute('aria-label', 'Speak your question');
     input.focus();
   };
@@ -830,17 +896,11 @@ function clearImage() {
   if (!pending) send.disabled = !input.value.trim();
 }
 
-/* Brief inline warning on the attach button, no alert() popups. */
+/* Brief inline warning beside the attach button, no alert() popups. */
 function flashAttach(message) {
   const attach = $('attach');
   if (!attach) return;
-  const prev = attach.getAttribute('aria-label');
-  attach.classList.add('attach-error');
-  attach.setAttribute('aria-label', message);
-  setTimeout(() => {
-    attach.classList.remove('attach-error');
-    attach.setAttribute('aria-label', prev || 'Attach an image');
-  }, 2600);
+  flashTip(attach, message);
 }
 
 
@@ -907,8 +967,9 @@ const imggenHistoryRow = $('imggenHistoryRow');
 
 let imggenSessionHistory = [];   // [{url, prompt, model}], most recent first
 
-function openImageGenView() {
+function openImageGenView(text) {
   closeSidebar();
+  if (text) imgPrompt.value = text;
   imggenView.hidden = false;             // belt-and-suspenders alongside the
   document.body.classList.add('imggen-active'); // class: same proven pattern
   setTimeout(() => imgPrompt.focus(), 0);        // as #dock's own .hidden toggle
@@ -994,7 +1055,7 @@ async function runImageGeneration() {
   }
 }
 
-$('sideImageGen').addEventListener('click', openImageGenView);
+$('sideImageGen').addEventListener('click', () => openImageGenView(''));
 imggenBack.addEventListener('click', closeImageGenView);
 imgGenerate.addEventListener('click', runImageGeneration);
 imggenRegenerate.addEventListener('click', runImageGeneration);
