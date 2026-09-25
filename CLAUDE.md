@@ -47,8 +47,10 @@ is run manually.
   `followups`, `truncated`, `error`, `done`). `/ask` is the non-streaming
   equivalent and returns `{answer, followups, clarify}`. No web sources.
 - **Text chat walks a multi-provider fallback chain, not a single model.**
-  `GEMINI_MODEL_MAP[mode]` (Google, direct) is always tried first; on a 429,
-  5xx, timeout, or empty answer it falls through `TEXT_FALLBACK_CHAIN`
+  `GEMINI_MODEL_MAP[mode]` resolves to `PRIMARY_MODEL` (`provider:model_id`,
+  currently OpenRouter's Qwen free tier by default — not Gemini) and is
+  always tried first; on a 429, 5xx, timeout, or empty answer it falls
+  through `TEXT_FALLBACK_CHAIN`
   (`app/config.py`), an ordered `provider:model_id` list mixing more Google
   models and OpenRouter models — `app/services/fallback.py` is the only
   place that loops across them. `GEMINI_API_KEY` and `OPENROUTER_API_KEY`
