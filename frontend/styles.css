@@ -530,6 +530,13 @@ body.chatting .thread { padding-bottom: 190px; }
 
   .dock { padding-top: 10px; }
   body.chatting .thread { padding-bottom: 170px; }
+
+  /* The composer is pinned into #dock before the first message too (see
+     syncComposerDock() in app.js) — leave room so the heading/chips
+     never sit behind it, and drop the hero's own fineprint since #dock
+     already prints its own copy right under the pinned composer. */
+  .hero { padding-bottom: 140px; }
+  .hero-fineprint { display: none; }
 }
 
 /* A cut-off answer is a fact about the answer, not an error. */
@@ -1393,4 +1400,24 @@ body.imggen-active .imggen {
   }
   #imgModel { width: 100%; }
   .imggen-generate { width: 100%; }
+}
+
+/* =========================================================
+   Mobile — 44px touch targets on the primary controls. Desktop keeps
+   its smaller mouse-driven sizes; this is scoped to touch widths only.
+
+   Not bumped here, flagged rather than silently changed or skipped:
+   the dense secondary rows — .acts (Copy/Regenerate), .next-q
+   (follow-ups), .option (clarify choices), the sidebar's hover-reveal
+   delete ×, and the image generator's Regenerate/Download buttons.
+   A blind 44px minimum on those would visibly break their current
+   compact, text-link layout, so this needs its own pass if you want it.
+========================================================= */
+
+@media (max-width: 640px) {
+  .ghost, .mic, .send, .plus, .imgmic, .imggen-back {
+    width: 44px; height: 44px;
+  }
+  .chip, .createimg { height: 44px; }
+  .side-new, .side-imagegen, .cam-choose { min-height: 44px; }
 }

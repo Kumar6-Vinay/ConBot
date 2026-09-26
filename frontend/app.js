@@ -106,7 +106,9 @@ function markdown(raw) {
 
 function startThread() {
   closeImageGenView();   // showing a thread always means the generator is done
-  if (dock.hidden) {
+  // Not dock.hidden: on mobile the composer is already docked (pinned)
+  // before the first message too — "chatting" is the real signal here.
+  if (!document.body.classList.contains('chatting')) {
     dockSlot.appendChild(composer);         // same node, new home
     dock.hidden = false;
     hero.classList.add('gone');
@@ -123,7 +125,28 @@ function resetToHero() {
   document.body.classList.remove('chatting');
   defaultPlaceholder = 'Type your question here…';
   if (!createImageMode) input.placeholder = defaultPlaceholder;
+  syncComposerDock();   // re-pin it if we're back on a phone-width home screen
 }
+
+/* On phones, the composer stays pinned to the bottom of the screen even
+   before the first message — reusing #dock (already built for the
+   chatting state) rather than a second fixed-positioning treatment.
+   The heading/chips above it are untouched; only the composer moves. */
+const mobilePin = window.matchMedia('(max-width: 640px)');
+
+function syncComposerDock() {
+  if (document.body.classList.contains('chatting')) return;
+  if (mobilePin.matches) {
+    dockSlot.appendChild(composer);
+    dock.hidden = false;
+  } else {
+    $('heroFine').parentNode.insertBefore(composer, $('heroFine'));
+    dock.hidden = true;
+  }
+}
+
+mobilePin.addEventListener('change', syncComposerDock);
+syncComposerDock();
 
 /* =========================================================
    Rendering
