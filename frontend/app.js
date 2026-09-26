@@ -33,6 +33,7 @@ let history = [];
 let pending = null;
 let stuckToBottom = true;
 let attachedImage = null;   // base64 data URL for the NEXT question only
+let defaultPlaceholder = 'Type your question here…';   // home vs. docked composer
 
 /* =========================================================
    Markdown — escape first, then format. Never raw innerHTML.
@@ -111,6 +112,8 @@ function startThread() {
     hero.classList.add('gone');
     document.body.classList.add('chatting');
   }
+  defaultPlaceholder = 'Ask a follow-up…';
+  if (!createImageMode) input.placeholder = defaultPlaceholder;
 }
 
 function resetToHero() {
@@ -118,6 +121,8 @@ function resetToHero() {
   dock.hidden = true;
   hero.classList.remove('gone');
   document.body.classList.remove('chatting');
+  defaultPlaceholder = 'Type your question here…';
+  if (!createImageMode) input.placeholder = defaultPlaceholder;
 }
 
 /* =========================================================
@@ -186,8 +191,12 @@ function renderSources(turn, sources) {
 }
 
 /* Share beats copy on a phone: the next thing people do with a useful
-   answer is forward it. Falls back to the clipboard on desktop. */
-function addActions(turn, getText) {
+   answer is forward it. Falls back to the clipboard on desktop.
+   Regenerate re-asks the same question as a new turn at the end of the
+   thread — this app replays a flat history rather than branching it, so
+   it doesn't edit the old answer in place. Thumbs up/down aren't here:
+   there's no endpoint to send feedback to. */
+function addActions(turn, getText, question) {
   const acts = document.createElement('div');
   acts.className = 'acts';
 
@@ -209,8 +218,17 @@ function addActions(turn, getText) {
       share.textContent = 'Select and copy';
     }
   };
-
   acts.appendChild(share);
+
+  if (question) {
+    const regen = document.createElement('button');
+    regen.className = 'act';
+    regen.type = 'button';
+    regen.textContent = 'Regenerate';
+    regen.onclick = () => { if (!pending) sendWith(question); };
+    acts.appendChild(regen);
+  }
+
   turn.appendChild(acts);
 }
 
@@ -251,6 +269,12 @@ function renderFollowups(turn, questions) {
 
   const wrap = document.createElement('div');
   wrap.className = 'next';
+
+  const label = document.createElement('p');
+  label.className = 'next-label';
+  label.textContent = 'Related';
+  wrap.appendChild(label);
+
   questions.forEach((q) => {
     const b = document.createElement('button');
     b.className = 'next-q';
@@ -393,7 +417,11 @@ async function ask() {
 
   const paint = () => {
     frame = null;
-    body.innerHTML = markdown(answer);
+    let html = markdown(answer);
+    // Bold the first paragraph as a one-line takeaway — only when the
+    // answer actually opens with one (not a heading, list or code block).
+    if (html.startsWith('<p>')) html = '<p class="takeaway">' + html.slice(3);
+    body.innerHTML = html;
     toBottom();
   };
 
@@ -479,7 +507,7 @@ async function ask() {
       history.push({ role: 'assistant', content: answer });
 
       if (turn.dataset.sources) renderSources(turn, JSON.parse(turn.dataset.sources));
-      addActions(turn, () => answer);
+      addActions(turn, () => answer, text);
       if (turn.dataset.truncated) addContinue(turn);
       if (turn.dataset.followups) renderFollowups(turn, JSON.parse(turn.dataset.followups));
     }
@@ -819,7 +847,7 @@ const createImgToggle = $('createImgToggle');
 function setCreateImageMode(on) {
   createImageMode = on;
   createImgToggle.setAttribute('aria-pressed', String(on));
-  input.placeholder = on ? 'Describe the image you want to create…' : 'Type your question here…';
+  input.placeholder = on ? 'Describe the image you want to create…' : defaultPlaceholder;
   if (plusBtn) plusBtn.disabled = on;
   if (on) clearImage();
   send.disabled = !input.value.trim();

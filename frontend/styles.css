@@ -254,10 +254,10 @@ body.dark .ic-moon { display: block; }
 }
 
 .turn.you .text {
-  font-size: 20px;
+  font-size: 30px;
   font-weight: 600;
   letter-spacing: -0.015em;
-  line-height: 1.35;
+  line-height: 1.25;
   color: var(--ink);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -265,8 +265,21 @@ body.dark .ic-moon { display: block; }
 
 .turn.bot { margin: 14px 0 0; }
 
+.turn.bot .text {
+  font-size: 16px;
+  line-height: 1.65;
+}
+
 .turn.bot .text > *:first-child { margin-top: 0; }
 .turn.bot .text > *:last-child { margin-bottom: 0; }
+
+/* First paragraph of an answer, when there is one — a one-line takeaway
+   ahead of the rest of the prose. */
+.turn.bot .text p.takeaway {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.5;
+}
 
 .text p { margin: 0 0 14px; }
 .text h2, .text h3 {
@@ -444,7 +457,7 @@ body.dark .ic-moon { display: block; }
   body { font-size: 16px; }
   .stage, .bar-inner { padding-left: 16px; padding-right: 16px; }
   .dock { padding-left: 16px; padding-right: 16px; }
-  .turn.you .text { font-size: 18px; }
+  .turn.you .text { font-size: 24px; }
   .fineprint { font-size: 11px; }
 }
 
@@ -561,6 +574,14 @@ body.chatting .thread { padding-bottom: 190px; }
 .next {
   margin-top: 18px;
   border-top: 1px solid var(--hairline);
+}
+
+.next-label {
+  margin: 14px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-3);
+  letter-spacing: 0.01em;
 }
 
 .next-q {
