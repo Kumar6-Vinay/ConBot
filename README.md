@@ -195,7 +195,7 @@ POLLINATIONS_MODEL=lykon/dreamshaper-8-lcm
 # Conversation and output size
 MAX_HISTORY_TURNS=8          # messages replayed to the model
 MAX_HISTORY_CHARS=3000       # each replayed message is trimmed to this
-MAX_OUTPUT_TOKENS=1200
+MAX_OUTPUT_TOKENS=2000
 MAX_IMAGE_MB=4                # ceiling for an image attached to a chat message
 
 # Rate limits
@@ -213,12 +213,12 @@ ALLOWED_ORIGINS=
 
 FALLBACK_TIMEZONE=Asia/Kolkata
 
-# Text fallback chain — tried in order, after GEMINI_TEXT_MODEL, whenever a
+# Text fallback chain — tried in order, after PRIMARY_MODEL, whenever a
 # link 429s (quota), 5xx's, times out, or returns an empty answer. A 400/401/
 # 403/404 or a content-policy block fails immediately instead — a different
 # model won't fix a bad request or a bad key. "google:" calls Gemini
 # directly; "openrouter:" calls OpenRouter (needs OPENROUTER_API_KEY).
-TEXT_FALLBACK_CHAIN=google:gemini-3.5-flash,google:gemini-3.8-flash,google:gemini-3.1-flash-lite,openrouter:nex-agi/nex-n2.5-mini:free,openrouter:dots-studio/dots-3-note-preview:free,openrouter:nvidia/nemotron-3-super-120b-a12b:free
+TEXT_FALLBACK_CHAIN=google:gemini-3.5-flash,google:gemini-3.8-flash,google:gemini-3.1-flash-lite,openrouter:nex-agi/nex-n2.5-mini:free,openrouter:dots-studio/dots-3-note-preview:free,openrouter:nvidia/nemotron-3-ultra-550b-a55b:free
 FALLBACK_ATTEMPT_TIMEOUT=10   # seconds per attempt
 FALLBACK_TOTAL_BUDGET=45      # seconds, whole chain, worst case
 BREAKER_FAILURE_THRESHOLD=3   # consecutive failures before a link goes cold
