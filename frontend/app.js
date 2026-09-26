@@ -551,8 +551,6 @@ document.querySelectorAll('.chip').forEach((chip) => {
   chip.addEventListener('click', () => prefill(chip.getAttribute('data-fill')));
 });
 
-$('imageTool').addEventListener('click', () => openImageGenView(''));
-
 /* Short-lived note beside a composer control. No alert() popups. */
 function flashTip(anchor, message) {
   const old = composer.querySelector('.tip');
@@ -749,25 +747,63 @@ input.focus();
 })();
 
 /* =========================================================
+   "+" menu — Upload photo, Take photo, Generate image
+   Desktop: 280px popover under the button. Mobile (<768px): bottom
+   sheet with a scrim. Closes on outside click or Escape.
+========================================================= */
+
+const plusBtn = $('plusBtn');
+const plusMenu = $('plusMenu');
+const sheetScrim = $('sheetScrim');
+const isMobileMenu = () => window.matchMedia('(max-width: 767px)').matches;
+
+function openPlusMenu() {
+  plusMenu.hidden = false;
+  plusBtn.setAttribute('aria-expanded', 'true');
+  if (isMobileMenu()) sheetScrim.hidden = false;
+}
+
+function closePlusMenu() {
+  plusMenu.hidden = true;
+  plusBtn.setAttribute('aria-expanded', 'false');
+  sheetScrim.hidden = true;
+}
+
+if (plusBtn) {
+  plusBtn.addEventListener('click', () => (plusMenu.hidden ? openPlusMenu() : closePlusMenu()));
+  sheetScrim.addEventListener('click', closePlusMenu);
+
+  document.addEventListener('click', (e) => {
+    if (plusMenu.hidden) return;
+    if (plusBtn.contains(e.target) || plusMenu.contains(e.target)) return;
+    closePlusMenu();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !plusMenu.hidden) closePlusMenu();
+  });
+
+  $('genImageBtn').addEventListener('click', () => { closePlusMenu(); openImageGenView(''); });
+}
+
+/* =========================================================
    Image attach — read a file to a data URL for the next question
 
    The image is held in memory only, sent with one question, then cleared.
    It is never stored in history and never replayed. Size and type are
-   checked here so the server rejects far fewer requests.
+   checked here so the server rejects far fewer requests. The backend
+   accepts one image per question — the file inputs below stay
+   single-select even though a "multiple" file picker would be easy to
+   wire up, since a second file would just be silently dropped.
 ========================================================= */
 
 (function setupAttach() {
-  const attach = $('attach');
+  const uploadPhotoBtn = $('uploadPhotoBtn');
   const file = $('file');
-  if (!attach || !file) return;
+  if (!uploadPhotoBtn || !file) return;
 
-  attach.addEventListener('click', () => { if (!pending) file.click(); });
-
-  file.addEventListener('change', () => {
-    const chosen = file.files && file.files[0];
-    file.value = '';                       // allow re-picking the same file
+  function acceptFile(chosen) {
     if (!chosen) return;
-
     if (!/^image\/(png|jpeg|webp|gif)$/.test(chosen.type)) {
       flashAttach('Please choose a PNG, JPEG, WebP or GIF.');
       return;
@@ -781,14 +817,110 @@ input.focus();
     reader.onload = () => { attachedImage = reader.result; showImageChip(chosen.name); };
     reader.onerror = () => flashAttach('That image could not be read.');
     reader.readAsDataURL(chosen);
+  }
+
+  uploadPhotoBtn.addEventListener('click', () => { closePlusMenu(); if (!pending) file.click(); });
+
+  file.addEventListener('change', () => {
+    const chosen = file.files && file.files[0];
+    file.value = '';                       // allow re-picking the same file
+    acceptFile(chosen);
   });
 
-  attach.addEventListener('keydown', (e) => {
-    // Backspace/Delete on the attach button clears a staged image.
-    if ((e.key === 'Backspace' || e.key === 'Delete') && attachedImage) {
-      e.preventDefault();
-      clearImage();
+  const cameraFile = $('cameraFile');
+  if (cameraFile) {
+    cameraFile.addEventListener('change', () => {
+      const chosen = cameraFile.files && cameraFile.files[0];
+      cameraFile.value = '';
+      acceptFile(chosen);
+    });
+  }
+})();
+
+/* =========================================================
+   Take photo — desktop opens a live camera modal (getUserMedia) with a
+   capture button; mobile defers to the OS camera via a capture file
+   input, since a custom video modal fights the native camera app there.
+   The stream is always stopped when the modal closes, however it closes.
+========================================================= */
+
+(function setupCamera() {
+  const takePhotoBtn = $('takePhotoBtn');
+  const cameraFile = $('cameraFile');
+  const file = $('file');
+  const modal = $('camModal');
+  const video = $('camVideo');
+  const closeBtn = $('camClose');
+  const chooseInstead = $('camChoose');
+  const captureBtn = $('camCapture');
+  const errorEl = $('camError');
+  const canvas = $('camCanvas');
+  if (!takePhotoBtn || !modal) return;
+
+  let stream = null;
+
+  function stopStream() {
+    if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
+    video.srcObject = null;
+  }
+
+  function closeModal() {
+    stopStream();
+    modal.hidden = true;
+  }
+
+  async function openModal() {
+    errorEl.hidden = true;
+    video.hidden = false;
+    captureBtn.hidden = false;
+    modal.hidden = false;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      video.srcObject = stream;
+    } catch (e) {
+      video.hidden = true;
+      captureBtn.hidden = true;
+      errorEl.hidden = false;
+      errorEl.textContent = "Camera isn't available. Allow camera access in your browser, or choose a photo instead.";
     }
+  }
+
+  takePhotoBtn.addEventListener('click', () => {
+    closePlusMenu();
+    if (isMobileMenu() || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      if (!pending) cameraFile.click();      // OS camera app, not our modal
+      return;
+    }
+    openModal();
+  });
+
+  closeBtn.addEventListener('click', closeModal);
+  chooseInstead.addEventListener('click', () => { closeModal(); if (!pending) file.click(); });
+
+  captureBtn.addEventListener('click', () => {
+    if (!stream) return;
+    const track = stream.getVideoTracks()[0];
+    const settings = track.getSettings ? track.getSettings() : {};
+    const w = settings.width || video.videoWidth || 1280;
+    const h = settings.height || video.videoHeight || 720;
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d').drawImage(video, 0, 0, w, h);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      if (blob.size > MAX_IMAGE_BYTES) {
+        errorEl.hidden = false;
+        errorEl.textContent = 'That photo is too large. Please try again or choose a photo instead.';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => { attachedImage = reader.result; showImageChip('Camera photo'); closeModal(); };
+      reader.readAsDataURL(blob);
+    }, 'image/jpeg', 0.9);
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.hidden) closeModal();
   });
 })();
 
@@ -804,13 +936,8 @@ function showImageChip(name) {
 
   const thumb = document.createElement('img');
   thumb.src = attachedImage;
-  thumb.alt = '';
+  thumb.alt = name || 'Attached image';
   chip.appendChild(thumb);
-
-  const label = document.createElement('span');
-  label.className = 'img-chip-name';
-  label.textContent = name || 'image';
-  chip.appendChild(label);
 
   const x = document.createElement('button');
   x.type = 'button';
@@ -835,11 +962,13 @@ function clearImage() {
   if (!pending) send.disabled = !input.value.trim();
 }
 
-/* Brief inline warning beside the attach button, no alert() popups. */
+/* Brief inline warning beside the "+" button, no alert() popups. Anchored
+   there rather than the menu item since the menu is already closed by
+   the time a picked file comes back invalid. */
 function flashAttach(message) {
-  const attach = $('attach');
-  if (!attach) return;
-  flashTip(attach, message);
+  const anchor = $('plusBtn');
+  if (!anchor) return;
+  flashTip(anchor, message);
 }
 
 

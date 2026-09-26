@@ -819,33 +819,186 @@ body.chatting .thread { padding-bottom: 190px; }
 }
 
 /* =========================================================
-   Image attach — button, staged-image chip, in-thread thumbnail
-   Mirrors the .mic button so the composer stays visually consistent.
+   "+" button, popover menu (desktop) / bottom sheet (mobile)
 ========================================================= */
 
-.attach.attach-error { color: #d70015; }
-body.dark .attach.attach-error { color: #ff6961; }
-
-/* Tools row inside the composer: pills left, character counter right. */
+/* Tools row inside the composer: "+" left, character counter right. */
 .tools {
   flex: 0 0 100%;
   display: flex; align-items: center; gap: 8px;
   padding: 2px 4px 2px 0;
 }
-.tool {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 12px;
-  font-size: 13.5px;
+
+.plus-wrap { position: relative; }
+
+.plus {
+  flex: none;
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  border-radius: 50%;
   color: var(--ink-2);
   background: var(--surface);
   border: 1px solid var(--hairline);
-  border-radius: 999px;
-  transition: color 0.2s var(--ease), border-color 0.2s var(--ease);
+  transition: color 0.2s var(--ease), border-color 0.2s var(--ease), transform 0.15s var(--ease);
 }
-.tool:hover { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline)); }
+.plus:hover { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline)); }
+.plus:active { transform: scale(0.92); }
+.plus[aria-expanded="true"] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--hairline)); }
+
 .count { margin-left: auto; font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .count.over { color: #d70015; }
 body.dark .count.over { color: #ff6961; }
+
+/* Desktop: a plain popover under the button. */
+.sheet-handle, .sheet-title, .sheet-cancel { display: none; }
+
+.plus-menu {
+  position: absolute;
+  bottom: calc(100% + 8px); left: 0;
+  z-index: 10;
+  width: 280px;
+  padding: 6px;
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  box-shadow: var(--composer-shadow);
+  animation: rise 0.15s var(--ease) both;
+}
+
+.plus-item {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%;
+  padding: 10px 10px;
+  text-align: left;
+  border-radius: 8px;
+  color: var(--ink);
+  transition: background 0.15s var(--ease);
+}
+.plus-item:hover { background: var(--surface); }
+.plus-item svg { flex: none; color: var(--ink-2); }
+.plus-item b { display: block; font-size: 14px; font-weight: 500; }
+.plus-item small { display: block; margin-top: 1px; font-size: 12px; color: var(--ink-3); }
+
+.sheet-scrim {
+  position: fixed; inset: 0; z-index: 45;
+  background: rgba(0, 0, 0, 0.4);
+}
+.sheet-scrim[hidden] { display: none; }
+
+/* Mobile: the same menu becomes a bottom sheet over a scrim. */
+@media (max-width: 767px) {
+  .plus-menu {
+    position: fixed; inset: auto 0 0 0; left: 0; right: 0; bottom: 0;
+    z-index: 46;
+    width: auto;
+    padding: 10px 14px calc(14px + env(safe-area-inset-bottom));
+    border: 0; border-top: 1px solid var(--hairline);
+    border-radius: 20px 20px 0 0;
+    animation: sheetUp 0.22s var(--ease) both;
+  }
+  .sheet-handle {
+    display: block;
+    width: 36px; height: 4px;
+    margin: 2px auto 10px;
+    border-radius: 999px;
+    background: var(--hairline);
+  }
+  .sheet-title {
+    display: block;
+    margin: 0 4px 8px;
+    font-size: 13px; font-weight: 600;
+    color: var(--ink-3);
+  }
+  .plus-item { padding: 12px 10px; }
+  .sheet-cancel {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 12px;
+    text-align: center;
+    font-size: 15px; font-weight: 600;
+    color: var(--ink);
+    background: var(--surface);
+    border-radius: var(--r-md);
+  }
+  /* Take photo first on mobile, per spec; desktop keeps source order. */
+  #takePhotoBtn { order: 1; }
+  #uploadPhotoBtn { order: 2; }
+  #genImageBtn { order: 3; }
+  .sheet-cancel { order: 4; }
+  .plus-menu { display: flex; flex-direction: column; }
+}
+
+@keyframes sheetUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* =========================================================
+   Desktop "Take photo" — live camera modal (getUserMedia)
+========================================================= */
+
+.cam-modal {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.6);
+}
+.cam-modal[hidden] { display: none; }
+
+.cam-inner {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  padding: 16px;
+  background: var(--canvas);
+  border-radius: var(--r-lg);
+  box-shadow: var(--composer-shadow);
+}
+
+.cam-close {
+  position: absolute;
+  top: 10px; right: 10px;
+  background: color-mix(in srgb, var(--canvas) 70%, transparent);
+}
+
+.cam-video {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--r-md);
+  background: #000;
+  object-fit: cover;
+}
+
+.cam-error {
+  margin: 14px 4px 0;
+  font-size: 14px;
+  color: var(--ink-2);
+  text-align: center;
+}
+
+.cam-controls {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 14px;
+}
+
+.cam-choose {
+  font-size: 13.5px;
+  color: var(--accent);
+}
+.cam-choose:hover { text-decoration: underline; }
+
+.cam-spacer { width: 80px; }
+
+.cam-capture {
+  width: 60px; height: 60px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--canvas);
+  border: 3px solid var(--ink);
+  transition: transform 0.15s var(--ease);
+}
+.cam-capture:active { transform: scale(0.92); }
 
 .tip {
   position: absolute; bottom: calc(100% + 8px); z-index: 5;
@@ -866,39 +1019,31 @@ body.dark .count.over { color: #ff6961; }
 
 /* Staged image sits just above the composer until the question is sent. */
 .img-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  max-width: 100%;
+  position: relative;
+  display: inline-block;
   margin: 0 auto 8px;
-  padding: 6px 8px 6px 6px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-md);
-  background: var(--surface);
-}
-.img-chip img {
-  width: 40px; height: 40px;
-  object-fit: cover;
-  border-radius: 10px;
   flex: none;
 }
-.img-chip-name {
-  font-size: 13px;
-  color: var(--ink-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 220px;
+.img-chip img {
+  display: block;
+  width: 64px; height: 64px;
+  object-fit: cover;
+  border-radius: var(--r-md);
+  border: 1px solid var(--hairline);
 }
 .img-chip-x {
+  position: absolute;
+  top: -6px; right: -6px;
   flex: none;
   width: 22px; height: 22px;
   display: grid; place-items: center;
   border-radius: 50%;
-  font-size: 16px; line-height: 1;
-  color: var(--ink-2);
+  font-size: 15px; line-height: 1;
+  color: #ffffff;
+  background: #000000;
+  border: 2px solid var(--canvas);
 }
-.img-chip-x:hover { color: var(--ink); background: var(--canvas); }
+.img-chip-x:hover { background: #27272a; }
 
 /* An attached image shown in the user's own turn. */
 .turn.you .you-image {

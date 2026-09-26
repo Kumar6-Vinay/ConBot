@@ -109,9 +109,30 @@
           </svg>
         </button>
         <div class="tools">
-          <button class="tool attach" id="attach" type="button">📎 Attach</button>
+          <div class="plus-wrap">
+            <button class="plus" id="plusBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Add to your question">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <div class="plus-menu" id="plusMenu" role="menu" aria-label="Add to your question" hidden>
+              <div class="sheet-handle" aria-hidden="true"></div>
+              <p class="sheet-title">Add to your question</p>
+              <button class="plus-item" id="takePhotoBtn" type="button" role="menuitem">
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2l1.5-2h5L16 4h2a2 2 0 0 1 2 2v2"/><rect x="2" y="8" width="20" height="13" rx="2"/><circle cx="12" cy="14.5" r="3.5"/></svg>
+                <span><b>Take photo</b><small>Use your camera</small></span>
+              </button>
+              <button class="plus-item" id="uploadPhotoBtn" type="button" role="menuitem">
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15l-5-5-9 9"/></svg>
+                <span><b>Upload photo</b><small>PNG, JPEG, WebP or GIF</small></span>
+              </button>
+              <button class="plus-item" id="genImageBtn" type="button" role="menuitem">
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.2" cy="8.2" r="1.4"/><path d="M4 16l4.5-6 3.5 4.5 2.5-3L20 16"/></svg>
+                <span><b>Generate image</b><small>Create a picture from words</small></span>
+              </button>
+              <button class="sheet-cancel" id="sheetCancel" type="button">Cancel</button>
+            </div>
+          </div>
           <input id="file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
-          <button class="tool" id="imageTool" type="button">🖼 Image</button>
+          <input id="cameraFile" type="file" accept="image/*" capture="environment" hidden>
           <span class="count" id="count" aria-live="off">0/3000</span>
         </div>
       </div>
@@ -201,6 +222,25 @@
   <p class="fineprint">ConBOT can make mistakes. Check anything important.</p>
 </div>
 
+<!-- Backdrop behind the "+" menu on mobile, where it's a bottom sheet -->
+<div class="sheet-scrim" id="sheetScrim" hidden></div>
+
+<!-- Desktop "Take photo": live camera via getUserMedia -->
+<div class="cam-modal" id="camModal" role="dialog" aria-modal="true" aria-label="Take a photo" hidden>
+  <div class="cam-inner">
+    <button class="ghost cam-close" id="camClose" type="button" aria-label="Close camera">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <video class="cam-video" id="camVideo" autoplay playsinline muted></video>
+    <p class="cam-error" id="camError" hidden></p>
+    <div class="cam-controls">
+      <button class="cam-choose" id="camChoose" type="button">Choose a photo instead</button>
+      <button class="cam-capture" id="camCapture" type="button" aria-label="Capture photo"></button>
+      <span class="cam-spacer" aria-hidden="true"></span>
+    </div>
+  </div>
+</div>
+<canvas id="camCanvas" hidden></canvas>
 
 <script src="app.js"></script>
 </body>
