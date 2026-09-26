@@ -7,8 +7,8 @@ from app.services.image_generation import get_available_models, AVAILABLE_MODELS
 def test_get_available_models():
     """Test that models are available."""
     models = get_available_models()
-    assert "dreamshaper-8" in models
-    assert "flux-1-schnell" in models
+    assert "lykon/dreamshaper-8-lcm" in models
+    assert "black-forest-labs/flux.1-schnell" in models
     assert all("cost" in m for m in models.values())
 
 

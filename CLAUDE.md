@@ -16,9 +16,9 @@ Goal: a production chat product, not a demo.
 | `app/core/` | `rate_limit.py`, `circuit_breaker.py` (marks a cold `provider:model` pair so the chain skips it), `middleware.py` (`MaxBodySizeMiddleware`, `SecurityHeadersMiddleware`), `errors.py` (`no_llm_error`, `ContentBlocked`), `security.py` (`validate_image`, `clip`). |
 | `app/models/` | Pydantic request/response schemas: `ask.py` (`Turn`, `ChatRequest`), `image.py`. |
 | `tests/` | `test_main.py` (chat/stream), `test_image_generation.py`, `test_fallback.py` (chain advance, fail-fast, breaker, budget). No network, no API key. |
-| `frontend/index.html` | Single-page shell: landing (navbar, hero, cards), sidebar, composer, message list. |
-| `frontend/app.js` | All client logic — SSE reader, markdown, sessions, voice, theme. |
-| `frontend/styles.css` | All styling. Light/dark via `body.dark` / `body.light`. |
+| `frontend/index.html` | Single-page shell: sidebar (always present; drawer on mobile), header bar, home hero ("What do you want to know?" + composer + 4 suggestion chips), message thread, docked composer, `+` menu, camera modal, image-generator view. |
+| `frontend/app.js` | All client logic — SSE reader, markdown, sessions, voice, theme, `+` menu (upload/take photo via `getUserMedia`), "Create image" toggle (hands off to the image generator), composer pinning on phones. |
+| `frontend/styles.css` | All styling. Tokens in `:root` (Geist font, `--page-bg`/`--surface`/`--canvas`, `--ink*`, `--accent` #2563EB). Light/dark via `body.dark` / `body.light`; never detect the theme by pixel colour. |
 | `frontend/_headers` | Cloudflare Workers static-assets header rules (CSP, HSTS, etc.) for the frontend's own responses. |
 | `Dockerfile` | Backend image only. |
 | `wrangler.json` | Cloudflare Workers config that serves `frontend/` as static assets — this is how the frontend deploys, not classic Cloudflare Pages. |

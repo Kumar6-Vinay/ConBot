@@ -38,7 +38,7 @@ ConBOT is an intelligent conversational platform designed for:
 ## ✨ Features
 
 ### Core Capabilities
-- **Text Chat**: One mode, `text`, served by a Gemini model (`GEMINI_TEXT_MODEL`, mapped in `GEMINI_MODEL_MAP`)
+- **Text Chat**: One mode, `text`. `PRIMARY_MODEL` (`provider:model_id`, default OpenRouter's Qwen free tier) is tried first, then `TEXT_FALLBACK_CHAIN` across Google and OpenRouter models
 - **Image Generation**: A separate `/generate-image` endpoint calling Pollinations.ai, with a choice of models via `/models/image`
 - **Intelligent Prompting**: Custom system prompts with behavioral guidelines
 - **Structured Responses**: Automatic parsing of follow-up questions and clarification blocks
@@ -106,8 +106,8 @@ ConBOT is an intelligent conversational platform designed for:
 
 ### Frontend
 - **Markup**: HTML5
-- **Styling**: CSS3 (modern with animations)
-- **Interactivity**: Vanilla JavaScript (no frameworks)
+- **Styling**: CSS3 with design tokens in `:root`, Geist font (Google Fonts), light/dark themes
+- **Interactivity**: Vanilla JavaScript (no frameworks, no build step). Photo capture uses `getUserMedia`, which needs `localhost` or HTTPS
 
 ### Infrastructure
 - **Containerization**: Docker
@@ -195,7 +195,7 @@ POLLINATIONS_MODEL=lykon/dreamshaper-8-lcm
 # Conversation and output size
 MAX_HISTORY_TURNS=8          # messages replayed to the model
 MAX_HISTORY_CHARS=3000       # each replayed message is trimmed to this
-MAX_OUTPUT_TOKENS=1200
+MAX_OUTPUT_TOKENS=2000
 MAX_IMAGE_MB=4                # ceiling for an image attached to a chat message
 
 # Rate limits
@@ -213,12 +213,12 @@ ALLOWED_ORIGINS=
 
 FALLBACK_TIMEZONE=Asia/Kolkata
 
-# Text fallback chain — tried in order, after GEMINI_TEXT_MODEL, whenever a
+# Text fallback chain — tried in order, after PRIMARY_MODEL, whenever a
 # link 429s (quota), 5xx's, times out, or returns an empty answer. A 400/401/
 # 403/404 or a content-policy block fails immediately instead — a different
 # model won't fix a bad request or a bad key. "google:" calls Gemini
 # directly; "openrouter:" calls OpenRouter (needs OPENROUTER_API_KEY).
-TEXT_FALLBACK_CHAIN=google:gemini-3.5-flash,google:gemini-3.8-flash,google:gemini-3.1-flash-lite,openrouter:nex-agi/nex-n2.5-mini:free,openrouter:dots-studio/dots-3-note-preview:free,openrouter:nvidia/nemotron-3-super-120b-a12b:free
+TEXT_FALLBACK_CHAIN=google:gemini-3.5-flash,google:gemini-3.8-flash,google:gemini-3.1-flash-lite,openrouter:nex-agi/nex-n2.5-mini:free,openrouter:dots-studio/dots-3-note-preview:free,openrouter:nvidia/nemotron-3-ultra-550b-a55b:free
 FALLBACK_ATTEMPT_TIMEOUT=10   # seconds per attempt
 FALLBACK_TOTAL_BUDGET=45      # seconds, whole chain, worst case
 BREAKER_FAILURE_THRESHOLD=3   # consecutive failures before a link goes cold
@@ -387,6 +387,7 @@ ConBot/
 ├── requirements-dev.txt          # Test-only dependencies (pytest)
 ├── tests/
 │   ├── test_main.py              # Chat/stream regression tests, no network needed
+│   ├── test_fallback.py          # Fallback chain, breaker and budget tests
 │   └── test_image_generation.py  # Image generation regression tests, no network needed
 ├── Dockerfile                    # Container configuration (backend)
 ├── wrangler.json                 # Cloudflare Workers config (serves frontend/ as static assets)
@@ -396,7 +397,9 @@ ConBot/
 └── frontend/
     ├── index.html               # Web interface
     ├── app.js                   # Client-side logic
-    └── styles.css               # Styling
+    ├── styles.css               # Styling and design tokens
+    ├── favicon.svg
+    └── _headers                 # Cloudflare header rules (CSP, HSTS)
 ```
 
 ### Code Organization

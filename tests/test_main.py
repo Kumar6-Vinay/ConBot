@@ -161,27 +161,13 @@ def test_ask_clarify(client, monkeypatch):
 
 # ---------------------------------------------------------------- fallback
 
-def test_stream_falls_back_to_ollama_before_first_token(client, monkeypatch):
-    async def broken(*a, **k):
-        raise RuntimeError("upstream down")
-        yield  # pragma: no cover
-    seen = {}
-    async def local(messages, model, rid):
-        seen["called"] = True
-        yield "From local.\n"
-    monkeypatch.setattr(main, "stream_openrouter", broken)
-    monkeypatch.setattr(main, "stream_ollama", local)
-    monkeypatch.setattr(main, "ALLOW_OLLAMA_FALLBACK", True)
-    monkeypatch.setattr(main, "stream_answer", ORIGINAL_STREAM)
-    ev = events(client.post("/stream", json={"prompt": "hi"}))
-    assert seen.get("called")
-    assert any(e["type"] == "delta" and "From local" in e["text"] for e in ev)
-
-
-def test_ollama_uses_a_real_model_name():
-    assert main.OLLAMA_MODEL_MAP["text"] != "text"
-
-
+def test_primary_model_names_a_provider_and_model():
+    # Chain advance, fail-fast, breaker and budget are covered in
+    # test_fallback.py; this only guards the shape of the primary link.
+    from app.services import fallback
+    provider, model_id = fallback._parse_chain("text")[0]
+    assert provider in ("google", "openrouter")
+    assert model_id
 
 
 # ---------------------------------------------------------------- client IP / rate limits
@@ -274,9 +260,11 @@ def test_image_on_stream_reaches_the_model(client, monkeypatch):
 
 
 
-def test_image_request_blocked_without_openrouter(client, monkeypatch):
-    monkeypatch.setattr(config, "OPENROUTER_API_KEY", "")
-    monkeypatch.setattr(main, "ALLOW_OLLAMA_FALLBACK", True)
+def test_image_request_blocked_without_gemini_key(client, monkeypatch):
+    # Image questions need a vision-capable Google model, so they are refused
+    # up front when GEMINI_API_KEY is missing (deps.prepare and /stream both check).
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "")
+    monkeypatch.setattr(deps, "GEMINI_API_KEY", "")
     r = client.post("/stream", json={"prompt": "what is this?", "image": _PNG_1PX})
     assert r.status_code == 503
 
