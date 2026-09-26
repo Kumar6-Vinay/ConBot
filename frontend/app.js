@@ -33,6 +33,7 @@ let history = [];
 let pending = null;
 let stuckToBottom = true;
 let attachedImage = null;   // base64 data URL for the NEXT question only
+let defaultPlaceholder = 'Type your question here…';   // home vs. docked composer
 
 /* =========================================================
    Markdown — escape first, then format. Never raw innerHTML.
@@ -105,12 +106,16 @@ function markdown(raw) {
 
 function startThread() {
   closeImageGenView();   // showing a thread always means the generator is done
-  if (dock.hidden) {
+  // Not dock.hidden: on mobile the composer is already docked (pinned)
+  // before the first message too — "chatting" is the real signal here.
+  if (!document.body.classList.contains('chatting')) {
     dockSlot.appendChild(composer);         // same node, new home
     dock.hidden = false;
     hero.classList.add('gone');
     document.body.classList.add('chatting');
   }
+  defaultPlaceholder = 'Ask a follow-up…';
+  if (!createImageMode) input.placeholder = defaultPlaceholder;
 }
 
 function resetToHero() {
@@ -118,7 +123,30 @@ function resetToHero() {
   dock.hidden = true;
   hero.classList.remove('gone');
   document.body.classList.remove('chatting');
+  defaultPlaceholder = 'Type your question here…';
+  if (!createImageMode) input.placeholder = defaultPlaceholder;
+  syncComposerDock();   // re-pin it if we're back on a phone-width home screen
 }
+
+/* On phones, the composer stays pinned to the bottom of the screen even
+   before the first message — reusing #dock (already built for the
+   chatting state) rather than a second fixed-positioning treatment.
+   The heading/chips above it are untouched; only the composer moves. */
+const mobilePin = window.matchMedia('(max-width: 640px)');
+
+function syncComposerDock() {
+  if (document.body.classList.contains('chatting')) return;
+  if (mobilePin.matches) {
+    dockSlot.appendChild(composer);
+    dock.hidden = false;
+  } else {
+    $('heroFine').parentNode.insertBefore(composer, $('heroFine'));
+    dock.hidden = true;
+  }
+}
+
+mobilePin.addEventListener('change', syncComposerDock);
+syncComposerDock();
 
 /* =========================================================
    Rendering
@@ -186,8 +214,12 @@ function renderSources(turn, sources) {
 }
 
 /* Share beats copy on a phone: the next thing people do with a useful
-   answer is forward it. Falls back to the clipboard on desktop. */
-function addActions(turn, getText) {
+   answer is forward it. Falls back to the clipboard on desktop.
+   Regenerate re-asks the same question as a new turn at the end of the
+   thread — this app replays a flat history rather than branching it, so
+   it doesn't edit the old answer in place. Thumbs up/down aren't here:
+   there's no endpoint to send feedback to. */
+function addActions(turn, getText, question) {
   const acts = document.createElement('div');
   acts.className = 'acts';
 
@@ -209,8 +241,17 @@ function addActions(turn, getText) {
       share.textContent = 'Select and copy';
     }
   };
-
   acts.appendChild(share);
+
+  if (question) {
+    const regen = document.createElement('button');
+    regen.className = 'act';
+    regen.type = 'button';
+    regen.textContent = 'Regenerate';
+    regen.onclick = () => { if (!pending) sendWith(question); };
+    acts.appendChild(regen);
+  }
+
   turn.appendChild(acts);
 }
 
@@ -251,6 +292,12 @@ function renderFollowups(turn, questions) {
 
   const wrap = document.createElement('div');
   wrap.className = 'next';
+
+  const label = document.createElement('p');
+  label.className = 'next-label';
+  label.textContent = 'Related';
+  wrap.appendChild(label);
+
   questions.forEach((q) => {
     const b = document.createElement('button');
     b.className = 'next-q';
@@ -350,6 +397,8 @@ function sendWith(prompt) {
 async function ask() {
   if (pending) { pending.abort(); return; }
 
+  if (createImageMode) { sendToImageGen(); return; }
+
   const text = input.value.trim();
   const sentImage = attachedImage;        // this question's image, if any
   if (!text && !sentImage) return;
@@ -391,7 +440,11 @@ async function ask() {
 
   const paint = () => {
     frame = null;
-    body.innerHTML = markdown(answer);
+    let html = markdown(answer);
+    // Bold the first paragraph as a one-line takeaway — only when the
+    // answer actually opens with one (not a heading, list or code block).
+    if (html.startsWith('<p>')) html = '<p class="takeaway">' + html.slice(3);
+    body.innerHTML = html;
     toBottom();
   };
 
@@ -477,7 +530,7 @@ async function ask() {
       history.push({ role: 'assistant', content: answer });
 
       if (turn.dataset.sources) renderSources(turn, JSON.parse(turn.dataset.sources));
-      addActions(turn, () => answer);
+      addActions(turn, () => answer, text);
       if (turn.dataset.truncated) addContinue(turn);
       if (turn.dataset.followups) renderFollowups(turn, JSON.parse(turn.dataset.followups));
     }
@@ -498,6 +551,23 @@ async function ask() {
     lock(false);
     input.focus();
   }
+}
+
+/* "Create image" is on: hand the typed text to the existing dedicated
+   generator instead of /stream. Reuses that view's own model picker,
+   history and download/regenerate — no separate in-thread image UI. */
+function sendToImageGen() {
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  grow();
+  setCreateImageMode(false);
+  // imgPrompt's own maxlength (1000) only guards typing, not this
+  // assignment, and it's stricter than chat's 3000 — clip here so a long
+  // question doesn't come back as a raw 422 from the server.
+  imgPrompt.value = text.slice(0, 1000);
+  openImageGenView(imgPrompt.value);
+  runImageGeneration();
 }
 
 function lock(busy) {
@@ -535,26 +605,9 @@ input.addEventListener('keydown', (e) => {
 send.addEventListener('click', ask);
 
 /* =========================================================
-   Landing — feature pills and example cards prefill the composer.
-   They never send: the reader can edit first. The two image entries
-   open the generator instead, since the text model cannot draw.
+   Home screen suggestion chips — prefill the composer, never send,
+   so the reader can edit before asking.
 ========================================================= */
-
-const CARDS = [
-  [
-    { i: '🌱', t: 'Explain a topic', p: 'Explain quantum computing in simple words.' },
-    { i: '✈️', t: 'Plan a trip', p: 'Plan a 5-day trip to Italy on a budget.' },
-    { i: '🍛', t: 'Healthy living', p: 'Give me healthy meal ideas for the week.' },
-    { i: '🐶', t: 'Create an image', p: 'A golden retriever in a park', image: true },
-  ],
-  [
-    { i: '💼', t: 'Career advice', p: 'How do I negotiate a higher salary?' },
-    { i: '📚', t: 'Study help', p: 'Summarise the French Revolution in 5 points.' },
-    { i: '🏠', t: 'Home tips', p: 'Best ways to reduce electricity bill at home.' },
-    { i: '🧘', t: 'Wellness', p: 'Give me a 10-minute morning routine.' },
-  ],
-];
-let cardSet = 0;
 
 function prefill(text) {
   if (pending) return;
@@ -564,58 +617,9 @@ function prefill(text) {
   input.focus();
 }
 
-function renderCards() {
-  const row = $('cardRow');
-  row.textContent = '';
-  CARDS[cardSet].forEach((c) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'card';
-
-    const ic = document.createElement('span');
-    ic.className = 'card-ic';
-    ic.textContent = c.i;
-
-    const txt = document.createElement('span');
-    txt.className = 'card-txt';
-    const t = document.createElement('b');
-    t.textContent = c.t;
-    const p = document.createElement('em');
-    p.textContent = '“' + c.p + '”';
-    txt.appendChild(t);
-    txt.appendChild(p);
-
-    const go = document.createElement('span');
-    go.className = 'card-go';
-    go.textContent = '→';
-
-    b.appendChild(ic);
-    b.appendChild(txt);
-    b.appendChild(go);
-    b.addEventListener('click', () => {
-      if (c.image) { openImageGenView(c.p); return; }
-      prefill(c.p);
-      composer.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
-    row.appendChild(b);
-  });
-}
-
-$('moreCards').addEventListener('click', () => {
-  cardSet = (cardSet + 1) % CARDS.length;
-  $('moreCards').textContent = cardSet ? '← Back' : 'View more →';
-  renderCards();
+document.querySelectorAll('.chip').forEach((chip) => {
+  chip.addEventListener('click', () => prefill(chip.getAttribute('data-fill')));
 });
-renderCards();
-
-document.querySelectorAll('.fpill').forEach((pill) => {
-  pill.addEventListener('click', () => {
-    if (pill.hasAttribute('data-image')) { openImageGenView(''); return; }
-    prefill(pill.getAttribute('data-fill'));
-  });
-});
-
-$('imageTool').addEventListener('click', () => openImageGenView(''));
 
 /* Short-lived note beside a composer control. No alert() popups. */
 function flashTip(anchor, message) {
@@ -642,6 +646,8 @@ let sessions = [];
 
 function renderSessions() {
   const list = $('sideList');
+  const wrap = $('sideRecent');
+  wrap.hidden = !sessions.length;
   list.textContent = '';
   sessions.forEach((entry) => {
     const row = document.createElement('div');
@@ -657,7 +663,8 @@ function renderSessions() {
     del.type = 'button';
     del.className = 'side-mini';
     del.setAttribute('aria-label', 'Remove from list');
-    del.textContent = '🗑';
+    del.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">'
+      + '<path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13"/></svg>';
     del.addEventListener('click', () => {
       sessions = sessions.filter((x) => x.id !== entry.id);
       renderSessions();
@@ -682,6 +689,7 @@ function newChat() {
   history = [];
   thread.innerHTML = '';
   clearImage();
+  setCreateImageMode(false);
   input.value = '';
   closeImageGenView();
   resetToHero();
@@ -810,25 +818,87 @@ input.focus();
 })();
 
 /* =========================================================
+   "+" menu — Upload photo, Take photo, Generate image
+   Desktop: 280px popover under the button. Mobile (<768px): bottom
+   sheet with a scrim. Closes on outside click or Escape.
+========================================================= */
+
+const plusBtn = $('plusBtn');
+const plusMenu = $('plusMenu');
+const sheetScrim = $('sheetScrim');
+const isMobileMenu = () => window.matchMedia('(max-width: 767px)').matches;
+
+function openPlusMenu() {
+  plusMenu.hidden = false;
+  plusBtn.setAttribute('aria-expanded', 'true');
+  if (isMobileMenu()) sheetScrim.hidden = false;
+}
+
+function closePlusMenu() {
+  plusMenu.hidden = true;
+  plusBtn.setAttribute('aria-expanded', 'false');
+  sheetScrim.hidden = true;
+}
+
+if (plusBtn) {
+  plusBtn.addEventListener('click', () => (plusMenu.hidden ? openPlusMenu() : closePlusMenu()));
+  sheetScrim.addEventListener('click', closePlusMenu);
+
+  document.addEventListener('click', (e) => {
+    if (plusMenu.hidden) return;
+    if (plusBtn.contains(e.target) || plusMenu.contains(e.target)) return;
+    closePlusMenu();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !plusMenu.hidden) closePlusMenu();
+  });
+
+  $('genImageBtn').addEventListener('click', () => { closePlusMenu(); openImageGenView(''); });
+}
+
+/* =========================================================
+   "Create image" toggle — swaps the composer's send target from chat
+   to the image generator. One-shot: turns itself off once used.
+   An attachment doesn't make sense alongside it, so turning this on
+   clears any staged image and disables "+" until it's off again.
+========================================================= */
+
+let createImageMode = false;
+const createImgToggle = $('createImgToggle');
+
+function setCreateImageMode(on) {
+  createImageMode = on;
+  createImgToggle.setAttribute('aria-pressed', String(on));
+  input.placeholder = on ? 'Describe the image you want to create…' : defaultPlaceholder;
+  if (plusBtn) plusBtn.disabled = on;
+  if (on) clearImage();
+  send.disabled = !input.value.trim();
+}
+
+createImgToggle.addEventListener('click', () => {
+  setCreateImageMode(!createImageMode);
+  input.focus();
+});
+
+/* =========================================================
    Image attach — read a file to a data URL for the next question
 
    The image is held in memory only, sent with one question, then cleared.
    It is never stored in history and never replayed. Size and type are
-   checked here so the server rejects far fewer requests.
+   checked here so the server rejects far fewer requests. The backend
+   accepts one image per question — the file inputs below stay
+   single-select even though a "multiple" file picker would be easy to
+   wire up, since a second file would just be silently dropped.
 ========================================================= */
 
 (function setupAttach() {
-  const attach = $('attach');
+  const uploadPhotoBtn = $('uploadPhotoBtn');
   const file = $('file');
-  if (!attach || !file) return;
+  if (!uploadPhotoBtn || !file) return;
 
-  attach.addEventListener('click', () => { if (!pending) file.click(); });
-
-  file.addEventListener('change', () => {
-    const chosen = file.files && file.files[0];
-    file.value = '';                       // allow re-picking the same file
+  function acceptFile(chosen) {
     if (!chosen) return;
-
     if (!/^image\/(png|jpeg|webp|gif)$/.test(chosen.type)) {
       flashAttach('Please choose a PNG, JPEG, WebP or GIF.');
       return;
@@ -842,14 +912,110 @@ input.focus();
     reader.onload = () => { attachedImage = reader.result; showImageChip(chosen.name); };
     reader.onerror = () => flashAttach('That image could not be read.');
     reader.readAsDataURL(chosen);
+  }
+
+  uploadPhotoBtn.addEventListener('click', () => { closePlusMenu(); if (!pending) file.click(); });
+
+  file.addEventListener('change', () => {
+    const chosen = file.files && file.files[0];
+    file.value = '';                       // allow re-picking the same file
+    acceptFile(chosen);
   });
 
-  attach.addEventListener('keydown', (e) => {
-    // Backspace/Delete on the attach button clears a staged image.
-    if ((e.key === 'Backspace' || e.key === 'Delete') && attachedImage) {
-      e.preventDefault();
-      clearImage();
+  const cameraFile = $('cameraFile');
+  if (cameraFile) {
+    cameraFile.addEventListener('change', () => {
+      const chosen = cameraFile.files && cameraFile.files[0];
+      cameraFile.value = '';
+      acceptFile(chosen);
+    });
+  }
+})();
+
+/* =========================================================
+   Take photo — desktop opens a live camera modal (getUserMedia) with a
+   capture button; mobile defers to the OS camera via a capture file
+   input, since a custom video modal fights the native camera app there.
+   The stream is always stopped when the modal closes, however it closes.
+========================================================= */
+
+(function setupCamera() {
+  const takePhotoBtn = $('takePhotoBtn');
+  const cameraFile = $('cameraFile');
+  const file = $('file');
+  const modal = $('camModal');
+  const video = $('camVideo');
+  const closeBtn = $('camClose');
+  const chooseInstead = $('camChoose');
+  const captureBtn = $('camCapture');
+  const errorEl = $('camError');
+  const canvas = $('camCanvas');
+  if (!takePhotoBtn || !modal) return;
+
+  let stream = null;
+
+  function stopStream() {
+    if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
+    video.srcObject = null;
+  }
+
+  function closeModal() {
+    stopStream();
+    modal.hidden = true;
+  }
+
+  async function openModal() {
+    errorEl.hidden = true;
+    video.hidden = false;
+    captureBtn.hidden = false;
+    modal.hidden = false;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      video.srcObject = stream;
+    } catch (e) {
+      video.hidden = true;
+      captureBtn.hidden = true;
+      errorEl.hidden = false;
+      errorEl.textContent = "Camera isn't available. Allow camera access in your browser, or choose a photo instead.";
     }
+  }
+
+  takePhotoBtn.addEventListener('click', () => {
+    closePlusMenu();
+    if (isMobileMenu() || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      if (!pending) cameraFile.click();      // OS camera app, not our modal
+      return;
+    }
+    openModal();
+  });
+
+  closeBtn.addEventListener('click', closeModal);
+  chooseInstead.addEventListener('click', () => { closeModal(); if (!pending) file.click(); });
+
+  captureBtn.addEventListener('click', () => {
+    if (!stream) return;
+    const track = stream.getVideoTracks()[0];
+    const settings = track.getSettings ? track.getSettings() : {};
+    const w = settings.width || video.videoWidth || 1280;
+    const h = settings.height || video.videoHeight || 720;
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d').drawImage(video, 0, 0, w, h);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      if (blob.size > MAX_IMAGE_BYTES) {
+        errorEl.hidden = false;
+        errorEl.textContent = 'That photo is too large. Please try again or choose a photo instead.';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => { attachedImage = reader.result; showImageChip('Camera photo'); closeModal(); };
+      reader.readAsDataURL(blob);
+    }, 'image/jpeg', 0.9);
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.hidden) closeModal();
   });
 })();
 
@@ -865,13 +1031,8 @@ function showImageChip(name) {
 
   const thumb = document.createElement('img');
   thumb.src = attachedImage;
-  thumb.alt = '';
+  thumb.alt = name || 'Attached image';
   chip.appendChild(thumb);
-
-  const label = document.createElement('span');
-  label.className = 'img-chip-name';
-  label.textContent = name || 'image';
-  chip.appendChild(label);
 
   const x = document.createElement('button');
   x.type = 'button';
@@ -896,11 +1057,13 @@ function clearImage() {
   if (!pending) send.disabled = !input.value.trim();
 }
 
-/* Brief inline warning beside the attach button, no alert() popups. */
+/* Brief inline warning beside the "+" button, no alert() popups. Anchored
+   there rather than the menu item since the menu is already closed by
+   the time a picked file comes back invalid. */
 function flashAttach(message) {
-  const attach = $('attach');
-  if (!attach) return;
-  flashTip(attach, message);
+  const anchor = $('plusBtn');
+  if (!anchor) return;
+  flashTip(anchor, message);
 }
 
 

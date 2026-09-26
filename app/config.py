@@ -52,8 +52,8 @@ AVAILABLE_MODELS = {
     "text",
 }
 
-# Google's Gemini API (AI Studio key). This is the only LLM backend now —
-# calls go straight to Google, no router in between.
+# Google's Gemini API (AI Studio key). One of two LLM backends — Gemini
+# models are called direct; see TEXT_FALLBACK_CHAIN below for OpenRouter.
 GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
 
 
