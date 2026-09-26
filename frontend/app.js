@@ -705,8 +705,12 @@ $('newChat').addEventListener('click', newChat);
 const saved = localStorage.getItem('conbot-theme');
 if (saved) document.body.classList.add(saved);
 
+/* Read the theme from the classes and the OS setting, not a pixel colour —
+   a colour check silently breaks the moment a token value changes. */
 function toggleTheme() {
-  const dark = getComputedStyle(document.body).backgroundColor === 'rgb(0, 0, 0)';
+  const cl = document.body.classList;
+  const dark = cl.contains('dark')
+    || (!cl.contains('light') && window.matchMedia('(prefers-color-scheme: dark)').matches);
   document.body.classList.remove('dark', 'light');
   document.body.classList.add(dark ? 'light' : 'dark');
   localStorage.setItem('conbot-theme', dark ? 'light' : 'dark');
