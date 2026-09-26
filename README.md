@@ -38,7 +38,7 @@ ConBOT is an intelligent conversational platform designed for:
 ## ✨ Features
 
 ### Core Capabilities
-- **Text Chat**: One mode, `text`, served by a Gemini model (`GEMINI_TEXT_MODEL`, mapped in `GEMINI_MODEL_MAP`)
+- **Text Chat**: One mode, `text`. `PRIMARY_MODEL` (`provider:model_id`, default OpenRouter's Qwen free tier) is tried first, then `TEXT_FALLBACK_CHAIN` across Google and OpenRouter models
 - **Image Generation**: A separate `/generate-image` endpoint calling Pollinations.ai, with a choice of models via `/models/image`
 - **Intelligent Prompting**: Custom system prompts with behavioral guidelines
 - **Structured Responses**: Automatic parsing of follow-up questions and clarification blocks
@@ -106,8 +106,8 @@ ConBOT is an intelligent conversational platform designed for:
 
 ### Frontend
 - **Markup**: HTML5
-- **Styling**: CSS3 (modern with animations)
-- **Interactivity**: Vanilla JavaScript (no frameworks)
+- **Styling**: CSS3 with design tokens in `:root`, Geist font (Google Fonts), light/dark themes
+- **Interactivity**: Vanilla JavaScript (no frameworks, no build step). Photo capture uses `getUserMedia`, which needs `localhost` or HTTPS
 
 ### Infrastructure
 - **Containerization**: Docker
@@ -387,6 +387,7 @@ ConBot/
 ├── requirements-dev.txt          # Test-only dependencies (pytest)
 ├── tests/
 │   ├── test_main.py              # Chat/stream regression tests, no network needed
+│   ├── test_fallback.py          # Fallback chain, breaker and budget tests
 │   └── test_image_generation.py  # Image generation regression tests, no network needed
 ├── Dockerfile                    # Container configuration (backend)
 ├── wrangler.json                 # Cloudflare Workers config (serves frontend/ as static assets)
@@ -396,7 +397,9 @@ ConBot/
 └── frontend/
     ├── index.html               # Web interface
     ├── app.js                   # Client-side logic
-    └── styles.css               # Styling
+    ├── styles.css               # Styling and design tokens
+    ├── favicon.svg
+    └── _headers                 # Cloudflare header rules (CSP, HSTS)
 ```
 
 ### Code Organization

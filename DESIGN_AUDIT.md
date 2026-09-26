@@ -1,5 +1,7 @@
 # ConBOT Frontend — Design Audit
 
+> **Historical.** This audit describes the frontend *before* the `redesign` branch (system font stack, Apple-style tokens, landing page with pills/cards/trust badges). Geist, the zinc/#2563EB tokens, the centred home screen and mobile 44px targets have since replaced much of what it flags; its line numbers no longer match.
+
 **Product**: ConBOT (conbot.in) — a general-purpose AI chat assistant, single-page app (not a multi-page marketing site). Audience: everyday, non-technical users, with real bilingual (English/Hindi) usage.
 **Scope reviewed**: `frontend/index.html`, `frontend/styles.css` (1178 lines, full read), `frontend/app.js` (state-handling patterns).
 
