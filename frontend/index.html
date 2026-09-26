@@ -131,6 +131,11 @@
               <button class="sheet-cancel" id="sheetCancel" type="button">Cancel</button>
             </div>
           </div>
+          <button class="createimg" id="createImgToggle" type="button" aria-pressed="false">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.2" cy="8.2" r="1.4"/><path d="M4 16l4.5-6 3.5 4.5 2.5-3L20 16"/></svg>
+            <span>Create image</span>
+            <svg class="createimg-close" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
           <input id="file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
           <input id="cameraFile" type="file" accept="image/*" capture="environment" hidden>
           <span class="count" id="count" aria-live="off">0/3000</span>

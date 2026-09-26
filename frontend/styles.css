@@ -845,9 +845,33 @@ body.chatting .thread { padding-bottom: 190px; }
 .plus:active { transform: scale(0.92); }
 .plus[aria-expanded="true"] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--hairline)); }
 
+.plus:disabled { opacity: 0.4; cursor: default; }
+
 .count { margin-left: auto; font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .count.over { color: #d70015; }
 body.dark .count.over { color: #ff6961; }
+
+/* "Create image" toggle — swaps the composer to the /generate-image path */
+.createimg {
+  flex: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  transition: color 0.2s var(--ease), border-color 0.2s var(--ease), background 0.2s var(--ease);
+}
+.createimg:hover { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline)); }
+.createimg-close { display: none; }
+.createimg[aria-pressed="true"] {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--canvas));
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--hairline));
+}
+.createimg[aria-pressed="true"] .createimg-close { display: block; }
 
 /* Desktop: a plain popover under the button. */
 .sheet-handle, .sheet-title, .sheet-cancel { display: none; }

@@ -350,6 +350,8 @@ function sendWith(prompt) {
 async function ask() {
   if (pending) { pending.abort(); return; }
 
+  if (createImageMode) { sendToImageGen(); return; }
+
   const text = input.value.trim();
   const sentImage = attachedImage;        // this question's image, if any
   if (!text && !sentImage) return;
@@ -500,6 +502,23 @@ async function ask() {
   }
 }
 
+/* "Create image" is on: hand the typed text to the existing dedicated
+   generator instead of /stream. Reuses that view's own model picker,
+   history and download/regenerate — no separate in-thread image UI. */
+function sendToImageGen() {
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  grow();
+  setCreateImageMode(false);
+  // imgPrompt's own maxlength (1000) only guards typing, not this
+  // assignment, and it's stricter than chat's 3000 — clip here so a long
+  // question doesn't come back as a raw 422 from the server.
+  imgPrompt.value = text.slice(0, 1000);
+  openImageGenView(imgPrompt.value);
+  runImageGeneration();
+}
+
 function lock(busy) {
   send.disabled = busy ? false : !input.value.trim();
   send.setAttribute('aria-label', busy ? 'Stop' : 'Send');
@@ -619,6 +638,7 @@ function newChat() {
   history = [];
   thread.innerHTML = '';
   clearImage();
+  setCreateImageMode(false);
   input.value = '';
   closeImageGenView();
   resetToHero();
@@ -785,6 +805,30 @@ if (plusBtn) {
 
   $('genImageBtn').addEventListener('click', () => { closePlusMenu(); openImageGenView(''); });
 }
+
+/* =========================================================
+   "Create image" toggle — swaps the composer's send target from chat
+   to the image generator. One-shot: turns itself off once used.
+   An attachment doesn't make sense alongside it, so turning this on
+   clears any staged image and disables "+" until it's off again.
+========================================================= */
+
+let createImageMode = false;
+const createImgToggle = $('createImgToggle');
+
+function setCreateImageMode(on) {
+  createImageMode = on;
+  createImgToggle.setAttribute('aria-pressed', String(on));
+  input.placeholder = on ? 'Describe the image you want to create…' : 'Type your question here…';
+  if (plusBtn) plusBtn.disabled = on;
+  if (on) clearImage();
+  send.disabled = !input.value.trim();
+}
+
+createImgToggle.addEventListener('click', () => {
+  setCreateImageMode(!createImageMode);
+  input.focus();
+});
 
 /* =========================================================
    Image attach — read a file to a data URL for the next question
