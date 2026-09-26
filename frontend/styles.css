@@ -3,64 +3,74 @@
 ========================================================= */
 
 :root {
+  /* Page vs. sidebar vs. white "card" surface — three distinct tiers */
+  --page-bg: #fafaf9;
+  --surface: #f4f4f5;
   --canvas: #ffffff;
-  --surface: #f5f5f7;
-  --ink: #1d1d1f;
-  --ink-2: #6e6e73;
-  --hairline: #d2d2d7;
-  --accent: #0071e3;
+
+  /* Text scale: primary / secondary / muted / placeholder */
+  --ink: #18181b;
+  --ink-2: #3f3f46;
+  --ink-3: #52525b;
+  --placeholder: #71717a;
+
+  --hairline: #e4e4e7;
+  --accent: #2563eb;
   --accent-ink: #ffffff;
-  --bubble: #0071e3;
-  --code-bg: #f5f5f7;
+  --bubble: #2563eb;
+  --code-bg: #f4f4f5;
 
   /* A distinct accent for the image generator, separate from chat's blue */
   --accent-image: #8a3ffc;
   --accent-image-ink: #ffffff;
 
-  --blob-1: #dbeafe;
-  --blob-2: #ede9fe;
-
   --bar-h: 52px;
-  --col: 692px;
+  --col: 720px;
 
   --r-sm: 10px;
-  --r-md: 16px;
-  --r-lg: 22px;
+  --r-md: 12px;
+  --r-lg: 24px;
+
+  --composer-shadow: 0 1px 2px rgba(24, 24, 27, 0.04), 0 10px 30px rgba(24, 24, 27, 0.07);
 
   --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 body.dark {
-  --canvas: #000000;
-  --surface: #1c1c1e;
-  --ink: #f5f5f7;
-  --ink-2: #98989d;
-  --hairline: #2c2c2e;
-  --accent: #0a84ff;
+  --page-bg: #09090b;
+  --surface: #18181b;
+  --canvas: #1f1f23;
+  --ink: #fafafa;
+  --ink-2: #d4d4d8;
+  --ink-3: #a1a1aa;
+  --placeholder: #71717a;
+  --hairline: #27272a;
+  --accent: #3b82f6;
   --accent-ink: #000000;
-  --bubble: #0a84ff;
-  --code-bg: #1c1c1e;
+  --bubble: #3b82f6;
+  --code-bg: #18181b;
   --accent-image: #a76bff;
   --accent-image-ink: #000000;
-  --blob-1: #1e3a5f;
-  --blob-2: #2e1a4a;
+  --composer-shadow: 0 1px 2px rgba(0, 0, 0, 0.24), 0 10px 30px rgba(0, 0, 0, 0.36);
 }
 
 @media (prefers-color-scheme: dark) {
   body:not(.light) {
-    --canvas: #000000;
-    --surface: #1c1c1e;
-    --ink: #f5f5f7;
-    --ink-2: #98989d;
-    --hairline: #2c2c2e;
-    --accent: #0a84ff;
+    --page-bg: #09090b;
+    --surface: #18181b;
+    --canvas: #1f1f23;
+    --ink: #fafafa;
+    --ink-2: #d4d4d8;
+    --ink-3: #a1a1aa;
+    --placeholder: #71717a;
+    --hairline: #27272a;
+    --accent: #3b82f6;
     --accent-ink: #000000;
-    --bubble: #0a84ff;
-    --code-bg: #1c1c1e;
+    --bubble: #3b82f6;
+    --code-bg: #18181b;
     --accent-image: #a76bff;
     --accent-image-ink: #000000;
-    --blob-1: #1e3a5f;
-    --blob-2: #2e1a4a;
+    --composer-shadow: 0 1px 2px rgba(0, 0, 0, 0.24), 0 10px 30px rgba(0, 0, 0, 0.36);
   }
 }
 
@@ -73,10 +83,9 @@ html, body {
 
 body {
   transition: background-color 0.2s, color 0.2s;
-  background: var(--canvas);
+  background: var(--page-bg);
   color: var(--ink);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue",
-    "Noto Sans Devanagari", "Nirmala UI", Inter, Arial, sans-serif;
+  font-family: "Geist", "Noto Sans Devanagari", system-ui, sans-serif;
   font-size: 17px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -92,7 +101,7 @@ button { border: 0; background: none; cursor: pointer; }
   border-radius: 6px;
 }
 
-svg { fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 .sr {
   position: absolute; width: 1px; height: 1px;
@@ -158,11 +167,16 @@ body.dark .ic-moon { display: block; }
   min-height: 100%;
 }
 
-/* ===== Hero ===== */
+/* ===== Hero — centred "what do you want to know" home screen ===== */
 
 .hero {
-  position: relative;
-  padding: 40px 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - var(--bar-h));
+  padding: 24px 0;
+  text-align: center;
 }
 
 .hero-inner {
@@ -174,21 +188,43 @@ body.dark .ic-moon { display: block; }
 .hero.gone { display: none; }
 .hero-inner { margin: 0 auto; }
 
-.hero h1 {
+.ask-heading {
   margin: 0;
-  font-size: clamp(40px, 7vw, 64px);
-  line-height: 1.04;
+  font-size: 36px;
   font-weight: 600;
   letter-spacing: -0.025em;
+  color: var(--ink);
   animation: rise 0.7s var(--ease) both;
 }
 
-.sub {
-  margin: 14px 0 0;
-  font-size: 19px;
-  color: var(--ink-2);
-  letter-spacing: -0.01em;
+.hero-inner .composer {
+  max-width: var(--col);
+  margin: 24px auto 0;
+  text-align: left;
   animation: rise 0.7s var(--ease) 0.06s both;
+}
+
+.chips {
+  margin: 20px auto 0;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
+  animation: rise 0.7s var(--ease) 0.1s both;
+}
+
+.chip {
+  height: 40px;
+  padding: 0 16px;
+  display: inline-flex; align-items: center;
+  font-size: 14px;
+  color: var(--ink-2);
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  transition: color 0.2s var(--ease), border-color 0.2s var(--ease), transform 0.15s var(--ease);
+}
+.chip:hover {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline));
+  transform: translateY(-1px);
 }
 
 @keyframes rise {
@@ -353,7 +389,7 @@ body.dark .ic-moon { display: block; }
   background: var(--canvas);
   border: 1px solid var(--hairline);
   border-radius: var(--r-lg);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--ink) 7%, transparent);
+  box-shadow: var(--composer-shadow);
   transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
 
@@ -372,7 +408,7 @@ body.dark .ic-moon { display: block; }
   letter-spacing: -0.01em;
 }
 .composer textarea:focus { outline: none; }
-.composer textarea::placeholder { color: color-mix(in srgb, var(--ink) 55%, var(--ink-2)); }
+.composer textarea::placeholder { color: var(--placeholder); }
 
 .send {
   flex: none;
@@ -470,7 +506,7 @@ body.chatting .thread { padding-bottom: 190px; }
 
 @media (max-width: 640px) {
 
-  .hero h1 { font-size: clamp(34px, 10vw, 44px); }
+  .ask-heading { font-size: 28px; }
 
   /* Cheap Android GPUs drop frames on backdrop blur. Use a solid bar. */
   .bar, .dock {
@@ -546,119 +582,12 @@ body.chatting .thread { padding-bottom: 190px; }
 }
 
 /* =========================================================
-   Landing — two-tone logo, navbar, blobs, pills, cards, trust, footer.
-   Everything here is keyed off body:not(.chatting):not(.imggen-active).
+   Two-tone wordmark accent. The sidebar and bar are always present
+   (see #sidebar / .bar below) — .hero vs .thread is the only thing
+   that swaps between the home screen and a conversation.
 ========================================================= */
 
 .lb { color: var(--accent); font-weight: 700; }
-.logo { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; color: var(--ink); text-decoration: none; }
-.logo .lb { font-size: 1.06em; }
-
-.lnav {
-  position: fixed; inset: 0 0 auto 0; z-index: 20;
-  height: var(--bar-h);
-  background: color-mix(in srgb, var(--canvas) 72%, transparent);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-}
-.lnav-inner {
-  max-width: 1080px; height: 100%; margin: 0 auto; padding: 0 22px;
-  display: flex; align-items: center; gap: 24px;
-}
-.lnav-links { display: flex; gap: 28px; margin: 0 auto; }
-.lnav-links a { font-size: 15px; color: var(--ink-2); text-decoration: none; }
-.lnav-links a:hover { color: var(--ink); }
-.lnav .theme-toggle { margin-left: auto; }
-.lnav-links + .theme-toggle { margin-left: 0; }
-
-/* Landing vs chat: sidebar and chat bar only exist once a chat starts. */
-body:not(.chatting):not(.imggen-active) .sidebar,
-body:not(.chatting):not(.imggen-active) .bar,
-body:not(.chatting):not(.imggen-active) .side-scrim { display: none !important; }
-body.chatting .lnav, body.imggen-active .lnav { display: none; }
-body:not(.chatting):not(.imggen-active) { padding-left: 0; }
-body:not(.chatting):not(.imggen-active) .stage { max-width: 1080px; }
-body.chatting .stage, body.imggen-active .stage { max-width: var(--col); }
-
-.blob {
-  position: absolute; z-index: -1; pointer-events: none;
-  width: 520px; height: 520px; border-radius: 50%;
-  filter: blur(80px); opacity: 0.85;
-}
-.blob-1 { top: -120px; left: -140px; background: radial-gradient(circle, var(--blob-1), transparent 70%); }
-.blob-2 { top: -60px; right: -160px; background: radial-gradient(circle, var(--blob-2), transparent 70%); }
-.stage:has(.hero:not(.gone)) { overflow-x: clip; }
-
-.badge {
-  display: inline-block; margin: 0 0 18px;
-  padding: 6px 14px; font-size: 13.5px;
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  border-radius: 999px;
-}
-.hero h1 { font-size: clamp(44px, 8vw, 72px); font-weight: 600; }
-.hero-inner .composer { max-width: 680px; margin-top: 30px; text-align: left; }
-
-.feat {
-  margin: 34px auto 0;
-  display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
-}
-.fpill {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 16px 9px 10px; text-align: left;
-  background: var(--canvas);
-  border: 1px solid var(--hairline); border-radius: 999px;
-  transition: transform 0.18s var(--ease), border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
-}
-.fpill:hover {
-  transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline));
-  box-shadow: 0 3px 12px color-mix(in srgb, var(--ink) 6%, transparent);
-}
-.fpill b { display: block; font-size: 14px; }
-.fpill small { display: block; font-size: 12px; color: var(--ink-2); }
-.fic { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; font-size: 16px; }
-.c1 { background: #dbeafe; } .c2 { background: #fef3c7; } .c3 { background: #ede9fe; }
-.c4 { background: #dcfce7; } .c5 { background: #cffafe; }
-body.dark .fic { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); }
-
-.cards-sec { margin-top: 56px; }
-.cards-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
-.cards-head h2 { margin: 0; font-size: 18px; letter-spacing: -0.01em; }
-.more { font-size: 14px; color: var(--accent); }
-.more:hover { text-decoration: underline; }
-.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
-.card {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px; text-align: left;
-  background: var(--canvas);
-  border: 1px solid var(--hairline); border-radius: var(--r-md);
-  box-shadow: 0 1px 4px color-mix(in srgb, var(--ink) 5%, transparent);
-  transition: transform 0.18s var(--ease), border-color 0.2s var(--ease);
-}
-.card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline)); }
-.card-ic { flex: none; width: 64px; height: 64px; display: grid; place-items: center; font-size: 30px; background: var(--surface); border-radius: 12px; }
-.card-txt { flex: 1; min-width: 0; }
-.card-txt b { display: block; font-size: 14.5px; }
-.card-txt em { display: block; margin-top: 2px; font-size: 13px; color: var(--ink-2); }
-.card-go { flex: none; color: var(--accent); }
-
-.trust { margin-top: 56px; text-align: center; color: var(--ink-2); }
-.trust-title { margin: 0 0 10px; font-size: 15px; font-weight: 600; color: var(--ink); }
-.trust ul { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 28px; font-size: 14px; }
-
-.foot {
-  margin-top: 48px; padding: 22px 0 28px;
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px;
-  border-top: 1px solid var(--hairline);
-}
-.foot-tag { font-size: 13.5px; color: var(--ink-2); }
-
-@media (max-width: 640px) {
-  .lnav-inner { padding: 0 16px; gap: 12px; }
-  .lnav-links { gap: 16px; }
-  .fpill { width: 100%; }
-}
 
 /* =========================================================
    E — Interaction polish

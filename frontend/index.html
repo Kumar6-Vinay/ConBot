@@ -21,29 +21,13 @@
 <title>ConBOT</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<!-- Landing navbar: only visible before the first message (see body:not(.chatting)) -->
-<header class="lnav" id="lnav">
-  <div class="lnav-inner">
-    <a class="logo" href="#top" aria-label="ConBOT home">Con<span class="lb">BOT</span></a>
-    <nav class="lnav-links" aria-label="Sections">
-      <a href="#cards">Explore</a>
-      <a href="#trust">About</a>
-    </nav>
-    <button class="ghost theme-toggle" type="button" aria-label="Switch appearance">
-      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-        <path class="ic-sun" d="M12 4V2m0 20v-2m8-8h2M2 12h2m13.66-5.66 1.41-1.41M4.93 19.07l1.41-1.41m11.32 0 1.41 1.41M4.93 4.93l1.41 1.41M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"/>
-        <path class="ic-moon" d="M20 14.5A8 8 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"/>
-      </svg>
-    </button>
-  </div>
-</header>
-
-<!-- Sidebar: New chat, pinned, and history. Off-canvas on mobile. -->
+<!-- Sidebar: New chat, pinned, and history. Fixed on desktop (home and
+     chat both), off-canvas behind a scrim on mobile. -->
 <aside class="sidebar" id="sidebar" aria-label="Conversations">
   <div class="side-head">
     <button class="wordmark side-mark" id="sideMark" type="button" title="ConBOT" aria-label="Go to home">
@@ -73,7 +57,10 @@
     Generate image
   </button>
 
-  <nav class="side-list" id="sideList" aria-label="Saved chats"></nav>
+  <div class="side-recent" id="sideRecent" hidden>
+    <p class="side-section">Recent</p>
+    <nav class="side-list" id="sideList" aria-label="Saved chats"></nav>
+  </div>
 </aside>
 
 <div class="side-scrim" id="sideScrim" hidden></div>
@@ -101,16 +88,11 @@
 
 <main class="stage" id="stage">
 
-  <!-- Opening state: headline and composer read as one group; the sections
-       below it are all part of the landing and leave together on first send. -->
+  <!-- Opening state: heading, composer and chips read as one centred group.
+       Swaps for .thread once the first message sends (see startThread()). -->
   <section class="hero" id="hero">
-    <div class="blob blob-1" aria-hidden="true"></div>
-    <div class="blob blob-2" aria-hidden="true"></div>
-
     <div class="hero-inner" id="top">
-      <p class="badge"><span aria-hidden="true">✦</span> A smarter way to ask, learn and explore</p>
-      <h1 class="headline">Con<span class="lb">BOT</span></h1>
-      <p class="sub">Get clear answers, fresh ideas, and helpful information for everyday life.</p>
+      <h1 class="ask-heading">What do you want to know?</h1>
 
       <div class="composer" id="heroComposer">
         <label class="sr" for="input">Your question</label>
@@ -134,48 +116,15 @@
         </div>
       </div>
 
+      <div class="chips" id="chips">
+        <button type="button" class="chip" data-fill="Best AC under ₹40,000">Best AC under ₹40,000</button>
+        <button type="button" class="chip" data-fill="Home remedy for a sore throat">Home remedy for a sore throat</button>
+        <button type="button" class="chip" data-fill="Quick dal tadka for two">Quick dal tadka for two</button>
+        <button type="button" class="chip" data-fill="Explain UPI in simple words">Explain UPI in simple words</button>
+      </div>
+
       <p class="fineprint hero-fineprint" id="heroFine">ConBOT can make mistakes. Check anything important.</p>
     </div>
-
-    <div class="feat" id="feat">
-      <button type="button" class="fpill" data-fill="Explain how inflation works in simple words.">
-        <span class="fic c1" aria-hidden="true">💬</span><span><b>Get Answers</b><small>Clear &amp; simple</small></span>
-      </button>
-      <button type="button" class="fpill" data-fill="Teach me something interesting about space.">
-        <span class="fic c2" aria-hidden="true">💡</span><span><b>Learn Something</b><small>Explore new ideas</small></span>
-      </button>
-      <button type="button" class="fpill" data-image="">
-        <span class="fic c3" aria-hidden="true">🖼</span><span><b>Create Images</b><small>Turn ideas into visuals</small></span>
-      </button>
-      <button type="button" class="fpill" data-fill="Write a polite email asking for a refund.">
-        <span class="fic c4" aria-hidden="true">📋</span><span><b>Write &amp; Improve</b><small>Emails, notes, more</small></span>
-      </button>
-      <button type="button" class="fpill" data-fill="Mujhe PAN card ke baare mein batao.">
-        <span class="fic c5" aria-hidden="true">🌐</span><span><b>Any Language</b><small>Hindi, English &amp; more</small></span>
-      </button>
-    </div>
-
-    <section class="cards-sec" id="cards" aria-label="Example questions">
-      <div class="cards-head">
-        <h2>Try asking something like this</h2>
-        <button type="button" class="more" id="moreCards">View more →</button>
-      </div>
-      <div class="cards" id="cardRow"></div>
-    </section>
-
-    <section class="trust" id="trust" aria-label="About ConBOT">
-      <p class="trust-title">Simple. Helpful. For Everyone.</p>
-      <ul>
-        <li>🛡 Your privacy matters</li>
-        <li>🔒 Safe and secure</li>
-        <li>👥 Made for everyone</li>
-      </ul>
-    </section>
-
-    <footer class="foot">
-      <span class="logo">Con<span class="lb">BOT</span></span>
-      <span class="foot-tag">A simpler way to ask, learn and explore.</span>
-    </footer>
   </section>
 
   <section class="thread" id="thread" aria-live="polite" aria-label="Conversation"></section>

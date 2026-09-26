@@ -535,26 +535,9 @@ input.addEventListener('keydown', (e) => {
 send.addEventListener('click', ask);
 
 /* =========================================================
-   Landing — feature pills and example cards prefill the composer.
-   They never send: the reader can edit first. The two image entries
-   open the generator instead, since the text model cannot draw.
+   Home screen suggestion chips — prefill the composer, never send,
+   so the reader can edit before asking.
 ========================================================= */
-
-const CARDS = [
-  [
-    { i: '🌱', t: 'Explain a topic', p: 'Explain quantum computing in simple words.' },
-    { i: '✈️', t: 'Plan a trip', p: 'Plan a 5-day trip to Italy on a budget.' },
-    { i: '🍛', t: 'Healthy living', p: 'Give me healthy meal ideas for the week.' },
-    { i: '🐶', t: 'Create an image', p: 'A golden retriever in a park', image: true },
-  ],
-  [
-    { i: '💼', t: 'Career advice', p: 'How do I negotiate a higher salary?' },
-    { i: '📚', t: 'Study help', p: 'Summarise the French Revolution in 5 points.' },
-    { i: '🏠', t: 'Home tips', p: 'Best ways to reduce electricity bill at home.' },
-    { i: '🧘', t: 'Wellness', p: 'Give me a 10-minute morning routine.' },
-  ],
-];
-let cardSet = 0;
 
 function prefill(text) {
   if (pending) return;
@@ -564,55 +547,8 @@ function prefill(text) {
   input.focus();
 }
 
-function renderCards() {
-  const row = $('cardRow');
-  row.textContent = '';
-  CARDS[cardSet].forEach((c) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'card';
-
-    const ic = document.createElement('span');
-    ic.className = 'card-ic';
-    ic.textContent = c.i;
-
-    const txt = document.createElement('span');
-    txt.className = 'card-txt';
-    const t = document.createElement('b');
-    t.textContent = c.t;
-    const p = document.createElement('em');
-    p.textContent = '“' + c.p + '”';
-    txt.appendChild(t);
-    txt.appendChild(p);
-
-    const go = document.createElement('span');
-    go.className = 'card-go';
-    go.textContent = '→';
-
-    b.appendChild(ic);
-    b.appendChild(txt);
-    b.appendChild(go);
-    b.addEventListener('click', () => {
-      if (c.image) { openImageGenView(c.p); return; }
-      prefill(c.p);
-      composer.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
-    row.appendChild(b);
-  });
-}
-
-$('moreCards').addEventListener('click', () => {
-  cardSet = (cardSet + 1) % CARDS.length;
-  $('moreCards').textContent = cardSet ? '← Back' : 'View more →';
-  renderCards();
-});
-renderCards();
-
-document.querySelectorAll('.fpill').forEach((pill) => {
-  pill.addEventListener('click', () => {
-    if (pill.hasAttribute('data-image')) { openImageGenView(''); return; }
-    prefill(pill.getAttribute('data-fill'));
-  });
+document.querySelectorAll('.chip').forEach((chip) => {
+  chip.addEventListener('click', () => prefill(chip.getAttribute('data-fill')));
 });
 
 $('imageTool').addEventListener('click', () => openImageGenView(''));
@@ -642,6 +578,8 @@ let sessions = [];
 
 function renderSessions() {
   const list = $('sideList');
+  const wrap = $('sideRecent');
+  wrap.hidden = !sessions.length;
   list.textContent = '';
   sessions.forEach((entry) => {
     const row = document.createElement('div');
@@ -657,7 +595,8 @@ function renderSessions() {
     del.type = 'button';
     del.className = 'side-mini';
     del.setAttribute('aria-label', 'Remove from list');
-    del.textContent = '🗑';
+    del.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">'
+      + '<path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13"/></svg>';
     del.addEventListener('click', () => {
       sessions = sessions.filter((x) => x.id !== entry.id);
       renderSessions();
