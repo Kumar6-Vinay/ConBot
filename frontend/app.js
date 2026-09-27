@@ -553,21 +553,86 @@ async function ask() {
   }
 }
 
-/* "Create image" is on: hand the typed text to the existing dedicated
-   generator instead of /stream. Reuses that view's own model picker,
-   history and download/regenerate — no separate in-thread image UI. */
-function sendToImageGen() {
+/* "Create image" is on: the question stays in the thread as the heading and
+   the picture arrives as its answer, from POST /generate-image. Image turns
+   are not pushed into `history` — it is replayed to the text model, which
+   has no use for a base64 picture. */
+async function sendToImageGen() {
   const text = input.value.trim();
   if (!text) return;
+  addYou(text);
   input.value = '';
   grow();
   setCreateImageMode(false);
-  // imgPrompt's own maxlength (1000) only guards typing, not this
-  // assignment, and it's stricter than chat's 3000 — clip here so a long
-  // question doesn't come back as a raw 422 from the server.
-  imgPrompt.value = text.slice(0, 1000);
-  openImageGenView(imgPrompt.value);
-  runImageGeneration();
+  stuckToBottom = true;
+  // The generator's own limit (1000) is stricter than chat's 3000: clip
+  // rather than let a long question come back as a raw 422.
+  await generateInThread(text.slice(0, 1000));
+}
+
+async function generateInThread(prompt) {
+  const shell = addAnswerShell();
+  const turn = shell.turn;
+  const body = shell.body;
+
+  pending = new AbortController();
+  const timer = setTimeout(() => { if (pending) pending.abort(); }, TIMEOUT_MS);
+  lock(true);
+
+  try {
+    const res = await fetch(API_BASE + '/generate-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: prompt, model: imgModel.value }),
+      signal: pending.signal,
+    });
+    const data = await res.json().catch(() => ({}));
+    body.innerHTML = '';
+
+    if (!res.ok || typeof data.url !== 'string') {
+      showNotice(body, errorText(data.detail, res.status));
+      return;
+    }
+
+    const img = document.createElement('img');
+    img.className = 'made-image';
+    img.src = data.url;                    // data URL from our own backend
+    img.alt = prompt;
+    body.appendChild(img);
+
+    const acts = document.createElement('div');
+    acts.className = 'acts';
+    const dl = document.createElement('a');
+    dl.className = 'act';
+    dl.href = data.url;
+    dl.download = 'conbot-image.png';
+    dl.textContent = 'Download';
+    const again = document.createElement('button');
+    again.className = 'act';
+    again.type = 'button';
+    again.textContent = 'Regenerate';
+    again.onclick = () => {
+      if (pending) return;
+      addYou(prompt);
+      generateInThread(prompt);
+    };
+    acts.appendChild(dl);
+    acts.appendChild(again);
+    turn.appendChild(acts);
+    toBottom();
+  } catch (err) {
+    body.innerHTML = '';
+    showNotice(body, err.name === 'AbortError'
+      ? 'Stopped.'
+      : 'Could not reach ConBOT. Check your connection and try again.');
+  } finally {
+    clearTimeout(timer);
+    clearTimeout(shell.hint);
+    if (turn._waking) { turn._waking.remove(); turn._waking = null; }
+    pending = null;
+    lock(false);
+    input.focus();
+  }
 }
 
 function lock(busy) {

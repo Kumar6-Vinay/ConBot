@@ -17,7 +17,7 @@ Goal: a production chat product, not a demo.
 | `app/models/` | Pydantic request/response schemas: `ask.py` (`Turn`, `ChatRequest`), `image.py`. |
 | `tests/` | `test_main.py` (chat/stream), `test_image_generation.py`, `test_fallback.py` (chain advance, fail-fast, breaker, budget). No network, no API key. |
 | `frontend/index.html` | Single-page shell: sidebar (always present; drawer on mobile), header bar, home hero ("What do you want to know?" + composer + 4 suggestion chips), message thread, docked composer, `+` menu, camera modal, image-generator view. |
-| `frontend/app.js` | All client logic — SSE reader, markdown, sessions, voice, theme, `+` menu (upload/take photo via `getUserMedia`), "Create image" toggle (hands off to the image generator), composer pinning on phones. |
+| `frontend/app.js` | All client logic — SSE reader, markdown, sessions, voice, theme, `+` menu (upload/take photo via `getUserMedia`), "Create image" toggle (generates in-thread via `/generate-image`; the `+` menu and sidebar still open the dedicated generator view), composer pinning on phones. |
 | `frontend/styles.css` | All styling. Tokens in `:root` (Geist font, `--page-bg`/`--surface`/`--canvas`, `--ink*`, `--accent` #2563EB). Light/dark via `body.dark` / `body.light`; never detect the theme by pixel colour. |
 | `frontend/_headers` | Cloudflare Workers static-assets header rules (CSP, HSTS, etc.) for the frontend's own responses. |
 | `Dockerfile` | Backend image only. |
