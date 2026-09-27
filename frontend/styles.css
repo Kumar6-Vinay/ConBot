@@ -1097,6 +1097,18 @@ body.dark .count.over { color: #ff6961; }
 }
 .img-chip-x:hover { background: #27272a; }
 
+/* A generated image, as the answer to a "Create image" question. */
+.turn.bot .made-image {
+  display: block;
+  width: 100%;
+  max-width: 512px;
+  height: auto;
+  border-radius: var(--r-md);
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+}
+.acts a.act { text-decoration: none; }
+
 /* An attached image shown in the user's own turn. */
 .turn.you .you-image {
   display: block;
