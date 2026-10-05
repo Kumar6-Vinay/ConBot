@@ -894,10 +894,20 @@ input.focus();
 
 const plusBtn = $('plusBtn');
 const plusMenu = $('plusMenu');
+const plusMenuHome = plusMenu.parentNode;   // .plus-wrap, where it lives for the desktop popover
 const sheetScrim = $('sheetScrim');
 const isMobileMenu = () => window.matchMedia('(max-width: 767px)').matches;
 
 function openPlusMenu() {
+  if (isMobileMenu()) {
+    // On a phone the composer is pinned inside #dock, a position:fixed
+    // element — which always starts its own stacking context, trapping
+    // the menu's z-index below the scrim's no matter what number we give
+    // it. Move it to <body> while open so it stacks at the page root
+    // instead; closePlusMenu() puts it back for the desktop popover,
+    // which needs to stay inside .plus-wrap to position itself from it.
+    document.body.appendChild(plusMenu);
+  }
   plusMenu.hidden = false;
   plusBtn.setAttribute('aria-expanded', 'true');
   if (isMobileMenu()) sheetScrim.hidden = false;
@@ -907,6 +917,7 @@ function closePlusMenu() {
   plusMenu.hidden = true;
   plusBtn.setAttribute('aria-expanded', 'false');
   sheetScrim.hidden = true;
+  if (plusMenu.parentNode !== plusMenuHome) plusMenuHome.appendChild(plusMenu);
 }
 
 if (plusBtn) {
