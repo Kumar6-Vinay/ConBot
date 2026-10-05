@@ -534,8 +534,17 @@ body.chatting .thread { padding-bottom: 190px; }
   /* The composer is pinned into #dock before the first message too (see
      syncComposerDock() in app.js) — leave room so the heading/chips
      never sit behind it, and drop the hero's own fineprint since #dock
-     already prints its own copy right under the pinned composer. */
-  .hero { padding-bottom: 140px; }
+     already prints its own copy right under the pinned composer.
+     justify-content switches to flex-start: centering is for the
+     desktop group (heading+composer+chips together) — once the
+     composer is pinned bottom, what's left is too short a block to
+     centre in near-full-viewport height without floating in a big
+     empty gap below the header. */
+  .hero {
+    justify-content: flex-start;
+    padding-top: 48px;
+    padding-bottom: 140px;
+  }
   .hero-fineprint { display: none; }
 }
 
