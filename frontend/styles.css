@@ -987,7 +987,10 @@ body.dark .count.over { color: #ff6961; }
   #uploadPhotoBtn { order: 2; }
   #genImageBtn { order: 3; }
   .sheet-cancel { order: 4; }
-  .plus-menu { display: flex; flex-direction: column; }
+  /* :not([hidden]) — a bare .plus-menu{display:flex} here would outrank
+     the browser's own [hidden]{display:none} at equal specificity (author
+     CSS beats the UA stylesheet), showing the sheet open on every load. */
+  .plus-menu:not([hidden]) { display: flex; flex-direction: column; }
 }
 
 @keyframes sheetUp {
