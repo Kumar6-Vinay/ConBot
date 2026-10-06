@@ -1,5 +1,5 @@
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://www.googletagmanager.com 'sha256-S985DeyB1o5u2oiOkNWn+lRyoXNP77ehhpnSHTprYu8='; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://llama-chatbot-qb2c.onrender.com https://www.google-analytics.com https://www.googletagmanager.com https://analytics.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-S985DeyB1o5u2oiOkNWn+lRyoXNP77ehhpnSHTprYu8='; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://llama-chatbot-qb2c.onrender.com https://www.google-analytics.com https://www.googletagmanager.com https://analytics.google.com https://cloudflareinsights.com https://static.cloudflareinsights.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Strict-Transport-Security: max-age=63072000; includeSubDomains
