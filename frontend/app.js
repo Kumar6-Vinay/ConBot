@@ -712,8 +712,17 @@ let sessions = [];
 function renderSessions() {
   const list = $('sideList');
   const wrap = $('sideRecent');
-  wrap.hidden = !sessions.length;
+  wrap.hidden = false;
   list.textContent = '';
+
+  if (!sessions.length) {
+    const empty = document.createElement('p');
+    empty.className = 'side-empty';
+    empty.textContent = 'Your earlier chats will show up here.';
+    list.appendChild(empty);
+    return;
+  }
+
   sessions.forEach((entry) => {
     const row = document.createElement('div');
     row.className = 'side-item';
@@ -766,6 +775,7 @@ function newChat() {
 }
 
 $('newChat').addEventListener('click', newChat);
+renderSessions();   // shows the "nothing yet" empty state from the start
 
 const saved = localStorage.getItem('conbot-theme');
 if (saved) document.body.classList.add(saved);
@@ -1267,7 +1277,9 @@ async function runImageGeneration() {
   const prompt = imgPrompt.value.trim();
   if (!prompt || imgGenerate.disabled) return;
 
+  const idleLabel = imgGenerate.textContent;
   imgGenerate.disabled = true;
+  imgGenerate.textContent = 'Generating…';
   imggenActions.hidden = true;
   imgResult.hidden = true;
   imggenFrame.classList.add('loading');
@@ -1295,6 +1307,7 @@ async function runImageGeneration() {
     imgResult.textContent = e.message || 'Something went wrong. Please try again.';
   } finally {
     imgGenerate.disabled = false;
+    imgGenerate.textContent = idleLabel;
   }
 }
 
