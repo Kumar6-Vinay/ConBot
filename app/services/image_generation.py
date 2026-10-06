@@ -14,13 +14,18 @@ POLLINATIONS_API_KEY = os.getenv("POLLINATIONS_API_KEY", "").strip()
 POLLINATIONS_MODEL = os.getenv("POLLINATIONS_MODEL", "lykon/dreamshaper-8-lcm")
 GENERATION_TIMEOUT = 90  # image generation can take a while on some models
 
-# Model IDs exactly as listed on enter.pollinations.ai/models, with pricing
-# from that same page (cost is per generation, USD).
+# Model IDs exactly as listed on gen.pollinations.ai/image/models, with
+# pricing from that same live catalog (flat cost per generation, USD —
+# verify against the catalog before trusting these numbers months later,
+# they drift: z-image-turbo and p-image were both stale by 10x-50x as of
+# 2026-10-06).
 AVAILABLE_MODELS = {
     "lykon/dreamshaper-8-lcm": {"name": "DreamShaper 8 LCM", "cost": 0.0001},
     "black-forest-labs/flux.1-schnell": {"name": "FLUX.1 Schnell", "cost": 0.002},
-    "tongyi-mai/z-image-turbo": {"name": "Z-Image Turbo", "cost": 0.0004},
-    "prunaai/p-image": {"name": "Pruna p-image", "cost": 0.0001},
+    "tongyi-mai/z-image-turbo": {"name": "Z-Image Turbo", "cost": 0.004},
+    # paid_only on Pollinations as of 2026-10-06 — requires a funded paid
+    # tier there, may fail for an account without one.
+    "prunaai/p-image": {"name": "Pruna p-image", "cost": 0.005},
 }
 
 

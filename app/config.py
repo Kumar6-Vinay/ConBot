@@ -17,10 +17,10 @@ class _Env(BaseSettings):
     GEMINI_API_KEY: str = ""
     GOOGLE_API_KEY: str = ""
     OPENROUTER_API_KEY: str = ""
-    PRIMARY_MODEL: str = "openrouter:qwen/qwen3.8-27b:free"
+    PRIMARY_MODEL: str = "google:gemini-3.1-flash-lite"
     TEXT_FALLBACK_CHAIN: str = (
-        "google:gemini-3.5-flash,google:gemini-3.8-flash,google:gemini-3.1-flash-lite,"
-        "openrouter:nex-agi/nex-n2.5-mini:free,openrouter:dots-studio/dots-3-note-preview:free,"
+        "google:gemini-3.5-flash,google:gemini-3.8-flash,"
+        "openrouter:openai/gpt-5-mini,openrouter:dots-studio/dots-3-note-preview:free,"
         "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free"
     )
     FALLBACK_ATTEMPT_TIMEOUT: int = 10
@@ -74,7 +74,9 @@ OPENROUTER_BASE = "https://openrouter.ai/api/v1"
 
 # ConBOT mode -> primary model (provider:model_id format).
 # Examples: "google:gemini-3.5-flash", "openrouter:qwen/qwen3.8-27b:free"
-# Default is OpenRouter's Qwen, free tier.
+# Default is Gemini direct (free Google AI Studio quota, not OpenRouter) —
+# an OpenRouter free-tier primary gets retired/repriced without notice (as
+# happened to the previous default, openrouter:qwen/qwen3.8-27b:free).
 PRIMARY_MODEL = _env.PRIMARY_MODEL
 GEMINI_MODEL_MAP = {
     "text": PRIMARY_MODEL,
