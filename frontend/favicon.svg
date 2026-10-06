@@ -1,13 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
   <style>
-    circle { fill: none; stroke-width: 2.6; stroke-linecap: round; }
-    .a { stroke: #e3a319; }
-    .b { stroke: #333f99; }
-    @media (prefers-color-scheme: dark) {
-      .a { stroke: #f0b429; }
-      .b { stroke: #8a97ff; }
-    }
+    circle { fill: none; stroke: #0071e3; stroke-width: 2.6; stroke-linecap: round; }
+    @media (prefers-color-scheme: dark) { circle { stroke: #0a84ff; } }
   </style>
-  <circle class="a" cx="9" cy="12" r="6.5" stroke-dasharray="27 14.8" transform="rotate(20 9 12)"/>
-  <circle class="b" cx="15" cy="12" r="6.5" stroke-dasharray="27 14.8" transform="rotate(200 15 12)"/>
+  <circle cx="9" cy="12" r="6.5" stroke-dasharray="27 14.8" transform="rotate(20 9 12)"/>
+  <circle cx="15" cy="12" r="6.5" stroke-dasharray="27 14.8" transform="rotate(200 15 12)"/>
 </svg>
