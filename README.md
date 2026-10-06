@@ -38,7 +38,7 @@ ConBOT is an intelligent conversational platform designed for:
 ## ✨ Features
 
 ### Core Capabilities
-- **Text Chat**: One mode, `text`. `PRIMARY_MODEL` (`provider:model_id`, default OpenRouter's Qwen free tier) is tried first, then `TEXT_FALLBACK_CHAIN` across Google and OpenRouter models
+- **Text Chat**: One mode, `text`. `PRIMARY_MODEL` (`provider:model_id`, default Gemini direct) is tried first, then `TEXT_FALLBACK_CHAIN` across Google and OpenRouter models
 - **Image Generation**: A separate `/generate-image` endpoint calling Pollinations.ai, with a choice of models via `/models/image`
 - **Intelligent Prompting**: Custom system prompts with behavioral guidelines
 - **Structured Responses**: Automatic parsing of follow-up questions and clarification blocks
@@ -172,12 +172,13 @@ docker run -p 8000:8000 \
 Environment variables (see `.env.example`):
 
 ```env
-# Primary LLM model (provider:model_id format). Default: OpenRouter's free Qwen.
+# Primary LLM model (provider:model_id format). Default: Gemini direct.
 # Examples:
-#   PRIMARY_MODEL=openrouter:qwen/qwen3.8-27b:free (current default, free)
-#   PRIMARY_MODEL=google:gemini-3.5-flash (requires GEMINI_API_KEY)
+#   PRIMARY_MODEL=google:gemini-3.1-flash-lite (current default, free Google quota)
+#   PRIMARY_MODEL=openrouter:qwen/qwen3.8-27b:free (free OpenRouter tier — no
+#     SLA, slugs get retired/repriced without notice; don't use as primary)
 # If format is "model_id" without provider prefix, "google" is assumed (legacy).
-PRIMARY_MODEL=openrouter:qwen/qwen3.8-27b:free
+PRIMARY_MODEL=google:gemini-3.1-flash-lite
 
 # Required for Gemini: Google AI Studio key.
 # GOOGLE_API_KEY is read as a legacy alias if GEMINI_API_KEY is unset.
@@ -214,11 +215,13 @@ ALLOWED_ORIGINS=
 FALLBACK_TIMEZONE=Asia/Kolkata
 
 # Text fallback chain — tried in order, after PRIMARY_MODEL, whenever a
-# link 429s (quota), 5xx's, times out, or returns an empty answer. A 400/401/
-# 403/404 or a content-policy block fails immediately instead — a different
-# model won't fix a bad request or a bad key. "google:" calls Gemini
-# directly; "openrouter:" calls OpenRouter (needs OPENROUTER_API_KEY).
-TEXT_FALLBACK_CHAIN=google:gemini-3.5-flash,google:gemini-3.8-flash,google:gemini-3.1-flash-lite,openrouter:nex-agi/nex-n2.5-mini:free,openrouter:dots-studio/dots-3-note-preview:free,openrouter:nvidia/nemotron-3-ultra-550b-a55b:free
+# link 404s (model gone/retired), 429s (quota), 5xx's, times out, or returns
+# an empty answer. A 400/401/403 or a content-policy block fails immediately
+# instead — a different model won't fix a malformed request or a bad key.
+# "google:" calls Gemini directly; "openrouter:" calls OpenRouter (needs
+# OPENROUTER_API_KEY). openai/gpt-5-mini is a cheap paid cross-provider link
+# — insurance against a Google-wide outage, not expected to be hit often.
+TEXT_FALLBACK_CHAIN=google:gemini-3.5-flash,google:gemini-3.8-flash,openrouter:openai/gpt-5-mini,openrouter:dots-studio/dots-3-note-preview:free,openrouter:nvidia/nemotron-3-ultra-550b-a55b:free
 FALLBACK_ATTEMPT_TIMEOUT=10   # seconds per attempt
 FALLBACK_TOTAL_BUDGET=45      # seconds, whole chain, worst case
 BREAKER_FAILURE_THRESHOLD=3   # consecutive failures before a link goes cold
@@ -231,12 +234,16 @@ Google's Gemini free tier caps request volume per (key, model); once hit, it
 returns 429 until the window resets. Rather than surface that to the user,
 `/ask` and `/stream` walk an ordered chain of (provider, model) pairs — same
 `{prompt, model}` request, same response shape, entirely invisible to the
-frontend. The default chain's picks were chosen live (not from memory) by
-probing OpenRouter's free-tier models and Google's own model list with the
-project's actual keys — most "free" OpenRouter models turned out to be
-unreliable (provider capacity errors, agentic-harness-only access, or
-`content: null` responses hiding a token-burning reasoning trace); only the
-three in the default chain survived a 3-prompt smoke test cleanly.
+frontend. Gemini direct leads the chain because it's free and has no
+version-churn problem; a small paid OpenRouter link (`openai/gpt-5-mini`)
+sits after it purely as cross-provider insurance against a Google-wide
+outage, with free OpenRouter tiers as the very last resort. "Free" OpenRouter
+models get retired or repriced without notice — a previous default,
+`openrouter:qwen/qwen3.8-27b:free`, 404'd after being pulled from OpenRouter's
+free tier, and `fallback.py` now treats a 404 as "this model id is gone,
+advance" rather than failing the whole chain. Re-verify any `:free` slug
+against OpenRouter's live catalog before relying on it — don't trust this
+file's picks to still be current months later.
 
 A circuit breaker (`app/core/circuit_breaker.py`) tracks failures per
 (provider, model): after `BREAKER_FAILURE_THRESHOLD` consecutive failures, a
