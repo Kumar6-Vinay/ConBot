@@ -11,13 +11,26 @@ Chain shape: config.GEMINI_MODEL_MAP[mode] is always tried first (provider
 chain is entirely env-var-driven (see app/config.py).
 
 Classification, for every attempt:
-  - success (non-empty answer)              -> record breaker success, done.
-  - 429 / any 5xx / timeout / empty content  -> record breaker failure,
-                                                 advance to the next link.
-  - 400 / 401 / 403 / 404 / ContentBlocked   -> raise immediately. A
-                                                 different model won't fix a
-                                                 bad request, a bad key, or a
-                                                 policy refusal.
+  - success (non-empty answer)                    -> record breaker success,
+                                                       done.
+  - 404 / 429 / any 5xx / timeout / empty content  -> record breaker failure,
+                                                       advance to the next
+                                                       link. Both clients put
+                                                       the model id in the
+                                                       request itself (the
+                                                       OpenRouter body or the
+                                                       Gemini URL path), never
+                                                       in anything else about
+                                                       the request shape, so a
+                                                       404 here can only mean
+                                                       "this model id is
+                                                       gone" — exactly what a
+                                                       different link can fix.
+  - 400 / 401 / 403 / ContentBlocked               -> raise immediately. A
+                                                       different model won't
+                                                       fix a malformed
+                                                       request, a bad key, or
+                                                       a policy refusal.
 
 For streaming, once a single piece has been yielded from an attempt, any
 later failure from that same attempt propagates as-is — never silently
@@ -42,8 +55,9 @@ from app.services import gemini_client, openrouter_client
 from app.services.openrouter_client import OpenRouterUpstreamError
 
 # Codes that mean "this exact request is bad," not "this model is down."
-# Retrying it against a different model/provider won't help.
-_FAIL_FAST_CODES = {400, 401, 403, 404}
+# Retrying it against a different model/provider won't help. 404 is
+# deliberately not here — see the module docstring.
+_FAIL_FAST_CODES = {400, 401, 403}
 
 
 def _parse_chain(mode: str) -> List[Tuple[str, str]]:
@@ -89,7 +103,7 @@ def _should_advance(exc: Exception) -> bool:
         return False
     if code in _FAIL_FAST_CODES:
         return False
-    return code == 429 or 500 <= code < 600
+    return code == 404 or code == 429 or 500 <= code < 600
 
 
 async def get_answer(messages: List[dict], mode: str, request_id: str) -> str:
