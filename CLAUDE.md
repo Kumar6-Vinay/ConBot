@@ -49,16 +49,19 @@ is run manually.
 - **Text chat walks a multi-provider fallback chain, not a single model.**
   `GEMINI_MODEL_MAP[mode]` resolves to `PRIMARY_MODEL` (`provider:model_id`,
   currently OpenRouter's Qwen free tier by default — not Gemini) and is
-  always tried first; on a 429, 5xx, timeout, or empty answer it falls
+  always tried first; on a 404, 429, 5xx, timeout, or empty answer it falls
   through `TEXT_FALLBACK_CHAIN`
   (`app/config.py`), an ordered `provider:model_id` list mixing more Google
   models and OpenRouter models — `app/services/fallback.py` is the only
   place that loops across them. `GEMINI_API_KEY` and `OPENROUTER_API_KEY`
   are two independent credentials for two different providers, never one
   aliasing the other — `GOOGLE_API_KEY` remains a legacy alias for
-  `GEMINI_API_KEY` only. A 400/401/403/404 or a Gemini content-policy block
-  (`ContentBlocked`) fails immediately instead of advancing — a different
-  model won't fix a bad request or a policy refusal.
+  `GEMINI_API_KEY` only. A 404 always advances rather than fails fast: both
+  clients put the model id in the request itself (OpenRouter's body, Gemini's
+  URL path), so a 404 can only mean "this model id is gone," which a
+  different link can fix. A 400/401/403 or a Gemini content-policy block
+  (`ContentBlocked`) still fails immediately instead of advancing — a
+  different model won't fix a malformed request or a policy refusal.
 - **A circuit breaker (`app/core/circuit_breaker.py`) skips known-cold
   links.** After `BREAKER_FAILURE_THRESHOLD` consecutive failures, a
   `provider:model` pair is skipped entirely (not attempted) for

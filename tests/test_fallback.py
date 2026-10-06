@@ -109,6 +109,25 @@ def test_advances_past_empty_answer(monkeypatch):
     assert result == "answer from model-b"
 
 
+def test_advances_past_404(monkeypatch):
+    """A 404 means the model id itself is gone (retired/paywalled free
+    tier) — both clients put the model id in the request, never in
+    anything else, so this can only be an advance-the-chain case."""
+    calls = []
+
+    async def fake_ask(messages, model_id, request_id, timeout):
+        calls.append(model_id)
+        if model_id == "model-a":
+            raise http_status_error(404)
+        return f"answer from {model_id}"
+
+    monkeypatch.setattr(gemini_client, "ask_gemini", fake_ask)
+
+    result = run(fallback.get_answer([], "text", "req1"))
+    assert result == "answer from model-b"
+    assert calls == ["model-a", "model-b"]
+
+
 def test_advances_across_providers_to_openrouter(monkeypatch):
     monkeypatch.setattr(fallback, "TEXT_FALLBACK_CHAIN", "google:model-b,openrouter:vendor/model-c:free")
 
@@ -127,7 +146,7 @@ def test_advances_across_providers_to_openrouter(monkeypatch):
 
 # ---------------------------------------------------------------- get_answer: fail fast
 
-@pytest.mark.parametrize("code", [400, 401, 403, 404])
+@pytest.mark.parametrize("code", [400, 401, 403])
 def test_fail_fast_codes_stop_the_chain(monkeypatch, code):
     calls = []
 
