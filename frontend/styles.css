@@ -3,34 +3,25 @@
 ========================================================= */
 
 :root {
-  /* Page vs. sidebar vs. white "card" surface — three distinct tiers.
-     Warm ivory, not grey-white: the whole palette leans toward turmeric,
-     marigold and brass rather than neutral SaaS zinc. */
-  --page-bg: #f6f2e7;
-  --surface: #ece4d2;
+  /* Page vs. sidebar vs. white "card" surface — three distinct tiers */
+  --page-bg: #fafaf9;
+  --surface: #f4f4f5;
   --canvas: #ffffff;
 
-  /* Text scale: primary / secondary / muted / placeholder — warm
-     ink-brown, not cool black, so it sits naturally on the ivory page. */
-  --ink: #241b12;
-  --ink-2: #4a3c2b;
-  --ink-3: #6e5e47;
-  --placeholder: #8c7a5e;
+  /* Text scale: primary / secondary / muted / placeholder */
+  --ink: #18181b;
+  --ink-2: #3f3f46;
+  --ink-3: #52525b;
+  --placeholder: #71717a;
 
-  --hairline: #e2d6be;
-  /* Marigold: the one accent, spent only on points of action (send,
-     focus, active state) — never as a background wash. */
-  --accent: #e3a319;
-  /* Raw marigold fails text contrast on light surfaces; this darker
-     mustard stands in wherever the accent is text, not a fill. */
-  --accent-deep: #7a4e00;
-  --accent-ink: #241b12;
-  --bubble: #e3a319;
-  --code-bg: #ece4d2;
+  --hairline: #e4e4e7;
+  --accent: #2563eb;
+  --accent-ink: #ffffff;
+  --bubble: #2563eb;
+  --code-bg: #f4f4f5;
 
-  /* A distinct accent for the image generator — indigo dye ("neel"),
-     the warm/cool counterpart to marigold, separate from chat's gold. */
-  --accent-image: #333f99;
+  /* A distinct accent for the image generator, separate from chat's blue */
+  --accent-image: #8a3ffc;
   --accent-image-ink: #ffffff;
 
   --bar-h: 52px;
@@ -38,55 +29,48 @@
 
   --r-sm: 10px;
   --r-md: 12px;
-  --r-lg: 20px;
+  --r-lg: 24px;
 
-  --composer-shadow: 0 1px 2px rgba(36, 27, 18, 0.05), 0 10px 30px rgba(36, 27, 18, 0.09);
-  /* Deeper tier for things that float above the composer itself — popovers,
-     the camera modal, the "+" sheet. */
-  --shadow-pop: 0 4px 16px rgba(36, 27, 18, 0.08), 0 20px 48px rgba(36, 27, 18, 0.14);
+  --composer-shadow: 0 1px 2px rgba(24, 24, 27, 0.04), 0 10px 30px rgba(24, 24, 27, 0.07);
 
   --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 body.dark {
-  --page-bg: #1b1510;
-  --surface: #241c14;
-  --canvas: #2a2118;
-  --ink: #f3ecdd;
-  --ink-2: #d2c3a8;
-  --ink-3: #a6967a;
-  --placeholder: #7d6e57;
-  --hairline: #3a2e20;
-  --accent: #f0b429;
-  --accent-deep: #f7c948;
-  --accent-ink: #1b1510;
-  --bubble: #f0b429;
-  --code-bg: #241c14;
-  --accent-image: #8a97ff;
-  --accent-image-ink: #14143a;
+  --page-bg: #09090b;
+  --surface: #18181b;
+  --canvas: #1f1f23;
+  --ink: #fafafa;
+  --ink-2: #d4d4d8;
+  --ink-3: #a1a1aa;
+  --placeholder: #71717a;
+  --hairline: #27272a;
+  --accent: #3b82f6;
+  --accent-ink: #000000;
+  --bubble: #3b82f6;
+  --code-bg: #18181b;
+  --accent-image: #a76bff;
+  --accent-image-ink: #000000;
   --composer-shadow: 0 1px 2px rgba(0, 0, 0, 0.24), 0 10px 30px rgba(0, 0, 0, 0.36);
-  --shadow-pop: 0 4px 16px rgba(0, 0, 0, 0.32), 0 20px 48px rgba(0, 0, 0, 0.42);
 }
 
 @media (prefers-color-scheme: dark) {
   body:not(.light) {
-    --page-bg: #1b1510;
-    --surface: #241c14;
-    --canvas: #2a2118;
-    --ink: #f3ecdd;
-    --ink-2: #d2c3a8;
-    --ink-3: #a6967a;
-    --placeholder: #7d6e57;
-    --hairline: #3a2e20;
-    --accent: #f0b429;
-    --accent-deep: #f7c948;
-    --accent-ink: #1b1510;
-    --bubble: #f0b429;
-    --code-bg: #241c14;
-    --accent-image: #8a97ff;
-    --accent-image-ink: #14143a;
+    --page-bg: #09090b;
+    --surface: #18181b;
+    --canvas: #1f1f23;
+    --ink: #fafafa;
+    --ink-2: #d4d4d8;
+    --ink-3: #a1a1aa;
+    --placeholder: #71717a;
+    --hairline: #27272a;
+    --accent: #3b82f6;
+    --accent-ink: #000000;
+    --bubble: #3b82f6;
+    --code-bg: #18181b;
+    --accent-image: #a76bff;
+    --accent-image-ink: #000000;
     --composer-shadow: 0 1px 2px rgba(0, 0, 0, 0.24), 0 10px 30px rgba(0, 0, 0, 0.36);
-    --shadow-pop: 0 4px 16px rgba(0, 0, 0, 0.32), 0 20px 48px rgba(0, 0, 0, 0.42);
   }
 }
 
@@ -95,10 +79,6 @@ body.dark {
 html, body {
   margin: 0;
   height: 100%;
-  /* The off-canvas sidebar is translated out of view, not removed from
-     layout — without this, its pre-transform position still extends the
-     page's horizontal scroll range on phones. */
-  overflow-x: hidden;
 }
 
 body {
@@ -116,7 +96,7 @@ button, textarea { font: inherit; color: inherit; }
 button { border: 0; background: none; cursor: pointer; }
 
 :focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline: 3px solid color-mix(in srgb, var(--accent) 40%, transparent);
   outline-offset: 2px;
   border-radius: 6px;
 }
@@ -190,8 +170,6 @@ body.dark .ic-moon { display: block; }
 /* ===== Hero — centred "what do you want to know" home screen ===== */
 
 .hero {
-  position: relative;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -201,34 +179,7 @@ body.dark .ic-moon { display: block; }
   text-align: center;
 }
 
-/* One ambient moment, not decoration repeated everywhere: a soft
-   marigold/indigo glow behind the opening question, fading in once on
-   load and then holding still — the "two voices" mark's colours, diffused. */
-.hero::before {
-  content: '';
-  position: absolute;
-  top: 6%;
-  left: 50%;
-  width: min(820px, 150vw);
-  height: 440px;
-  transform: translateX(-50%);
-  background:
-    radial-gradient(circle at 32% 38%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 60%),
-    radial-gradient(circle at 68% 58%, color-mix(in srgb, var(--accent-image) 18%, transparent), transparent 60%);
-  filter: blur(64px);
-  opacity: 0;
-  animation: glowIn 1.6s var(--ease) 0.1s both;
-  pointer-events: none;
-}
-
-@keyframes glowIn {
-  from { opacity: 0; transform: translateX(-50%) scale(0.92); }
-  to   { opacity: 1; transform: translateX(-50%) scale(1); }
-}
-
 .hero-inner {
-  position: relative;
-  z-index: 1;
   width: 100%;
   max-width: var(--col);
   text-align: center;
@@ -239,9 +190,9 @@ body.dark .ic-moon { display: block; }
 
 .ask-heading {
   margin: 0;
-  font-size: 42px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
+  font-size: 36px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
   color: var(--ink);
   animation: rise 0.7s var(--ease) both;
 }
@@ -267,18 +218,14 @@ body.dark .ic-moon { display: block; }
   color: var(--ink-2);
   background: var(--canvas);
   border: 1px solid var(--hairline);
-  border-radius: var(--r-md);
-  box-shadow: inset 0 -2px 0 0 transparent;
-  transition: color 0.2s var(--ease), border-color 0.2s var(--ease),
-    box-shadow 0.2s var(--ease), transform 0.15s var(--ease);
+  border-radius: 999px;
+  transition: color 0.2s var(--ease), border-color 0.2s var(--ease), transform 0.15s var(--ease);
 }
 .chip:hover {
   color: var(--ink);
-  border-color: var(--hairline);
-  box-shadow: inset 0 -2px 0 0 var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline));
   transform: translateY(-1px);
 }
-.chip:active { transform: translateY(0) scale(0.97); }
 
 @keyframes rise {
   from { opacity: 0; transform: translateY(12px); }
@@ -314,10 +261,6 @@ body.dark .ic-moon { display: block; }
   color: var(--ink);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  /* Marks this block as the question, not the answer — a thin rule in
-     the brand accent instead of a label or a bubble. */
-  border-left: 3px solid var(--accent);
-  padding-left: 15px;
 }
 
 .turn.bot { margin: 14px 0 0; }
@@ -345,7 +288,7 @@ body.dark .ic-moon { display: block; }
 }
 .text ul, .text ol { margin: 0 0 14px; padding-left: 22px; }
 .text li { margin: 5px 0; }
-.text a { color: var(--accent-deep); text-decoration: none; }
+.text a { color: var(--accent); text-decoration: none; }
 .text a:hover { text-decoration: underline; }
 .text strong { font-weight: 600; }
 
@@ -406,7 +349,7 @@ body.dark .ic-moon { display: block; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   transition: color 0.2s var(--ease);
 }
-.source:hover { color: var(--accent-deep); }
+.source:hover { color: var(--accent); }
 
 /* ===== Thinking ===== */
 
@@ -546,11 +489,6 @@ body.dark .ic-moon { display: block; }
   stroke: var(--accent);
   animation: open 0.9s var(--ease) 0.3s both;
 }
-/* Two voices, two colours: the second arc takes the image-generator's
-   indigo, so the one bold element in the system carries both accents. */
-.wordmark .mark circle:nth-of-type(2) {
-  stroke: var(--accent-image);
-}
 
 @keyframes open {
   from { transform: scale(0); opacity: 0; }
@@ -619,7 +557,7 @@ body.chatting .thread { padding-bottom: 190px; }
 }
 
 .cut .act {
-  color: var(--accent-deep);
+  color: var(--accent);
   padding: 5px 12px;
   border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
   border-radius: 999px;
@@ -643,10 +581,9 @@ body.chatting .thread { padding-bottom: 190px; }
   color: var(--ink);
   background: var(--surface);
   border-radius: 999px;
-  transition: background 0.2s var(--ease), transform 0.15s var(--ease);
+  transition: background 0.2s var(--ease);
 }
 .option:hover { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
-.option:active { transform: scale(0.97); }
 
 /* Follow-ups sit quietly under the answer. Plain rows, hairline between —
    deliberately not buttons, so they read as an offer, not an instruction. */
@@ -674,7 +611,7 @@ body.chatting .thread { padding-bottom: 190px; }
   transition: color 0.18s var(--ease), padding-left 0.18s var(--ease);
 }
 .next-q:last-child { border-bottom: 0; }
-.next-q:hover { color: var(--accent-deep); padding-left: 6px; }
+.next-q:hover { color: var(--accent); padding-left: 6px; }
 
 @media (max-width: 640px) {
   .options { flex-direction: column; }
@@ -778,10 +715,9 @@ body.chatting .thread { padding-bottom: 190px; }
   background: var(--accent);
   border: 1px solid transparent;
   border-radius: var(--r-md);
-  transition: background 0.2s var(--ease), transform 0.15s var(--ease);
+  transition: background 0.2s var(--ease);
 }
 .side-new:hover { background: color-mix(in srgb, var(--accent) 88%, black); }
-.side-new:active { transform: scale(0.98); }
 
 .side-list {
   flex: 1;
@@ -805,12 +741,7 @@ body.chatting .thread { padding-bottom: 190px; }
   transition: background 0.15s var(--ease);
 }
 .side-item:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); }
-/* Same accent-bar motif as the user's question in the thread — an
-   active conversation is marked the same way a question is. */
-.side-item.active {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  box-shadow: inset 3px 0 0 0 var(--accent);
-}
+.side-item.active { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 
 .side-item-title {
   flex: 1;
@@ -843,7 +774,7 @@ body.chatting .thread { padding-bottom: 190px; }
   color: var(--ink-2);
 }
 .side-mini:hover { background: var(--canvas); color: var(--ink); }
-.side-mini.is-pinned { color: var(--accent-deep); }
+.side-mini.is-pinned { color: var(--accent); }
 
 .side-empty {
   padding: 16px 10px;
@@ -918,12 +849,6 @@ body.chatting .thread { padding-bottom: 190px; }
     background: rgba(0,0,0,0.32);
     animation: rise 0.2s var(--ease) both;
   }
-
-  /* The sidebar is a touch drawer at this width — the delete action's
-     hover-only reveal would otherwise never show. The resting (non-hover)
-     fade gradient already matches the item's resting background, so no
-     other override is needed to blend it in. */
-  .side-item-acts { opacity: 1; }
 }
 
 @media (min-width: 901px) {
@@ -960,8 +885,8 @@ body.chatting .thread { padding-bottom: 190px; }
 .plus:disabled { opacity: 0.4; cursor: default; }
 
 .count { margin-left: auto; font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.count.over { color: #c8102e; }
-body.dark .count.over { color: #ff8a65; }
+.count.over { color: #d70015; }
+body.dark .count.over { color: #ff6961; }
 
 /* "Create image" toggle — swaps the composer to the /generate-image path */
 .createimg {
@@ -979,7 +904,7 @@ body.dark .count.over { color: #ff8a65; }
 .createimg:hover { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline)); }
 .createimg-close { display: none; }
 .createimg[aria-pressed="true"] {
-  color: var(--accent-deep);
+  color: var(--accent);
   background: color-mix(in srgb, var(--accent) 8%, var(--canvas));
   border-color: color-mix(in srgb, var(--accent) 45%, var(--hairline));
 }
@@ -997,7 +922,7 @@ body.dark .count.over { color: #ff8a65; }
   background: var(--canvas);
   border: 1px solid var(--hairline);
   border-radius: var(--r-md);
-  box-shadow: var(--shadow-pop);
+  box-shadow: var(--composer-shadow);
   animation: rise 0.15s var(--ease) both;
 }
 
@@ -1092,7 +1017,7 @@ body.dark .count.over { color: #ff8a65; }
   padding: 16px;
   background: var(--canvas);
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow-pop);
+  box-shadow: var(--composer-shadow);
 }
 
 .cam-close {
@@ -1123,7 +1048,7 @@ body.dark .count.over { color: #ff8a65; }
 
 .cam-choose {
   font-size: 13.5px;
-  color: var(--accent-deep);
+  color: var(--accent);
 }
 .cam-choose:hover { text-decoration: underline; }
 
@@ -1149,11 +1074,11 @@ body.dark .count.over { color: #ff8a65; }
 }
 
 /* Recording: the composer itself pulses red, so it reads even off-screen. */
-.composer.listening { border-color: #c8102e; animation: recPulse 1.4s var(--ease) infinite; }
+.composer.listening { border-color: #d70015; animation: recPulse 1.4s var(--ease) infinite; }
 @keyframes recPulse {
-  0%   { box-shadow: 0 0 0 0 rgba(200, 16, 46, 0.35); }
-  70%  { box-shadow: 0 0 0 8px rgba(200, 16, 46, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(200, 16, 46, 0); }
+  0%   { box-shadow: 0 0 0 0 rgba(215, 0, 21, 0.35); }
+  70%  { box-shadow: 0 0 0 8px rgba(215, 0, 21, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(215, 0, 21, 0); }
 }
 
 /* Staged image sits just above the composer until the question is sent. */
@@ -1229,14 +1154,13 @@ body.dark .count.over { color: #ff8a65; }
   background: transparent;
   border: 1px solid var(--hairline);
   border-radius: var(--r-md);
-  transition: background 0.2s var(--ease), border-color 0.2s var(--ease), transform 0.15s var(--ease);
+  transition: background 0.2s var(--ease), border-color 0.2s var(--ease);
 }
 .side-imagegen svg { stroke: var(--accent-image); }
 .side-imagegen:hover {
   background: color-mix(in srgb, var(--accent-image) 8%, transparent);
   border-color: color-mix(in srgb, var(--accent-image) 35%, var(--hairline));
 }
-.side-imagegen:active { transform: scale(0.98); }
 
 /* =========================================================
    Image generation — dedicated view (not a dialog)
@@ -1385,24 +1309,7 @@ body.imggen-active .imggen {
 }
 .imggen-generate:hover { opacity: 0.9; }
 .imggen-generate:active { transform: scale(0.97); }
-.imggen-generate:disabled {
-  opacity: 0.75;
-  cursor: default;
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-}
-.imggen-generate:disabled::before {
-  content: '';
-  width: 14px; height: 14px;
-  border-radius: 50%;
-  border: 2px solid color-mix(in srgb, var(--accent-image-ink) 35%, transparent);
-  border-top-color: var(--accent-image-ink);
-  animation: spin 0.7s linear infinite;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) {
-  .imggen-generate:disabled::before { animation: none; }
-}
+.imggen-generate:disabled { opacity: 0.5; cursor: default; }
 
 .imggen-history-label {
   font-size: 12px;
@@ -1444,14 +1351,8 @@ body.imggen-active .imggen {
   overflow: hidden;
 }
 
-.imggen-placeholder {
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
-  padding: 0 24px;
-  color: var(--ink-2);
-  text-align: center;
-}
+.imggen-placeholder { color: var(--ink-2); }
 .imggen-placeholder svg { stroke: var(--ink-2); }
-.imggen-placeholder p { margin: 0; font-size: 14px; }
 
 .imggen-frame img {
   width: 100%; height: 100%;
@@ -1459,24 +1360,13 @@ body.imggen-active .imggen {
   display: block;
 }
 
-/* Shimmer sweep across the frame while an image is on its way, instead
-   of a flat pulse — the icon just dims so the motion stays legible. */
-.imggen-frame.loading {
-  background: linear-gradient(110deg,
-    var(--surface) 8%,
-    color-mix(in srgb, var(--accent-image) 12%, var(--surface)) 24%,
-    var(--surface) 40%);
-  background-size: 200% 100%;
-  animation: shimmer 1.6s linear infinite;
+.imggen-frame.loading .imggen-placeholder {
+  animation: imggenPulse 1.4s infinite ease-in-out;
 }
-.imggen-frame.loading .imggen-placeholder { opacity: 0.4; }
 
-@keyframes shimmer {
-  from { background-position-x: 0%; }
-  to   { background-position-x: -200%; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .imggen-frame.loading { animation: none; }
+@keyframes imggenPulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.8; }
 }
 
 .imggen-error {
@@ -1484,17 +1374,13 @@ body.imggen-active .imggen {
   width: 100%;
   padding: 12px 16px;
   font-size: 14px;
-  color: #c8102e;
-  background: color-mix(in srgb, #c8102e 8%, transparent);
+  color: #d92c2c;
+  background: color-mix(in srgb, #d92c2c 8%, transparent);
   border-radius: var(--r-md);
   text-align: center;
 }
 
-/* :not([hidden]) — same reason as .plus-menu above: a bare
-   .imggen-actions{display:flex} would outrank the browser's own
-   [hidden]{display:none} at equal specificity (author beats UA), showing
-   Regenerate/Download before anything has been generated. */
-.imggen-actions:not([hidden]) {
+.imggen-actions {
   display: flex; gap: 8px;
 }
 
@@ -1506,11 +1392,10 @@ body.imggen-active .imggen {
   background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: var(--r-sm);
-  transition: border-color 0.2s var(--ease), transform 0.15s var(--ease);
+  transition: border-color 0.2s var(--ease);
 }
 .imggen-action svg { stroke: currentColor; }
 .imggen-action:hover { border-color: color-mix(in srgb, var(--accent-image) 40%, var(--hairline)); }
-.imggen-action:active { transform: scale(0.96); }
 
 /* Tablet: controls become a row above the canvas instead of a sidebar. */
 @media (max-width: 900px) {
@@ -1535,15 +1420,7 @@ body.imggen-active .imggen {
 @media (max-width: 640px) {
   .imggen-inner { padding: 20px 16px 32px; }
   .imggen-controls {
-    /* The 900px rule above sets flex-wrap:wrap and align-items:center for
-       its row layout, and both are still in effect here too (both
-       breakpoints match on a phone) — left unreset, flex-wrap:wrap turns
-       the column layout into two side-by-side columns, and
-       align-items:center shrinks items to content width instead of
-       stretching them, instead of a single full-width stacked column. */
     flex-direction: column;
-    flex-wrap: nowrap;
-    align-items: stretch;
   }
   #imgModel { width: 100%; }
   .imggen-generate { width: 100%; }
@@ -1567,8 +1444,4 @@ body.imggen-active .imggen {
   }
   .chip, .createimg { height: 44px; }
   .side-new, .side-imagegen, .cam-choose { min-height: 44px; }
-
-  /* :hover doesn't exist on touch, so a hover-only reveal leaves these
-     permanently invisible on a phone — show them at rest instead. */
-  .acts { opacity: 1; }
 }
