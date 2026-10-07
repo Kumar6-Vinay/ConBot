@@ -1,4 +1,6 @@
 .env
+.env.*
+!.env.example
 __pycache__/
 *.pyc
 .DS_Store
@@ -7,3 +9,15 @@ venv/
 *.log
 .idea/
 .pytest_cache/
+
+# Defensive — none of these should ever exist in this repo, but a public
+# repo is exactly where you want the net in place before someone commits
+# one by accident.
+*.pem
+*.key
+*.crt
+credentials.json
+
+# Local scratch output, not meant to be committed.
+image.png
+response.json

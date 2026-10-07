@@ -24,19 +24,13 @@ Goal: a production chat product, not a demo.
 | `wrangler.json` | Cloudflare Workers config that serves `frontend/` as static assets — this is how the frontend deploys, not classic Cloudflare Pages. |
 
 There is no database and no auth. Rate limits are in-memory, so the backend
-must run as a single instance. The repo is private; the frontend deploys via
-Cloudflare Workers static assets (not GitHub Pages) because GitHub Pages
-requires a public repo on the free plan. There is no CI workflow — `pytest -q`
-is run manually.
-
-`video_generation.py` at the repo root is dead code — tracked in git but
-never imported by `app/`, never copied into the Docker image, and its only
-dependencies (`moviepy`, `pillow`, `numpy`) were removed from
-`requirements.txt` for being unused attack surface (it'd fail to import
-today). Its `create_20s_video_from_images()` has an unvalidated SSRF/path-
-traversal primitive (fetches an arbitrary URL or opens an arbitrary local
-path with no allow-list). If this feature is ever wired up, add input
-validation first — do not route a live endpoint to it as-is.
+must run as a single instance. **The repo is public** (as of 2026-10-07) —
+the frontend still deploys via Cloudflare Workers static assets rather than
+GitHub Pages, but that's now a preference, not a requirement (GitHub Pages
+on a public repo is a viable option if ever wanted). There is no CI
+workflow — `pytest -q` is run manually. Full security audit history is in
+`SECURITY_AUDIT.md`; vulnerability reports go through `SECURITY.md`, not a
+public issue.
 
 `/generate-image` shares the same `rate_limit.enforce_rate_limit()` budget
 as `/ask`/`/stream` (per-IP window, per-IP daily, global daily) — it is not
