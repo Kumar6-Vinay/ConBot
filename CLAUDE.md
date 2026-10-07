@@ -29,6 +29,19 @@ Cloudflare Workers static assets (not GitHub Pages) because GitHub Pages
 requires a public repo on the free plan. There is no CI workflow — `pytest -q`
 is run manually.
 
+`video_generation.py` at the repo root is dead code — tracked in git but
+never imported by `app/`, never copied into the Docker image, and its only
+dependencies (`moviepy`, `pillow`, `numpy`) were removed from
+`requirements.txt` for being unused attack surface (it'd fail to import
+today). Its `create_20s_video_from_images()` has an unvalidated SSRF/path-
+traversal primitive (fetches an arbitrary URL or opens an arbitrary local
+path with no allow-list). If this feature is ever wired up, add input
+validation first — do not route a live endpoint to it as-is.
+
+`/generate-image` shares the same `rate_limit.enforce_rate_limit()` budget
+as `/ask`/`/stream` (per-IP window, per-IP daily, global daily) — it is not
+a separate, unprotected cost surface.
+
 ## Architecture facts you must not get wrong
 
 - **The backend is the `app/` package, not a single file.** Route handlers
