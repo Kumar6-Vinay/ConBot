@@ -2,7 +2,7 @@
 
 **A general-purpose AI assistant (conbot.in) — FastAPI backend, vanilla-JS frontend.**
 
-ConBOT is a stateless chat assistant powered by Google's Gemini API. It generates images via Pollinations.ai, supports multiple languages, and operates without persistent conversation history. A production chat product focused on simplicity and privacy.
+ConBOT is a stateless chat assistant backed by a multi-provider text fallback chain (Google Gemini direct, with OpenRouter as cross-provider insurance) and Pollinations.ai for image generation. No database, no auth, no persisted conversation history — a production chat product focused on simplicity, resilience and privacy.
 
 ---
 
@@ -17,92 +17,100 @@ ConBOT is a stateless chat assistant powered by Google's Gemini API. It generate
 - [API Endpoints](#api-endpoints)
 - [Development](#development)
 - [Deployment](#deployment)
+- [Security](#security)
 - [Project Structure](#project-structure)
+- [Known Limitations & Roadmap](#known-limitations--roadmap)
 
 ---
 
 ## 🎯 Overview
 
-ConBOT is an intelligent conversational platform designed for:
-
-- **Multi-language Support**: Responds in the user's language with localized information
-- **Location Awareness**: Provides location-specific answers based on timezone and regional settings
-- **LLM Backend**: Google's Gemini API (multimodal — text and image input in the same chat)
-- **Image Generation**: On-demand image generation via Pollinations.ai
-- **Rate Limiting**: Per-IP window and daily caps, plus a global daily cost cap (in-memory, single instance)
-- **Streaming Responses**: Server-sent events (SSE) for real-time answer generation
-- **Safe errors & logs**: Request-id log lines without question text; users only ever see safe messages
+- **Multi-provider text chat**: `PRIMARY_MODEL` (Gemini direct, free quota) is tried first; on failure it walks `TEXT_FALLBACK_CHAIN` across more Gemini models and OpenRouter — one paid cross-provider link plus free OpenRouter models as a last resort
+- **Multi-language, location-aware**: responds in the user's language, using timezone for locale context
+- **Image generation**: on-demand, via a separate `/generate-image` endpoint backed by Pollinations.ai
+- **Rate limiting**: per-IP sliding window, per-IP daily cap, global daily cap, and a concurrent-stream ceiling — all in-memory, single instance
+- **Streaming responses**: Server-Sent Events (SSE) for real-time answer generation
+- **Safe errors & logs**: request-id log lines never contain question text; users only ever see safe, generic messages; upstream provider details never leak to the client
 
 ---
 
 ## ✨ Features
 
 ### Core Capabilities
-- **Text Chat**: One mode, `text`. `PRIMARY_MODEL` (`provider:model_id`, default Gemini direct) is tried first, then `TEXT_FALLBACK_CHAIN` across Google and OpenRouter models
-- **Image Generation**: A separate `/generate-image` endpoint calling Pollinations.ai, with a choice of models via `/models/image`
-- **Intelligent Prompting**: Custom system prompts with behavioral guidelines
-- **Structured Responses**: Automatic parsing of follow-up questions and clarification blocks
-- **Stateless Design**: No persistent conversation history; each session is independent
-- **Multi-language Support**: Responds in the user's language with localized context
+- **Text Chat**: One mode, `text`. See [Text fallback chain](#configuration) for how `PRIMARY_MODEL` and `TEXT_FALLBACK_CHAIN` work together
+- **Image Generation**: `/generate-image` calling Pollinations.ai, with a choice of models via `/models/image`
+- **Intelligent Prompting**: custom system prompt with behavioral guidelines
+- **Structured Responses**: automatic parsing of follow-up questions and clarification blocks out of the raw model output
+- **Stateless Design**: no persistent conversation history — the client replays its own history each request
+- **Multi-language Support**: responds in the user's language with localized context
 
 ### Technical Features
-- **Server-Sent Events (SSE)**: Real-time streaming for instant user feedback
-- **Rate Limiting**: Sliding-window + daily caps per client IP, and a global daily cap
-- **Request Tracking**: UUID-based request IDs for comprehensive logging
-- **Error Resilience**: Detailed error handling with meaningful user messages
-- **CORS Support**: Pre-configured for multiple frontend origins
+- **Server-Sent Events (SSE)**: real-time streaming for instant user feedback
+- **Multi-provider fallback + circuit breaker**: a failed (provider, model) link is skipped cold for a cooldown window instead of being retried every request
+- **Rate Limiting**: sliding-window + daily caps per client IP, a global daily cap, and a concurrent-`/stream` ceiling
+- **Request Tracking**: UUID-based request IDs on every log line
+- **Error Resilience**: upstream failures always map to a safe, generic client message
+- **Security headers & body-size limits**: CSP/HSTS/nosniff on both the frontend (Cloudflare) and API, oversized request bodies rejected before parsing
+- **CORS Support**: explicit origin allow-list, no wildcard, no credentials
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      Frontend (Web)                          │
-│              (HTML, JavaScript, CSS)                         │
-└────────────────────┬────────────────────────────────────────┘
-                     │ HTTP/SSE
-                     ▼
-┌─────────────────────────────────────────────────────────────┐
-│              ConBOT FastAPI Backend                          │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │ API Endpoints (/ask, /stream, /health,               │   │
-│  │                /generate-image, /models/image)       │   │
-│  ├──────────────────────────────────────────────────────┤   │
-│  │ Request Processing & Validation                      │   │
-│  ├──────────────────────────────────────────────────────┤   │
-│  │ Message Processing & Validation                       │   │
-│  ├──────────────────────────────────────────────────────┤   │
-│  │ Rate Limiting & Security                             │   │
-│  └──────────────────────────────────────────────────────┘   │
-└────────┬─────────────────────────────────────────┬───────────┘
-         │                                         │
-         ▼ Chat (/ask, /stream)         ▼ Image generation (/generate-image)
-    ┌─────────────┐               ┌──────────────┐
-    │ Google      │               │ Pollinations │
-    │ Gemini API  │               │    .ai API   │
-    └─────────────┘               └──────────────┘
+                         User (browser)
+                               │
+                               ▼
+                 Cloudflare Workers (static assets)
+                    frontend/ — HTML, JS, CSS
+                    CSP / HSTS via frontend/_headers
+                               │
+                               │ fetch() — separate origin
+                               ▼
+                    Render (Docker, single instance)
+     ┌─────────────────────────────────────────────────────────┐
+     │                FastAPI backend (app/)                   │
+     │  CORS allow-list → MaxBodySize → SecurityHeaders         │
+     │  Rate limiting (window + daily + concurrency)            │
+     │                                                           │
+     │  /ask, /stream ──────────► fallback.py (the only loop)   │
+     │                              │  circuit-breaker aware     │
+     │                              │                            │
+     │                     ┌────────┴────────┐                  │
+     │                     ▼                 ▼                  │
+     │             Google Gemini       OpenRouter                │
+     │             (direct, free)      (1 paid + 2 free)         │
+     │             primary + 2         cross-provider            │
+     │             fallbacks           insurance tier            │
+     │                                                           │
+     │  /generate-image ────────► Pollinations.ai (paid, own     │
+     │                             account, separate budget)     │
+     └─────────────────────────────────────────────────────────┘
 ```
+
+No database, no file storage, no background jobs, no authentication — intentional for this MVP stage, not an oversight (see [Known Limitations](#known-limitations--roadmap)).
 
 ### Data Flow
 
-1. **Request Ingestion**: User submits prompt via `/ask` or `/stream` endpoint
-2. **Validation**: Input validation and rate limiting enforcement
-3. **Message Assembly**: Constructs system prompt and message history from request
-4. **LLM Invocation**: Sends prompt to Google's Gemini API
-5. **Post-Processing**: Parses structured blocks (clarifications, follow-ups)
-6. **Response**: Streams or returns complete answer with metadata
+1. **Request ingestion**: client calls `/ask` or `/stream` with `{prompt, model, history, ...}`
+2. **Validation**: Pydantic field bounds, model allow-list check, then rate limiting — in that order, so an invalid request never costs quota
+3. **Message assembly**: system prompt + trimmed history + current prompt
+4. **Model dispatch**: `fallback.py` walks `PRIMARY_MODEL` then `TEXT_FALLBACK_CHAIN`, skipping any link the circuit breaker has marked cold, advancing past a 404/429/5xx/timeout/empty answer, failing fast on a 400/401/403 or content-policy block
+5. **Post-processing**: strips `[[FOLLOWUPS]]`/`[[CLARIFY]]` blocks out of the raw text — the client never sees a raw tag
+6. **Response**: streamed as SSE events, or returned whole from `/ask`
 
 ---
 
 ## 🛠️ Tech Stack
 
 ### Backend
-- **Framework**: FastAPI 0.116.1
+- **Framework**: FastAPI 0.133.1
 - **Server**: Uvicorn 0.35.0
 - **HTTP Client**: httpx 0.27.0
-- **Language**: Python 3.12
-- **Environment**: python-dotenv 1.0.1
+- **ASGI toolkit**: Starlette 1.3.1 (pinned explicitly — see [Security](#security))
+- **Settings**: pydantic-settings 2.11.0
+- **Language**: Python 3.12 (Docker); local dev needs 3.10+ (`python-dotenv` 1.2.2's floor)
+- **Environment**: python-dotenv 1.2.2
 
 ### Frontend
 - **Markup**: HTML5
@@ -110,12 +118,11 @@ ConBOT is an intelligent conversational platform designed for:
 - **Interactivity**: Vanilla JavaScript (no frameworks, no build step). Photo capture uses `getUserMedia`, which needs `localhost` or HTTPS
 
 ### Infrastructure
-- **Containerization**: Docker
-- **Runtime**: Python 3.12-slim
-- **Security**: Non-root user execution
+- **Containerization**: Docker, `python:3.12-slim`, non-root user
+- **Hosting**: Render (backend), Cloudflare Workers static assets (frontend)
 
 ### External Services
-- **LLM**: Google Gemini API
+- **Text**: Google Gemini API (direct), OpenRouter (fallback tier)
 - **Image Generation**: Pollinations.ai
 
 ---
@@ -123,9 +130,10 @@ ConBOT is an intelligent conversational platform designed for:
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.12+
-- Docker & Docker Compose (optional)
-- Gemini API Key (Google AI Studio)
+- Python 3.10+ (3.12 recommended, matches the Docker image)
+- Docker (optional, for a prod-parity run)
+- A Gemini API key (Google AI Studio) — required
+- An OpenRouter API key — optional, but needed if you keep the default `TEXT_FALLBACK_CHAIN` (it includes one paid OpenRouter link and two free ones)
 
 ### Local Development
 
@@ -143,13 +151,12 @@ pip install -r requirements.txt -r requirements-dev.txt
 
 # 4. Configure environment
 cp .env.example .env
-# Edit .env and add your Gemini API key
+# Edit .env — add GEMINI_API_KEY at minimum, OPENROUTER_API_KEY if you keep the default fallback chain
 
 # 5. Run the backend
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # 6. Serve frontend (in another terminal)
-# Use any static server, e.g.:
 python -m http.server 3000 --directory frontend
 ```
 
@@ -162,6 +169,7 @@ docker build -t conbot:latest .
 # Run container
 docker run -p 8000:8000 \
   -e GEMINI_API_KEY=your_key_here \
+  -e OPENROUTER_API_KEY=your_key_here \
   conbot:latest
 ```
 
@@ -189,7 +197,8 @@ GEMINI_API_KEY=
 OPENROUTER_API_KEY=
 
 # Image generation (Pollinations.ai). Required for /generate-image; the
-# rest of the app works without it.
+# rest of the app works without it. Own account/billing, separate from
+# OpenRouter credit.
 POLLINATIONS_API_KEY=
 POLLINATIONS_MODEL=lykon/dreamshaper-8-lcm
 
@@ -204,6 +213,8 @@ RATE_LIMIT_MAX=20            # per IP, per window
 RATE_LIMIT_WINDOW=600        # seconds
 DAILY_PER_IP_LIMIT=15        # per IP, per UTC day
 DAILY_REQUEST_LIMIT=45       # whole service, per UTC day (cost ceiling)
+MAX_CONCURRENT_STREAMS=8     # in-flight /stream connections, across all clients
+MAX_BODY_MB=8                # request bodies larger than this are rejected before parsing
 
 # Client IP behind proxies (see "Client IP" below)
 CLIENT_IP_HEADER=            # e.g. cf-connecting-ip, if your edge sets it
@@ -274,17 +285,17 @@ Rate limits key on the client address. Anything at the *left* of `X-Forwarded-Fo
 ## 📡 API Endpoints
 
 ### `/health` (GET)
-Health check endpoint.
+Health check — reports whether the service can actually answer, not just whether it booted.
 
 **Response**:
 ```json
 {
   "status": "healthy",
   "llm_configured": true,
-  "model": "gemini-3.6-flash"
+  "fallback_degraded": false
 }
 ```
-`status` is `"degraded"` when `GEMINI_API_KEY` is missing.
+`status` is `"degraded"` when `GEMINI_API_KEY` is missing. `fallback_degraded` is `true` if any link in the text fallback chain is currently cold — deliberately coarse, no model/provider name, so an anonymous caller can't map out exactly what's exhausted.
 
 ### `/ask` (POST)
 Non-streaming endpoint for full responses.
@@ -300,18 +311,20 @@ Non-streaming endpoint for full responses.
 }
 ```
 
-Limits: `prompt` ≤ 3000 characters. History is trimmed server-side to the last `MAX_HISTORY_TURNS` messages, each clipped to `MAX_HISTORY_CHARS` — long history is never rejected.
+Limits: `prompt` ≤ 3000 characters, `role` must be `user` or `assistant`. History is trimmed server-side to the last `MAX_HISTORY_TURNS` messages, each clipped to `MAX_HISTORY_CHARS` — long history is never rejected (a hard Pydantic ceiling further back, 50 turns / 20,000 characters per message, exists only to bound memory on a pathological request; the trim above is what actually shapes what the model sees).
 
 **Response**:
 ```json
 {
   "answer": "To help you best, I need to know which state you're asking about...",
+  "web_used": false,
+  "sources": [],
   "followups": ["What is the tax regime for individuals?"],
   "clarify": {"question": "Which tax regime?", "options": ["Old regime", "New regime"]}
 }
 ```
 
-`answer` never contains the raw `[[FOLLOWUPS]]` / `[[CLARIFY]]` blocks. When the model needs one detail first, `clarify` is `{"question": ..., "options": [...]}` and `answer` holds the question. `sources` is always an empty array (no web search).
+`answer` never contains the raw `[[FOLLOWUPS]]` / `[[CLARIFY]]` blocks. When the model needs one detail first, `clarify` is `{"question": ..., "options": [...]}` and `answer` holds the question. `web_used` and `sources` are always `false`/`[]` — there is no web search in the current build.
 
 ### `/stream` (POST)
 Streaming endpoint using Server-Sent Events (SSE).
@@ -326,7 +339,7 @@ data: {"type": "error", "detail": "safe message"}
 data: {"type": "done"}
 ```
 
-Errors before the stream starts are normal HTTP errors: `400` bad model, `422` invalid body (`detail` is a list), `429` rate limited, `503` not configured.
+Errors before the stream starts are normal HTTP errors: `400` bad model, `413` body too large, `422` invalid body (`detail` is a list), `429` rate limited, `503` not configured. Once the stream has started, every error — including a mid-chain provider failure — arrives as an SSE `error` event instead, since the HTTP status is already committed to `200`.
 
 ### `/generate-image` (POST)
 Generates an image via Pollinations.ai.
@@ -341,7 +354,7 @@ Generates an image via Pollinations.ai.
   "seed": null
 }
 ```
-Limits: `prompt` ≤ 1000 characters, `width`/`height` 512–2048. `model` must be one of the ids from `/models/image`.
+Limits: `prompt` ≤ 1000 characters, `width`/`height` 512–2048, `seed` (if given) 0 to 2³²−1. `model` must be one of the ids from `/models/image`.
 
 **Response**:
 ```json
@@ -354,7 +367,7 @@ Limits: `prompt` ≤ 1000 characters, `width`/`height` 512–2048. `model` must 
   "cost": 0.0001
 }
 ```
-The image is returned inline as a base64 data URL — the Pollinations key stays server-side and is never exposed to the client. Errors: `400` bad prompt/model/dimensions or generation not configured, `502` upstream generation failure.
+The image is returned inline as a base64 data URL — the Pollinations key stays server-side and is never exposed to the client. This endpoint shares the same rate limiter as `/ask` and `/stream` (it is not a separate, unprotected cost surface). Errors: `400` bad prompt/model/dimensions or generation not configured, `502` upstream generation failure.
 
 ### `/models/image` (GET)
 Lists the image generation models available to `/generate-image`, each with a display name and per-generation cost in USD.
@@ -362,66 +375,6 @@ Lists the image generation models available to `/generate-image`, each with a di
 ---
 
 ## 🔧 Development
-
-### Project Structure
-```
-ConBot/
-├── app/                          # Backend package
-│   ├── main.py                   # FastAPI app creation, lifespan, CORS, routers
-│   ├── config.py                 # Settings from env vars (pydantic-settings)
-│   ├── logging_config.py         # Structured logger setup
-│   ├── api/
-│   │   ├── deps.py                # Shared pipeline: prepare(), Gemini dispatch
-│   │   └── routes/
-│   │       ├── health.py          # GET /health
-│   │       ├── ask.py             # POST /ask
-│   │       ├── stream.py          # POST /stream
-│   │       └── image.py           # POST /generate-image, GET /models/image
-│   ├── services/                  # Business logic, no FastAPI imports
-│   │   ├── gemini_client.py       # Gemini API calls
-│   │   ├── image_generation.py    # Pollinations.ai client
-│   │   ├── fallback.py            # Multi-provider fallback chain
-│   │   ├── openrouter_client.py   # OpenRouter API calls
-│   │   └── conversation.py        # System prompt, BlockFilter, message assembly
-│   ├── models/                    # Pydantic request/response schemas
-│   │   ├── ask.py
-│   │   └── image.py
-│   └── core/
-│       ├── errors.py              # no_llm_error()
-│       ├── rate_limit.py          # In-memory rate limiting
-│       └── security.py            # validate_image(), clip()
-├── requirements.txt              # Python dependencies
-├── requirements-dev.txt          # Test-only dependencies (pytest)
-├── tests/
-│   ├── test_main.py              # Chat/stream regression tests, no network needed
-│   ├── test_fallback.py          # Fallback chain, breaker and budget tests
-│   └── test_image_generation.py  # Image generation regression tests, no network needed
-├── Dockerfile                    # Container configuration (backend)
-├── wrangler.json                 # Cloudflare Workers config (serves frontend/ as static assets)
-├── .env.example                  # Environment template
-├── .gitignore                    # Git ignore rules
-├── README.md                     # This file
-└── frontend/
-    ├── index.html               # Web interface
-    ├── app.js                   # Client-side logic
-    ├── styles.css               # Styling and design tokens
-    ├── favicon.svg
-    └── _headers                 # Cloudflare header rules (CSP, HSTS)
-```
-
-### Code Organization
-
-The backend is a package (`app/`), not a single file. Route handlers in
-`app/api/routes/` are thin — they call into `app/services/` (business logic,
-no FastAPI imports), `app/core/` (rate limiting, errors, security), and
-`app/api/deps.py` (the shared `/ask` + `/stream` pipeline: `prepare()`,
-model validation, fallback chain dispatch). Callers import these as modules
-(`from app.services import conversation`) rather than importing bare
-functions, so tests can monkeypatch them at the module level.
-
-Image generation (`app/services/image_generation.py`) is a self-contained
-Pollinations.ai client with its own env var reads, used only by
-`app/api/routes/image.py`.
 
 ### Testing
 
@@ -439,11 +392,26 @@ curl -sN -X POST http://localhost:8000/stream \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Tell me a joke"}'
 
-# Test image generation
+# Test image generation (costs real Pollinations credit)
 curl -s -X POST http://localhost:8000/generate-image \
   -H "Content-Type: application/json" \
   -d '{"prompt": "a cat astronaut"}'
 ```
+
+### Code Organization
+
+The backend is a package (`app/`), not a single file. Route handlers in
+`app/api/routes/` are thin — they call into `app/services/` (business logic,
+no FastAPI imports), `app/core/` (rate limiting, circuit breaker, middleware,
+security helpers), and `app/api/deps.py` (the shared `/ask` + `/stream`
+pipeline: `prepare()`, model validation, fallback chain dispatch). Callers
+import these as modules (`from app.services import conversation`) rather than
+importing bare functions, so tests can monkeypatch them at the module level —
+patching a bare imported name silently does nothing.
+
+Image generation (`app/services/image_generation.py`) is a self-contained
+Pollinations.ai client with its own env var reads, used only by
+`app/api/routes/image.py`.
 
 ---
 
@@ -451,18 +419,18 @@ curl -s -X POST http://localhost:8000/generate-image \
 
 ### Environment Considerations
 
-Both development and production use the same backend: Google's Gemini API, configured with `GEMINI_API_KEY`. There is no local-model fallback.
+Development and production both run the same backend code against the same two text providers (Gemini direct, OpenRouter). There is no local-model fallback and no dev/prod code branching — only configuration differs.
 
 ### Deployment Platforms
 
-- **Backend — Render** (current): Git-connected Docker deployment. Rate limits are in-memory, so run one instance
+- **Backend — Render** (current): Git-connected Docker deployment, reads the repo-root `Dockerfile`. Rate limits and the circuit breaker are in-memory, so this must run as a single instance — confirm autoscaling is off for this service
 - **Frontend — Cloudflare Workers (static assets)** (current): `frontend/` served as static assets via a Worker, configured by `wrangler.json` (`assets.directory`), not classic Cloudflare Pages — Cloudflare's newer unified "Workers & Pages" onboarding defaults to a Worker/`wrangler deploy` project. Git-connected (Cloudflare's GitHub App supports private repos, unlike GitHub Pages on the free plan), custom domain `conbot.in`
-- **Docker**: Any container runtime, for the backend
+- **Docker**: any container runtime, for the backend
 
 ### CORS Configuration
 
 Built-in origins:
-- Local development: `localhost:3000`, `localhost:3001`
+- Local development: `localhost:3000`, `localhost:3001` (and `127.0.0.1` equivalents)
 - Production: `conbot.in`, `www.conbot.in`
 - Render frontend: `llama-chatbot-fe.onrender.com`
 
@@ -470,106 +438,96 @@ Set `ALLOWED_ORIGINS` (comma-separated) to replace this list without editing cod
 
 ---
 
-## 📊 Industry Best Practices Assessment
+## 🔒 Security
 
-### ✅ Implemented Best Practices
+A full audit lives in [`SECURITY_AUDIT.md`](./SECURITY_AUDIT.md) — read it for the detailed findings and severity ranking. In short, as of the last pass:
 
-1. **Code Organization**
-   - Clear section headers for logical separation
-   - Single-responsibility functions
-   - Consistent naming conventions
+- **Secrets**: `.env` has never been committed (verified against full git history), no key-shaped strings anywhere in tracked files or history
+- **CORS**: explicit allow-list, `allow_credentials=False`, no wildcard
+- **Rate limiting**: sliding window + per-IP daily + global daily + concurrent-stream cap, shared by every AI-costing endpoint including `/generate-image`
+- **Input validation**: Pydantic field bounds everywhere, strict base64/MIME allow-list for uploaded images, request bodies rejected by `Content-Length` before they're parsed
+- **XSS**: model output and user text are never passed to `innerHTML`; both go through `markdown()` (escapes first) or `textContent`
+- **Headers**: CSP/HSTS/`X-Content-Type-Options`/`Referrer-Policy` on both the frontend (`frontend/_headers`) and the API (`SecurityHeadersMiddleware`)
+- **Logging**: request-ID-tagged; question text is never logged, only a hash + length
+- **Container**: non-root user, pinned base image, dev tooling never baked in
+- **Dependencies**: pinned direct deps, checked against OSV.dev's live vulnerability database — `starlette` is pinned explicitly (not left to float transitively) after a prior CVE was found unpatched
 
-2. **Security**
-   - Non-root Docker user (appuser)
-   - Input validation with Pydantic
-   - Rate limiting to prevent abuse
-   - Environment variable separation from code
-
-3. **Error Handling**
-   - Upstream errors mapped to safe, generic messages
-   - Meaningful error messages
-   - Comprehensive exception handling
-   - Request-scoped error tracking
-
-4. **Logging**
-   - Structured logging with request IDs
-   - Multiple log levels (INFO, WARNING, ERROR)
-   - Request tracking throughout lifecycle
-
-5. **API Design**
-   - RESTful endpoints
-   - Streaming support for real-time UX
-   - Health check endpoint
-   - Clear request/response schemas
-
-6. **Configuration Management**
-   - Environment-based configuration
-   - Sensible defaults
-   - `.env.example` for documentation
-   - Proper `.gitignore`
-
-7. **Containerization**
-   - Multi-stage optimization (slim base)
-   - Layer caching optimization
-   - Non-root user execution
-   - Proper file permissions
-
-### ⚠️ Areas for Improvement
-
-1. **Testing**
-   - Regression suite in `tests/` (pytest); not yet run in CI
-
-2. **Documentation**
-   - API documentation could be richer
-
-3. **Monitoring**
-   - No metrics/observability setup
-   - Consider: Prometheus, Sentry, New Relic integration
-
-4. **CI/CD**
-   - No GitHub Actions workflows — frontend deploys via Cloudflare's own Git integration, backend via Render's
-   - Missing: linting, automated testing on push
-   - Should add: Black, Flake8, a test-on-push workflow
-
-5. **Database**
-   - No persistent storage for conversations
-   - Consider: PostgreSQL for chat history if needed
-
-6. **Frontend**
-   - Vanilla JS without build tooling
-   - Consider: React/Vue for larger frontend
+Report a vulnerability by opening a private disclosure rather than a public issue if it's exploitable in the live deployment.
 
 ---
 
-## 📝 Recommended Improvements
-
-### Immediate (Week 1)
-```bash
-# Add type hints and docstrings
-# Setup pre-commit hooks (black, flake8, mypy)
-# Add pytest configuration
+## 📂 Project Structure
+```
+ConBot/
+├── app/                           # Backend package
+│   ├── main.py                    # FastAPI app creation, lifespan, CORS, middleware, routers
+│   ├── config.py                  # Settings from env vars (pydantic-settings)
+│   ├── logging_config.py          # Structured logger setup
+│   ├── api/
+│   │   ├── deps.py                 # Shared pipeline: prepare(), validate_model(), fallback dispatch
+│   │   └── routes/
+│   │       ├── health.py           # GET /health
+│   │       ├── ask.py              # POST /ask
+│   │       ├── stream.py           # POST /stream
+│   │       └── image.py            # POST /generate-image, GET /models/image
+│   ├── services/                   # Business logic, no FastAPI imports
+│   │   ├── gemini_client.py        # One Gemini attempt
+│   │   ├── openrouter_client.py    # One OpenRouter attempt, mirrors gemini_client.py
+│   │   ├── fallback.py             # Walks TEXT_FALLBACK_CHAIN — the only place that loops
+│   │   ├── image_generation.py     # Pollinations.ai client
+│   │   └── conversation.py         # System prompt, BlockFilter, message assembly
+│   ├── models/                     # Pydantic request/response schemas
+│   │   ├── ask.py                  # Turn, ChatRequest
+│   │   └── image.py                # ImageGenerationRequest/Response
+│   └── core/
+│       ├── rate_limit.py           # In-memory rate limiting + concurrency cap
+│       ├── circuit_breaker.py      # Cold-skips a failing (provider, model) pair
+│       ├── middleware.py           # MaxBodySizeMiddleware, SecurityHeadersMiddleware
+│       ├── security.py             # validate_image(), clip()
+│       └── errors.py               # no_llm_error(), ContentBlocked
+├── requirements.txt                # Python dependencies
+├── requirements-dev.txt            # Test-only dependencies (pytest)
+├── tests/
+│   ├── test_main.py                # Chat/stream regression tests, no network needed
+│   ├── test_fallback.py            # Fallback chain advance/fail-fast/breaker/budget tests
+│   └── test_image_generation.py    # Image generation regression tests, no network needed
+├── Dockerfile                      # Container configuration (backend)
+├── wrangler.json                   # Cloudflare Workers config (serves frontend/ as static assets)
+├── .env.example                    # Environment template
+├── .gitignore
+├── SECURITY_AUDIT.md                # Security findings and fix status
+├── README.md                        # This file
+└── frontend/
+    ├── index.html                  # Web interface
+    ├── app.js                      # Client-side logic
+    ├── styles.css                  # Styling and design tokens
+    ├── favicon.svg
+    └── _headers                     # Cloudflare header rules (CSP, HSTS)
 ```
 
-### Short-term (Month 1)
-```
-- Run the test suite in CI
-- Setup CI/CD pipeline with GitHub Actions
-- Add API documentation (FastAPI Swagger)
-```
+---
 
-### Long-term (Quarter 1)
-```
-- Add conversation database
-- Implement user authentication
-- Add metrics/monitoring
-- Implement caching layer
-```
+## 📝 Known Limitations & Roadmap
+
+Honest gaps, not aspirational filler — see `SECURITY_AUDIT.md` for the full severity-ranked list this is drawn from.
+
+**Accepted for this MVP stage, by design:**
+- No database, no persisted conversation history, no authentication
+- No CI/CD — `pytest -q` is run manually before every change
+- Single-instance deployment required (in-memory rate limiting / circuit breaker state)
+- Image editing isn't implemented — `/generate-image` only generates from a text prompt
+
+**Worth doing as traffic grows:**
+- A GitHub Actions workflow that runs `pytest -q` on push — cheapest possible CI, currently nonexistent
+- A dependency lockfile (`pip-compile` or similar) — transitive versions currently drift silently between rebuilds, which is exactly how an unpinned `starlette` CVE went unnoticed before
+- Real observability — logs exist and are structured, but nothing is aggregated (no APM, no per-model cost/latency dashboard, no error tracker)
+- A public privacy policy page — the technical practice is already good (nothing is persisted), it just isn't written down anywhere a visitor can read
 
 ---
 
 ## 📄 License
 
-Unlicensed (No license specified - consider adding MIT/Apache 2.0)
+Unlicensed — no license file is currently present in this repository. Treat the code as all-rights-reserved until one is added.
 
 ---
 
@@ -588,14 +546,13 @@ Contributions welcome! Please:
 4. Push to branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+Run `pytest -q` and the manual verification commands in [Testing](#development) before opening a PR — there is no CI to catch a regression for you yet.
+
 ---
 
 ## 🆘 Support & Issues
 
-For bugs, feature requests, or questions:
-- Open an [Issue](https://github.com/Kumar6-Vinay/ConBot/issues)
-- Check existing documentation
-- Review [CHANGELOG](./CHANGELOG.md) (to be created)
+For bugs, feature requests, or questions, open an [Issue](https://github.com/Kumar6-Vinay/ConBot/issues).
 
 ---
 
@@ -603,11 +560,10 @@ For bugs, feature requests, or questions:
 
 - [FastAPI Documentation](https://fastapi.tiangolo.com/)
 - [Gemini API](https://ai.google.dev/gemini-api/docs)
+- [OpenRouter](https://openrouter.ai/docs) — model catalog, pricing, API reference
 - [Pollinations.ai](https://pollinations.ai/)
-- [Open-Meteo API](https://open-meteo.com/en/docs)
-- [DuckDuckGo API](https://duckduckgo.com/api)
 
 ---
 
-**Last Updated**: September 19, 2026  
-**Version**: 1.1.0 — Stateless (web search, weather, and session storage removed)
+**Last Updated**: October 7, 2026
+**Version**: 1.2.0 — Multi-provider text fallback chain (Gemini + OpenRouter), hardened dependencies, stateless by design
