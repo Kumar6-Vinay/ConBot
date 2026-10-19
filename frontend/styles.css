@@ -379,6 +379,95 @@ body.dark .ic-moon { display: block; }
 }
 
 /* =========================================================
+   Skeleton loading states — shimmering placeholder lines
+   shown while the first answer token streams in.
+========================================================= */
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface) 25%,
+    color-mix(in srgb, var(--ink) 8%, transparent) 50%,
+    var(--surface) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.4s ease infinite;
+  border-radius: 6px;
+}
+
+.skeleton-line {
+  height: 1.2em;
+  width: 100%;
+  margin: 0 0 10px;
+}
+
+.skeleton-line.short {
+  width: 60%;
+}
+
+@keyframes skeleton-pulse {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* =========================================================
+   Code blocks — fenced code with copy button
+========================================================= */
+
+.code-block {
+  position: relative;
+  margin: 14px 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  background: var(--code-bg);
+}
+
+.code-copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: all 0.15s var(--ease);
+}
+
+.code-copy:hover {
+  background: color-mix(in srgb, var(--accent) 10%, var(--canvas));
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--hairline));
+  color: var(--accent);
+}
+
+.code-copy:active {
+  transform: scale(0.95);
+}
+
+.code-block pre {
+  margin: 0;
+  padding: 16px 18px 16px 18px;
+  overflow-x: auto;
+  background: none;
+  border: none;
+}
+
+.code-block pre code {
+  background: none;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+/* =========================================================
    Composer dock
 ========================================================= */
 
@@ -468,6 +557,7 @@ body.dark .ic-moon { display: block; }
     transition-duration: 0.001ms !important;
   }
   .dots i { animation: none; opacity: 0.5; }
+  .skeleton { animation: none; opacity: 0.6; }
 }
 
 /* =========================================================
