@@ -4,7 +4,7 @@ from typing import AsyncIterator, List, Optional
 
 import httpx
 
-from app.config import GEMINI_API_KEY, GEMINI_BASE, MAX_OUTPUT_TOKENS
+from app.config import GEMINI_API_KEY, GEMINI_BASE, MAX_OUTPUT_TOKENS, TEMPERATURE, THINKING_BUDGET
 from app.core.errors import ContentBlocked
 from app.logging_config import logger
 
@@ -39,7 +39,7 @@ def _part_from_content(content) -> List[dict]:
     return parts or [{"text": ""}]
 
 
-def gemini_payload(messages: List[dict]) -> dict:
+def gemini_payload(messages: List[dict], model_id: str = "") -> dict:
     """Translate our OpenAI-style messages into a Gemini request body.
 
     System messages fold into `system_instruction`; user/assistant turns
@@ -61,10 +61,17 @@ def gemini_payload(messages: List[dict]) -> dict:
     body: dict = {
         "contents": contents,
         "generationConfig": {
-            "temperature": 0.7,
+            "temperature": TEMPERATURE,
             "maxOutputTokens": MAX_OUTPUT_TOKENS,
         },
     }
+
+    # Thinking mode for Gemini 2.5 models — internal reasoning budget.
+    # 0 = disabled (fast, cheap). 1024+ = reasoning for complex queries.
+    # Only attach when the model supports it; other providers ignore/reject it.
+    if THINKING_BUDGET > 0 and "2.5" in model_id:
+        body["thinking_config"] = {"thinking_budget": THINKING_BUDGET}
+
     if system_texts:
         body["system_instruction"] = {"parts": [{"text": "\n\n".join(t for t in system_texts if t)}]}
     return body
@@ -88,7 +95,7 @@ async def ask_gemini(messages: List[dict], model_id: str, request_id: str, timeo
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(
                 _gemini_url(model_id, "generateContent"),
-                json=gemini_payload(messages),
+                json=gemini_payload(messages, model_id),
                 headers=_gemini_headers(),
             )
             if response.status_code >= 400:
@@ -130,7 +137,7 @@ async def stream_gemini(
 
     async with httpx.AsyncClient(timeout=timeout) as client:
         async with client.stream(
-            "POST", url, json=gemini_payload(messages), headers=_gemini_headers()
+            "POST", url, json=gemini_payload(messages, model_id), headers=_gemini_headers()
         ) as response:
             if response.status_code >= 400:
                 body = (await response.aread()).decode("utf-8", "replace")
