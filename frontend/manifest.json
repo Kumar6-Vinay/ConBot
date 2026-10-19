@@ -1,0 +1,18 @@
+{
+  "name": "ConBOT",
+  "short_name": "ConBOT",
+  "description": "Ask a question, get a clear answer.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -30,6 +30,25 @@ const send = $('send');
 const count = $('count');
 
 let history = [];
+const STORAGE_KEY = 'conbot-history';
+const MAX_STORED_TURNS = 50;
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) history = parsed.slice(-MAX_STORED_TURNS);
+    }
+  } catch (e) { /* private mode / quota — start fresh */ }
+}
+
+function saveHistory() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(-MAX_STORED_TURNS)));
+  } catch (e) { /* private mode / quota — ignore */ }
+}
+
 let pending = null;
 let stuckToBottom = true;
 let attachedImage = null;   // base64 data URL for the NEXT question only
@@ -62,7 +81,7 @@ function markdown(raw) {
   blocks.forEach((block, i) => {
     if (i % 2 === 1) {                      // fenced code
       const body = block.replace(/^[a-zA-Z0-9+-]*\n/, '');
-      out += '<pre><code>' + body.replace(/\n$/, '') + '</code></pre>';
+      out += '<div class="code-block"><button class="code-copy" type="button" title="Copy code">Copy</button><pre><code>' + body.replace(/\n$/, '') + '</code></pre></div>';
       return;
     }
 
@@ -177,7 +196,12 @@ function addAnswerShell() {
 
   const body = document.createElement('div');
   body.className = 'text';
-  body.innerHTML = '<div class="dots"><i></i><i></i><i></i></div>';
+  body.innerHTML = `
+    <div class="skeleton-line"></div>
+    <div class="skeleton-line short"></div>
+    <div class="skeleton-line"></div>
+    <div class="skeleton-line short"></div>
+  `;
   turn.appendChild(body);
 
   thread.appendChild(turn);
@@ -372,6 +396,28 @@ function errorText(detail, status) {
   return 'The server returned ' + status + '. Try again shortly.';
 }
 
+/* Attach copy-button behaviour to code blocks rendered inside `scope`.
+   Delegated once per paint so streamed answers get working buttons too. */
+function attachCodeCopies(scope) {
+  scope.querySelectorAll('.code-copy').forEach((btn) => {
+    if (btn.dataset.copied) return;
+    btn.dataset.copied = '1';
+    btn.addEventListener('click', () => {
+      const pre = btn.nextElementSibling;
+      const code = pre && pre.tagName === 'PRE' ? pre.textContent : '';
+      if (!code) return;
+      navigator.clipboard
+        .writeText(code)
+        .then(() => {
+          const old = btn.textContent;
+          btn.textContent = 'Copied!';
+          setTimeout(() => { btn.textContent = old; }, 1200);
+        })
+        .catch(() => { btn.textContent = 'Copy'; });
+    });
+  });
+}
+
 /* =========================================================
    Where the user is — device settings only, no permission prompt
 ========================================================= */
@@ -445,6 +491,7 @@ async function ask() {
     // answer actually opens with one (not a heading, list or code block).
     if (html.startsWith('<p>')) html = '<p class="takeaway">' + html.slice(3);
     body.innerHTML = html;
+    attachCodeCopies(body);
     toBottom();
   };
 
@@ -521,6 +568,7 @@ async function ask() {
       // in the light of the question it clarifies.
       history.push({ role: 'user', content: text });
       history.push({ role: 'assistant', content: turn.dataset.clarify });
+      saveHistory();
       return;
     }
 
@@ -528,6 +576,7 @@ async function ask() {
       paint();
       history.push({ role: 'user', content: text });
       history.push({ role: 'assistant', content: answer });
+      saveHistory();
 
       if (turn.dataset.sources) renderSources(turn, JSON.parse(turn.dataset.sources));
       addActions(turn, () => answer, text);
@@ -752,6 +801,7 @@ function newChat() {
     renderSessions();
   }
   history = [];
+  saveHistory();
   thread.innerHTML = '';
   clearImage();
   setCreateImageMode(false);
@@ -790,6 +840,7 @@ window.addEventListener('scroll', () => {
   stuckToBottom = room < 120;
 }, { passive: true });
 
+loadHistory();
 input.focus();
 
 /* =========================================================
@@ -1184,6 +1235,24 @@ $('sideNew').addEventListener('click', newChat);
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeSidebar();
+});
+
+/* Keyboard shortcuts — work everywhere in the app. */
+document.addEventListener('keydown', (e) => {
+  // Cmd/Ctrl + K — focus the composer
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    input.focus();
+  }
+  // Cmd/Ctrl + Shift + N — start a new chat
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'N') {
+    e.preventDefault();
+    newChat();
+  }
+  // Escape — stop an in-flight generation
+  if (e.key === 'Escape' && pending) {
+    pending.abort();
+  }
 });
 
 /* =========================================================
