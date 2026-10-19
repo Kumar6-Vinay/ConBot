@@ -9,11 +9,7 @@
    stateless: every request replays the conversation.
 ========================================================= */
 
-const API_BASE = (() => {
-  const el = document.querySelector('script[src="app.js"]');
-  const attr = el && el.getAttribute('data-api-base');
-  return attr || 'https://llama-chatbot-qb2c.onrender.com/v1';
-})();
+const API_BASE = 'https://llama-chatbot-qb2c.onrender.com';
 const MODEL = 'text';
 const TIMEOUT_MS = 120000;   // free dyno can cold-start
 const WAKE_HINT_MS = 7000;

@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from fastapi import APIRouter, FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import config
@@ -54,12 +54,7 @@ app.add_middleware(MaxBodySizeMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 
 
-# Versioned API group. All client-facing routes live under /v1 so we can
-# break/change later without versioning pain.
-api_router = APIRouter(prefix="/v1")
-api_router.include_router(health.router)
-api_router.include_router(ask.router)
-api_router.include_router(stream.router)
-api_router.include_router(image.router)
-
-app.include_router(api_router)
+app.include_router(health.router)
+app.include_router(ask.router)
+app.include_router(stream.router)
+app.include_router(image.router)

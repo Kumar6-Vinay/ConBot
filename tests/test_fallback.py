@@ -292,11 +292,11 @@ def test_health_reports_degraded_flag_without_names():
     client = TestClient(main.app)
 
     circuit_breaker._cold_until.clear()
-    body = client.get("/v1/health").json()
+    body = client.get("/health").json()
     assert body["fallback_degraded"] is False
 
     circuit_breaker._cold_until["google:gemini-3.6-flash"] = time.monotonic() + 60
-    body = client.get("/v1/health").json()
+    body = client.get("/health").json()
     assert body["fallback_degraded"] is True
     assert "gemini" not in str(body).lower()
     assert "model" not in str(body).lower()

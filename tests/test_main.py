@@ -65,12 +65,12 @@ def client():
 # ---------------------------------------------------------------- limits on input
 
 def test_long_conversation_is_accepted(client):
-    r = client.post("/v1/stream", json={"prompt": "hi", "history": turns(18)})
+    r = client.post("/stream", json={"prompt": "hi", "history": turns(18)})
     assert r.status_code == 200
 
 
 def test_long_previous_answer_is_accepted_and_trimmed(client):
-    r = client.post("/v1/stream", json={"prompt": "hi", "history": turns(2, 6000)})
+    r = client.post("/stream", json={"prompt": "hi", "history": turns(2, 6000)})
     assert r.status_code == 200
     msgs = conversation.build_messages("sys", [Turn(role="assistant", content="y" * 6000)], "q")
     assert all(len(m["content"]) <= config.MAX_HISTORY_CHARS + 20 for m in msgs)
@@ -85,11 +85,11 @@ def test_history_is_trimmed_to_turn_limit_and_starts_with_user():
 
 
 def test_oversized_prompt_is_rejected(client):
-    assert client.post("/v1/stream", json={"prompt": "q" * 3001}).status_code == 422
+    assert client.post("/stream", json={"prompt": "q" * 3001}).status_code == 422
 
 
 def test_unsupported_model_does_not_use_quota(client):
-    assert client.post("/v1/stream", json={"prompt": "hi", "model": "imagegen"}).status_code == 400
+    assert client.post("/stream", json={"prompt": "hi", "model": "imagegen"}).status_code == 400
     assert rate_limit._daily_request_count == 0
 
 
@@ -132,7 +132,7 @@ def test_clarify_emits_no_prose(split):
 
 
 def test_stream_emits_followups_and_no_raw_tag(client):
-    ev = events(client.post("/v1/stream", json={"prompt": "hi"}))
+    ev = events(client.post("/stream", json={"prompt": "hi"}))
     text = "".join(e["text"] for e in ev if e["type"] == "delta")
     assert "[[" not in text
     assert {"type": "followups", "questions": ["What happens next here?"]} in ev
@@ -145,7 +145,7 @@ def test_ask_strips_blocks(client, monkeypatch):
     async def fake(messages, model, rid):
         return "Answer.\n\n[[FOLLOWUPS]]\n- Is this hidden from the answer?"
     monkeypatch.setattr(deps, "get_ai_answer", fake)
-    body = client.post("/v1/ask", json={"prompt": "hi"}).json()
+    body = client.post("/ask", json={"prompt": "hi"}).json()
     assert body["answer"] == "Answer."
     assert body["followups"] == ["Is this hidden from the answer?"]
 
@@ -154,7 +154,7 @@ def test_ask_clarify(client, monkeypatch):
     async def fake(messages, model, rid):
         return "[[CLARIFY]]\nquestion: Which state?\n- Rajasthan\n- Kerala"
     monkeypatch.setattr(deps, "get_ai_answer", fake)
-    body = client.post("/v1/ask", json={"prompt": "stamp duty?"}).json()
+    body = client.post("/ask", json={"prompt": "stamp duty?"}).json()
     assert body["answer"] == "Which state?"
     assert body["clarify"]["options"] == ["Rajasthan", "Kerala"]
 
@@ -191,13 +191,13 @@ def test_client_ip_header_takes_priority(monkeypatch):
 
 def test_per_ip_daily_cap(client, monkeypatch):
     monkeypatch.setattr(rate_limit, "DAILY_PER_IP_LIMIT", 2)
-    codes = [client.post("/v1/stream", json={"prompt": "hi"}).status_code for _ in range(3)]
+    codes = [client.post("/stream", json={"prompt": "hi"}).status_code for _ in range(3)]
     assert codes == [200, 200, 429]
-    assert isinstance(client.post("/v1/stream", json={"prompt": "hi"}).json()["detail"], str)
+    assert isinstance(client.post("/stream", json={"prompt": "hi"}).json()["detail"], str)
 
 
 def test_health(client):
-    body = client.get("/v1/health").json()
+    body = client.get("/health").json()
     assert body["status"] == "healthy"
 
 
@@ -244,7 +244,7 @@ def test_validate_image_passes_png_and_none():
 
 def test_oversized_image_is_rejected_by_schema(client):
     big = "data:image/png;base64," + "A" * (config.MAX_IMAGE_CHARS + 10)
-    assert client.post("/v1/stream", json={"prompt": "hi", "image": big}).status_code == 422
+    assert client.post("/stream", json={"prompt": "hi", "image": big}).status_code == 422
 
 
 def test_image_on_stream_reaches_the_model(client, monkeypatch):
@@ -253,7 +253,7 @@ def test_image_on_stream_reaches_the_model(client, monkeypatch):
         seen["final"] = messages[-2]
         yield "I see a red dot.\n"
     monkeypatch.setattr(deps, "stream_answer", capture)
-    r = client.post("/v1/stream", json={"prompt": "what is this?", "image": _PNG_1PX})
+    r = client.post("/stream", json={"prompt": "what is this?", "image": _PNG_1PX})
     assert r.status_code == 200
     assert isinstance(seen["final"]["content"], list)
 
@@ -265,7 +265,7 @@ def test_image_request_blocked_without_gemini_key(client, monkeypatch):
     # up front when GEMINI_API_KEY is missing (deps.prepare and /stream both check).
     monkeypatch.setattr(config, "GEMINI_API_KEY", "")
     monkeypatch.setattr(deps, "GEMINI_API_KEY", "")
-    r = client.post("/v1/stream", json={"prompt": "what is this?", "image": _PNG_1PX})
+    r = client.post("/stream", json={"prompt": "what is this?", "image": _PNG_1PX})
     assert r.status_code == 503
 
 

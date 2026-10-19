@@ -17,10 +17,10 @@ class _Env(BaseSettings):
     GEMINI_API_KEY: str = ""
     GOOGLE_API_KEY: str = ""
     OPENROUTER_API_KEY: str = ""
-    PRIMARY_MODEL: str = "google:gemini-2.5-flash"
+    PRIMARY_MODEL: str = "google:gemini-3.1-flash-lite"
     TEXT_FALLBACK_CHAIN: str = (
-        "google:gemini-2.5-flash,google:gemini-2.5-pro,"
-        "openrouter:openai/gpt-5-mini,openrouter:google/gemini-2.5-flash:free,"
+        "google:gemini-2.0-flash,google:gemini-1.5-flash,"
+        "openrouter:openai/gpt-5-mini,openrouter:google/gemini-2.0-flash:free,"
         "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free"
     )
     TEMPERATURE: float = 0.7
