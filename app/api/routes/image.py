@@ -35,11 +35,11 @@ async def generate_image_endpoint(request: ImageGenerationRequest, http_request:
         return result
 
     except ValueError as e:
-        logger.warning("[%s] image generation validation: %s", request_id, str(e))
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.warning("[%s] image generation validation", request_id)
+        raise HTTPException(status_code=400, detail="Invalid image request.")
     except Exception as e:
-        logger.error("[%s] image generation error: %s", request_id, str(e))
-        raise HTTPException(status_code=502, detail="Image generation failed")
+        logger.error("[%s] image generation error", request_id)
+        raise HTTPException(status_code=502, detail="Image generation failed. Please try again.")
 
 
 @router.get("/models/image")

@@ -17,12 +17,14 @@ class _Env(BaseSettings):
     GEMINI_API_KEY: str = ""
     GOOGLE_API_KEY: str = ""
     OPENROUTER_API_KEY: str = ""
-    PRIMARY_MODEL: str = "google:gemini-3.1-flash-lite"
+    PRIMARY_MODEL: str = "google:gemini-2.5-flash"
     TEXT_FALLBACK_CHAIN: str = (
-        "google:gemini-3.5-flash,google:gemini-3.8-flash,"
-        "openrouter:openai/gpt-5-mini,openrouter:dots-studio/dots-3-note-preview:free,"
+        "google:gemini-2.5-flash,google:gemini-2.5-pro,"
+        "openrouter:openai/gpt-5-mini,openrouter:google/gemini-2.5-flash:free,"
         "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free"
     )
+    TEMPERATURE: float = 0.7
+    THINKING_BUDGET: int = 0
     FALLBACK_ATTEMPT_TIMEOUT: int = 10
     FALLBACK_TOTAL_BUDGET: int = 45
     BREAKER_FAILURE_THRESHOLD: int = 3
@@ -77,6 +79,7 @@ OPENROUTER_BASE = "https://openrouter.ai/api/v1"
 # Default is Gemini direct (free Google AI Studio quota, not OpenRouter) —
 # an OpenRouter free-tier primary gets retired/repriced without notice (as
 # happened to the previous default, openrouter:qwen/qwen3.8-27b:free).
+# gemini-2.5-flash is the recommended production default for reasoning quality.
 PRIMARY_MODEL = _env.PRIMARY_MODEL
 GEMINI_MODEL_MAP = {
     "text": PRIMARY_MODEL,
@@ -214,5 +217,7 @@ FALLBACK_TIMEZONE = _env.FALLBACK_TIMEZONE
 # Devanagari and other non-Latin scripts tokenize far less efficiently than
 # English. A cap tuned for English silently truncates Hindi mid-sentence.
 MAX_OUTPUT_TOKENS = _env.MAX_OUTPUT_TOKENS
+TEMPERATURE = _env.TEMPERATURE
+THINKING_BUDGET = _env.THINKING_BUDGET
 
 GEMINI_TIMEOUT = _env.GEMINI_TIMEOUT
