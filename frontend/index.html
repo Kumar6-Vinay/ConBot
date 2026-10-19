@@ -97,7 +97,16 @@
        Swaps for .thread once the first message sends (see startThread()). -->
   <section class="hero" id="hero">
     <div class="hero-inner" id="top">
-      <h1 class="ask-heading">What do you want to know?</h1>
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="28" height="28">
+          <circle cx="9" cy="12" r="6.5" stroke-dasharray="27 14.8" transform="rotate(20 9 12)"/>
+          <circle cx="15" cy="12" r="6.5" stroke-dasharray="27 14.8" transform="rotate(200 15 12)"/>
+          <path d="M12 8v8M8 12l4 4 4-4" stroke-linecap="round"/>
+        </svg>
+      </div>
+
+      <h1 class="ask-heading">Ask anything. Create everything.</h1>
+      <p class="hero-subtitle">ConBOT is your AI assistant for questions, ideas, images, and code. Powered by free models with privacy by design.</p>
 
       <div class="composer" id="heroComposer">
         <label class="sr" for="input">Your question</label>
@@ -251,6 +260,14 @@
   </div>
 </div>
 <canvas id="camCanvas" hidden></canvas>
+
+<!-- Lightbox for generated images -->
+<div class="lightbox" id="lightbox" hidden aria-label="Image preview" role="dialog" aria-modal="true">
+  <button class="ghost lightbox-close" id="lightboxClose" type="button" aria-label="Close preview">
+    <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+  </button>
+  <div class="lightbox-content" id="lightboxContent"></div>
+</div>
 
 <script src="app.js" data-api-base="https://llama-chatbot-qb2c.onrender.com/v1"></script>
 </body>
