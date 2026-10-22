@@ -17,11 +17,11 @@ class _Env(BaseSettings):
     GEMINI_API_KEY: str = ""
     GOOGLE_API_KEY: str = ""
     OPENROUTER_API_KEY: str = ""
-    PRIMARY_MODEL: str = "google:gemini-2.5-flash"
+    NVIDIA_API_KEY: str = ""
+    PRIMARY_MODEL: str = "nvidia:nvidia/nemotron-3.5-super-120b-vl-a12b"
     TEXT_FALLBACK_CHAIN: str = (
-        "google:gemini-2.5-flash,google:gemini-2.5-pro,"
-        "openrouter:openai/gpt-5-mini,openrouter:google/gemini-2.5-flash:free,"
-        "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free"
+        "google:gemini-2.0-flash,google:gemini-1.5-flash,"
+        "openrouter:google/gemini-2.0-flash:free"
     )
     TEMPERATURE: float = 0.7
     THINKING_BUDGET: int = 0
@@ -72,14 +72,18 @@ def _clean_key(raw: str) -> str:
 # GEMINI_API_KEY was ever unset.
 GEMINI_API_KEY = _clean_key(_env.GEMINI_API_KEY or _env.GOOGLE_API_KEY)
 OPENROUTER_API_KEY = _clean_key(_env.OPENROUTER_API_KEY)
+NVIDIA_API_KEY = _clean_key(_env.NVIDIA_API_KEY)
 OPENROUTER_BASE = "https://openrouter.ai/api/v1"
+NVIDIA_BASE = "https://integrate.api.nvidia.com/v1"
 
 # ConBOT mode -> primary model (provider:model_id format).
-# Examples: "google:gemini-3.5-flash", "openrouter:qwen/qwen3.8-27b:free"
-# Default is Gemini direct (free Google AI Studio quota, not OpenRouter) —
-# an OpenRouter free-tier primary gets retired/repriced without notice (as
-# happened to the previous default, openrouter:qwen/qwen3.8-27b:free).
-# gemini-2.5-flash is the recommended production default for reasoning quality.
+# Examples: "nvidia:nvidia/nemotron-3.5-super-120b-vl-a12b",
+#           "google:gemini-2.5-flash", "openrouter:qwen/qwen3.8-27b:free"
+# Default is Nemotron 3.5 Super VL 120B via NVIDIA NIM (build.nvidia.com)
+# using NVIDIA_API_KEY directly — no OpenRouter middleman. Verify the exact
+# model slug on NVIDIA's catalog — free models get retired/repriced without
+# notice. To use Gemini direct instead:
+#   PRIMARY_MODEL=google:gemini-2.5-flash
 PRIMARY_MODEL = _env.PRIMARY_MODEL
 GEMINI_MODEL_MAP = {
     "text": PRIMARY_MODEL,
