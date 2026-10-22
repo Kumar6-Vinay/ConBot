@@ -3,7 +3,7 @@ from typing import AsyncIterator, List, Optional
 
 from fastapi import HTTPException
 
-from app.config import AVAILABLE_MODELS, GEMINI_API_KEY
+from app.config import AVAILABLE_MODELS, GEMINI_API_KEY, OPENROUTER_API_KEY
 from app.core import security
 from app.core.errors import no_llm_error
 from app.logging_config import logger
@@ -52,7 +52,7 @@ async def prepare(request: ChatRequest, request_id: str) -> dict:
 
 
 async def get_ai_answer(messages: List[dict], model: str, request_id: str) -> str:
-    if not GEMINI_API_KEY:
+    if not GEMINI_API_KEY and not OPENROUTER_API_KEY:
         raise no_llm_error()
     try:
         return await fallback.get_answer(messages, model, request_id)
@@ -70,7 +70,7 @@ async def stream_answer(
     request_id: str,
     state: Optional[dict] = None,
 ) -> AsyncIterator[str]:
-    if not GEMINI_API_KEY:
+    if not GEMINI_API_KEY and not OPENROUTER_API_KEY:
         raise no_llm_error()
     async for piece in fallback.stream_answer(messages, model, request_id, state):
         yield piece
