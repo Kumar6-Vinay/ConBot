@@ -51,8 +51,9 @@ from app.config import (
 from app.core import circuit_breaker
 from app.core.errors import ContentBlocked
 from app.logging_config import logger
-from app.services import gemini_client, openrouter_client
+from app.services import gemini_client, nvidia_client, openrouter_client
 from app.services.openrouter_client import OpenRouterUpstreamError
+from app.services.nvidia_client import NVIDIAUpstreamError
 
 # Codes that mean "this exact request is bad," not "this model is down."
 # Retrying it against a different model/provider won't help. 404 is
@@ -90,6 +91,8 @@ def _classify(exc: Exception) -> Optional[int]:
         return exc.response.status_code
     if isinstance(exc, OpenRouterUpstreamError):
         return exc.status_code
+    if isinstance(exc, NVIDIAUpstreamError):
+        return exc.status_code
     return None
 
 
@@ -124,6 +127,8 @@ async def get_answer(messages: List[dict], mode: str, request_id: str) -> str:
                 answer = await gemini_client.ask_gemini(messages, model_id, request_id, FALLBACK_ATTEMPT_TIMEOUT)
             elif provider == "openrouter":
                 answer = await openrouter_client.ask_openrouter(messages, model_id, request_id, FALLBACK_ATTEMPT_TIMEOUT)
+            elif provider == "nvidia":
+                answer = await nvidia_client.ask_nvidia(messages, model_id, request_id, FALLBACK_ATTEMPT_TIMEOUT)
             else:
                 logger.error("[%s] fallback unknown provider=%s, skipping", request_id, provider)
                 continue
@@ -171,6 +176,8 @@ async def stream_answer(
                 source = gemini_client.stream_gemini(messages, model_id, request_id, FALLBACK_ATTEMPT_TIMEOUT, state)
             elif provider == "openrouter":
                 source = openrouter_client.stream_openrouter(messages, model_id, request_id, FALLBACK_ATTEMPT_TIMEOUT, state)
+            elif provider == "nvidia":
+                source = nvidia_client.stream_nvidia(messages, model_id, request_id, FALLBACK_ATTEMPT_TIMEOUT, state)
             else:
                 logger.error("[%s] fallback unknown provider=%s, skipping", request_id, provider)
                 continue
