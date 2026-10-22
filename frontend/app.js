@@ -68,57 +68,6 @@ function esc(s) {
   ));
 }
 
-function escHtmlAttr(s) {
-  return s.replace(/[&<>"']/g, (c) => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-  ));
-}
-
-/* Lightweight CSS-only syntax highlighting for common languages.
-   No JS dependency — class names map to CSS rules in styles.css. */
-function highlightCode(code, lang) {
-  let html = esc(code);
-
-  if (lang === 'js' || lang === 'javascript' || lang === 'ts' || lang === 'typescript') {
-    html = html
-      .replace(/\b(const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|try|catch|finally|throw|new|class|extends|import|export|from|async|await|yield|typeof|instanceof|void|delete|in|of)\b/g, '<span class="code-keyword">$1</span>')
-      .replace(/\b(console|document|window|navigator|localStorage|fetch|JSON|Math|Array|Object|String|Number|Boolean|Promise|setTimeout|setInterval)\b/g, '<span class="code-variable">$1</span>')
-      .replace(/\b(true|false|null|undefined)\b/g, '<span class="code-keyword">$1</span>')
-      .replace(/"([^"\\]*(\\.[^"\\]*)*)"|'([^'\\]*(\\.[^'\\]*)*)'|`([^`\\]*(\\.[^`\\]*)*)`/g, '<span class="code-string">$&</span>')
-      .replace(/\b(\d+\.?\d*|0x[0-9a-fA-F]+)\b/g, '<span class="code-number">$1</span>')
-      .replace(/\/\/[^\n]*/g, '<span class="code-comment">$&</span>')
-      .replace(/\/\*[\s\S]*?\*\//g, '<span class="code-comment">$&</span>');
-  } else if (lang === 'py' || lang === 'python') {
-    html = html
-      .replace(/\b(def|class|if|else|elif|for|while|try|except|finally|with|as|import|from|return|raise|and|or|not|in|is|None|True|False|lambda|yield|async|await|global|nonlocal)\b/g, '<span class="code-keyword">$1</span>')
-      .replace(/\b(print|len|range|str|int|float|list|dict|set|tuple|open|sum|max|min|abs|round|type|isinstance|super|property|staticmethod|classmethod)\b/g, '<span class="code-variable">$1</span>')
-      .replace(/"([^"\\]*(\\.[^"\\]*)*)"|'([^'\\]*(\\.[^'\\]*)*)'|f"([^"\\]*(\\.[^"\\]*)*)"/g, '<span class="code-string">$&</span>')
-      .replace(/#.*/g, '<span class="code-comment">$&</span>')
-      .replace(/\b(\d+\.?\d*)\b/g, '<span class="code-number">$1</span>');
-  } else if (lang === 'html') {
-    html = html
-      .replace(/<\/?[a-zA-Z][^>]*>/g, '<span class="code-keyword">$&</span>')
-      .replace(/="([^"]*)"/g, '="<span class="code-string">$1</span>"');
-  } else if (lang === 'css' || lang === 'scss') {
-    html = html
-      .replace(/[.#][a-zA-Z0-9_-]+/g, '<span class="code-variable">$&</span>')
-      .replace(/[{}:;]/g, '<span class="code-operator">$&</span>')
-      .replace(/"([^"]*)"|'([^']*)'/g, '<span class="code-string">$&</span>')
-      .replace(/\b(\d+(px|em|rem|%|vh|vw)?)\b/g, '<span class="code-number">$1</span>');
-  } else if (lang === 'json') {
-    html = html
-      .replace(/"([^"\\]*(\\.[^"\\]*)*)"\s*:/g, '<span class="code-string">$1</span>:')
-      .replace(/\b(true|false|null)\b/g, '<span class="code-keyword">$1</span>')
-      .replace(/\b(\d+\.?\d*)\b/g, '<span class="code-number">$1</span>');
-  } else if (lang === 'sql') {
-    html = html
-      .replace(/\b(SELECT|FROM|WHERE|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AND|OR|NOT|IN|LIAS|GROUP|ORDER|BY|HAVING|LIMIT|OFFSET|AS|INTO|VALUES|SET)\b/gi, '<span class="code-keyword">$1</span>')
-      .replace(/'([^'\\]*(\\.[^'\\]*)*)'/g, '<span class="code-string">$&</span>');
-  }
-
-  return html;
-}
-
 function inline(s) {
   return s
     .replace(/`([^`]+)`/g, '<code>$1</code>')
@@ -135,11 +84,8 @@ function markdown(raw) {
 
   blocks.forEach((block, i) => {
     if (i % 2 === 1) {                      // fenced code
-      const firstNewline = block.indexOf('\n');
-      const lang = firstNewline > 0 ? block.slice(0, firstNewline).trim() : '';
-      const body = firstNewline > 0 ? block.slice(firstNewline + 1) : block;
-      const langClass = lang ? `language-${escHtmlAttr(lang)}` : '';
-      out += '<div class="code-block"><button class="code-copy" type="button" title="Copy code">Copy</button><pre><code class="' + langClass + '">' + highlightCode(body.replace(/\n$/, ''), lang) + '</code></pre></div>';
+      const body = block.replace(/^[a-zA-Z0-9+-]*\n/, '');
+      out += '<div class="code-block"><button class="code-copy" type="button" title="Copy code">Copy</button><pre><code>' + body.replace(/\n$/, '') + '</code></pre></div>';
       return;
     }
 
@@ -230,16 +176,9 @@ syncComposerDock();
 ========================================================= */
 
 function addYou(text, imageUrl) {
-  hideEmptyState();
   startThread();
   const turn = document.createElement('div');
   turn.className = 'turn you';
-
-  const label = document.createElement('div');
-  label.className = 'label';
-  label.textContent = 'You';
-  turn.appendChild(label);
-
   if (imageUrl) {
     const img = document.createElement('img');
     img.className = 'you-image';
@@ -258,11 +197,6 @@ function addYou(text, imageUrl) {
 function addAnswerShell() {
   const turn = document.createElement('div');
   turn.className = 'turn bot';
-
-  const label = document.createElement('div');
-  label.className = 'label';
-  label.textContent = 'ConBOT';
-  turn.appendChild(label);
 
   const body = document.createElement('div');
   body.className = 'text';
@@ -317,37 +251,29 @@ function addActions(turn, getText, question) {
   const acts = document.createElement('div');
   acts.className = 'acts';
 
-  const copy = document.createElement('button');
-  copy.className = 'act';
-  copy.type = 'button';
-  copy.textContent = 'Copy';
-  copy.onclick = async () => {
+  const share = document.createElement('button');
+  share.className = 'act';
+  share.type = 'button';
+  share.textContent = navigator.share ? 'Share' : 'Copy';
+  share.onclick = async () => {
     const text = getText();
+    if (navigator.share) {
+      try { await navigator.share({ text: text }); } catch (e) { /* dismissed */ }
+      return;
+    }
     try {
       await navigator.clipboard.writeText(text);
-      copy.textContent = 'Copied!';
-      setTimeout(() => { copy.textContent = 'Copy'; }, 1600);
+      share.textContent = 'Copied';
+      setTimeout(() => { share.textContent = 'Copy'; }, 1600);
     } catch (e) {
-      copy.textContent = 'Copy';
+      share.textContent = 'Select and copy';
     }
   };
-  acts.appendChild(copy);
-
-  if (navigator.share) {
-    const share = document.createElement('button');
-    share.className = 'act';
-    share.type = 'button';
-    share.textContent = 'Share';
-    share.onclick = async () => {
-      const text = getText();
-      try { await navigator.share({ text: text }); } catch (e) { /* dismissed */ }
-    };
-    acts.appendChild(share);
-  }
+  acts.appendChild(share);
 
   if (question) {
     const regen = document.createElement('button');
-    regen.className = 'act accent';
+    regen.className = 'act';
     regen.type = 'button';
     regen.textContent = 'Regenerate';
     regen.onclick = () => { if (!pending) sendWith(question); };
@@ -647,17 +573,14 @@ async function ask() {
       history.push({ role: 'user', content: text });
       history.push({ role: 'assistant', content: turn.dataset.clarify });
       saveHistory();
-      saveCurrentSession();
       return;
     }
 
     if (answer) {
       paint();
-      const assistantMsg = { role: 'assistant', content: answer, followups: turn.dataset.followups ? JSON.parse(turn.dataset.followups) : null };
       history.push({ role: 'user', content: text });
-      history.push(assistantMsg);
+      history.push({ role: 'assistant', content: answer });
       saveHistory();
-      saveCurrentSession();
 
       if (turn.dataset.sources) renderSources(turn, JSON.parse(turn.dataset.sources));
       addActions(turn, () => answer, text);
@@ -766,11 +689,8 @@ async function generateInThread(prompt) {
 }
 
 function lock(busy) {
-  const hasText = !!input.value.trim();
-  const hasImage = !!attachedImage;
-  send.disabled = busy ? false : !(hasText || hasImage);
-  send.classList.toggle('stop', busy);
-  send.setAttribute('aria-label', busy ? 'Stop generation' : 'Send');
+  send.disabled = busy ? false : !input.value.trim();
+  send.setAttribute('aria-label', busy ? 'Stop' : 'Send');
   send.innerHTML = busy
     ? '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="7" y="7" width="10" height="10" rx="2.5" fill="currentColor" stroke="none"/></svg>'
     : '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
@@ -841,24 +761,6 @@ function flashTip(anchor, message) {
 /* Titles of this tab's earlier chats. Display only, in memory: the server
    is stateless and conversations are never persisted. */
 let sessions = [];
-const SESSIONS_KEY = 'conbot-sessions';
-const MAX_SESSIONS = 50;
-
-function loadSessions() {
-  try {
-    const raw = localStorage.getItem(SESSIONS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) sessions = parsed.slice(-MAX_SESSIONS);
-    }
-  } catch (e) { /* private mode / quota — start fresh */ }
-}
-
-function saveSessions() {
-  try {
-    localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions.slice(-MAX_SESSIONS)));
-  } catch (e) { /* private mode / quota — ignore */ }
-}
 
 function renderSessions() {
   const list = $('sideList');
@@ -878,96 +780,19 @@ function renderSessions() {
     const del = document.createElement('button');
     del.type = 'button';
     del.className = 'side-mini';
-    del.setAttribute('aria-label', 'Remove conversation');
+    del.setAttribute('aria-label', 'Remove from list');
     del.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">'
       + '<path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13"/></svg>';
-    del.addEventListener('click', (e) => {
-      e.stopPropagation();
+    del.addEventListener('click', () => {
       sessions = sessions.filter((x) => x.id !== entry.id);
-      saveSessions();
       renderSessions();
     });
 
-    row.addEventListener('click', () => restoreSession(entry));
     acts.appendChild(del);
     row.appendChild(title);
     row.appendChild(acts);
     list.appendChild(row);
   });
-}
-
-function restoreSession(entry) {
-  if (pending) return;
-  history = entry.history || [];
-  thread.innerHTML = '';
-  hideEmptyState();
-  // Replay messages into the thread
-  history.forEach((m, i) => {
-    if (m.role === 'user') {
-      addYou(m.content);
-    } else {
-      const turn = document.createElement('div');
-      turn.className = 'turn bot';
-      const label = document.createElement('div');
-      label.className = 'label';
-      label.textContent = 'ConBOT';
-      turn.appendChild(label);
-      const body = document.createElement('div');
-      body.className = 'text';
-      body.innerHTML = m.html || m.content;
-      turn.appendChild(body);
-      thread.appendChild(turn);
-      if (i === history.length - 1) {
-        addActions(turn, () => m.content || m.html || '', null);
-        if (m.followups) renderFollowups(turn, m.followups);
-      }
-    }
-  });
-  closeSidebar();
-  input.focus();
-}
-
-function saveCurrentSession() {
-  if (!history.length) return;
-  const first = history[0].content.replace(/\s+/g, ' ').trim();
-  const title = first.length > 40 ? first.slice(0, 39) + '…' : first;
-  // Remove any existing session with same title (replace with latest)
-  sessions = sessions.filter((s) => s.title !== title);
-  sessions.unshift({
-    id: Date.now() + Math.random(),
-    title: title,
-    history: history.map(m => ({
-      role: m.role,
-      content: m.content,
-      html: m.content,
-      followups: m.followups || null
-    }))
-  });
-  sessions = sessions.slice(0, MAX_SESSIONS);
-  saveSessions();
-  renderSessions();
-}
-
-function showEmptyState() {
-  const existing = thread.querySelector('.empty-state');
-  if (existing) return;
-  const wrap = document.createElement('div');
-  wrap.className = 'empty-state';
-  wrap.innerHTML = `
-    <div class="empty-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24" width="48" height="48" style="stroke: var(--ink-4);">
-        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-      </svg>
-    </div>
-    <h2 style="margin: 12px 0 8px; font-size: 20px; font-weight: 700; color: var(--ink);">Start a new conversation</h2>
-    <p style="margin: 0 0 24px; color: var(--ink-3); font-size: 15px; line-height: 1.6;">Ask anything, upload an image, or generate art. Your conversation stays private and ephemeral.</p>
-  `;
-  thread.appendChild(wrap);
-}
-
-function hideEmptyState() {
-  const existing = thread.querySelector('.empty-state');
-  if (existing) existing.remove();
 }
 
 function newChat() {
@@ -982,7 +807,6 @@ function newChat() {
   history = [];
   saveHistory();
   thread.innerHTML = '';
-  showEmptyState();
   clearImage();
   setCreateImageMode(false);
   input.value = '';
@@ -1021,8 +845,6 @@ window.addEventListener('scroll', () => {
 }, { passive: true });
 
 loadHistory();
-loadSessions();
-renderSessions();
 input.focus();
 
 /* =========================================================
@@ -1480,27 +1302,10 @@ function showImageInFrame(url, prompt) {
   const img = document.createElement('img');
   img.src = url;
   img.alt = prompt;
-  img.style.cursor = 'zoom-in';
-  img.onclick = () => showLightbox(url);
   imggenFrame.appendChild(img);
   imggenDownload.href = url;
   imggenActions.hidden = false;
   imgResult.hidden = true;
-}
-
-function showLightbox(url) {
-  const lb = $('lightbox');
-  const content = $('lightboxContent');
-  content.innerHTML = '<img src="' + url + '" alt="Generated image preview">';
-  lb.hidden = false;
-  document.body.style.overflow = 'hidden';
-}
-
-function closeLightbox() {
-  const lb = $('lightbox');
-  lb.hidden = true;
-  $('lightboxContent').innerHTML = '';
-  document.body.style.overflow = '';
 }
 
 function resetFrameToPlaceholder() {
@@ -1578,14 +1383,6 @@ imgPrompt.addEventListener('keydown', (e) => {
 });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && document.body.classList.contains('imggen-active')) closeImageGenView();
-});
-
-$('lightboxClose').addEventListener('click', closeLightbox);
-$('lightbox').addEventListener('click', (e) => {
-  if (e.target === $('lightbox')) closeLightbox();
-});
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !$('lightbox').hidden) closeLightbox();
 });
 
 /* =========================================================
