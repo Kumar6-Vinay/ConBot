@@ -6,38 +6,41 @@ Open-source self-hosted AI assistant powered by NVIDIA Nemotron via OpenRouter, 
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+" />
   <img src="https://img.shields.io/badge/FastAPI-0.133.1-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
   <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License" />
-  <img src="https://img.shields.io/badge/Status-Active-brightgreen" alt="Active" />
+  <img src="https://img.shields.io/badge/Status-Active-brightgreen" alt="Status" />
 </p>
 
 ConBot is a self-hosted AI chat assistant designed to run locally or in production with minimal setup. It combines:
+
 - NVIDIA Nemotron as the default primary model via OpenRouter
 - optional Gemini support for fallback or alternate routing
 - OpenRouter compatibility for flexible model switching
-- SSE streaming responses
+- Server-Sent Events (SSE) streaming responses
 - multimodal AI capabilities
 - image generation via Pollinations.ai
 - a simple, dependency-light web UI
 
-It is built for developers who want an AI assistant they can run themselves, customize, and extend.
+This project is intended for developers who want a usable AI assistant they can run themselves, customize, and extend.
 
 ---
 
 ## Why ConBot?
 
 Most AI chatbot projects are either:
+
 - too basic and demo-only
 - tightly coupled to a single provider
 - expensive to self-host
 - difficult to deploy and customize
 
 ConBot aims to be different:
-- NVIDIA Nemotron as the default primary model via OpenRouter
-- optional Gemini and other provider support
+
+- NVIDIA Nemotron via OpenRouter is the default lead model
+- Gemini support is available as an optional provider or fallback path
 - production-minded backend architecture
-- simple frontend with no heavy framework
+- lightweight frontend with no heavy framework
 - stateless API design
 - secure and rate-limited request handling
-- deployable with Docker and easy local development
+- Docker-ready local and production deployment
 
 ---
 
@@ -45,22 +48,24 @@ ConBot aims to be different:
 
 [Add your screenshot or GIF here]
 
-Example:
+Examples of what to show in the demo:
+
 - chat interface
 - image generation
 - streaming responses
 - provider fallback behavior
 
-You can also add a live demo URL here if available.
+If you have a live deployment, add a link here.
 
 ---
 
 ## Features
 
 ### Core features
-- Multi-provider text chat using NVIDIA Nemotron via OpenRouter as the default
-- optional Gemini fallback / alternative provider paths
-- Server-Sent Events (SSE) streaming responses
+
+- multi-provider text chat using NVIDIA Nemotron via OpenRouter as the default path
+- optional Gemini fallback or alternate provider paths
+- SSE streaming responses
 - image generation via Pollinations.ai
 - optional image input support in chat
 - multi-language behavior with locale-aware responses
@@ -70,12 +75,13 @@ You can also add a live demo URL here if available.
 - built-in rate limiting and concurrency protection
 
 ### Production-minded capabilities
+
 - safe request validation
 - model fallback chain with circuit breaker behavior
 - request and response hardening
 - security headers and request body limits
-- API health checks
-- local development and Docker deployment workflows
+- health checks for backend status
+- local development and container-based deployment workflows
 
 ---
 
@@ -100,17 +106,19 @@ FastAPI backend (app/)
 ```
 
 The backend is organized as a modular Python package:
+
 - `app/api/` – route handlers and API entrypoints
-- `app/services/` – business logic
-- `app/core/` – middleware, rate limiting, security, circuit breaker
-- `app/models/` – request/response schemas
-- `frontend/` – static web client
+- `app/services/` – business logic and provider integrations
+- `app/core/` – middleware, rate limiting, security, and circuit breaker logic
+- `app/models/` – request and response schemas
+- `frontend/` – static client assets
 
 ---
 
 ## Tech Stack
 
 ### Backend
+
 - Python 3.10+
 - FastAPI
 - Uvicorn
@@ -118,17 +126,20 @@ The backend is organized as a modular Python package:
 - httpx
 
 ### Frontend
+
 - HTML
 - CSS
 - Vanilla JavaScript
 - no framework required
 
 ### External services
+
 - NVIDIA Nemotron via OpenRouter (default primary model)
-- Google Gemini (supported as optional provider/fallback)
+- Google Gemini (supported as optional provider or fallback)
 - Pollinations.ai
 
 ### Deployment
+
 - Docker
 - Render (example backend deployment)
 - Cloudflare Workers static asset hosting
@@ -138,6 +149,7 @@ The backend is organized as a modular Python package:
 ## Quick Start
 
 ### Prerequisites
+
 - Python 3.10+ (3.12 recommended)
 - Docker (optional)
 - OpenRouter API key for the default Nemotron path
@@ -176,9 +188,10 @@ cp .env.example .env
 ```
 
 Then edit `.env` and add:
+
 - `OPENROUTER_API_KEY` for the default Nemotron path
 - optional `GEMINI_API_KEY` if you want Gemini support enabled
-- any other config needed in your environment
+- any other config needed for your deployment
 
 ### 5) Start the backend
 
@@ -193,6 +206,7 @@ python -m http.server 3000 --directory frontend
 ```
 
 Open:
+
 - `http://localhost:3000`
 
 ---
@@ -233,12 +247,14 @@ Key settings include:
 - `ALLOWED_ORIGINS`
 
 The project is designed to be flexible:
+
 - switch providers
 - adjust rate limits
 - change fallback order
 - run locally or in production
 
 Current default configuration:
+
 - `PRIMARY_MODEL=openrouter:nvidia/nemotron-3.5-super-vl:free`
 
 ---
@@ -246,18 +262,23 @@ Current default configuration:
 ## API Overview
 
 ### `/health`
+
 Returns basic health/status information and whether the app is configured correctly.
 
 ### `/ask`
+
 Send a chat prompt and receive a full response.
 
 ### `/stream`
+
 Streaming version of chat using SSE.
 
 ### `/generate-image`
+
 Generate an image from a text prompt using Pollinations.ai.
 
 ### `/models/image`
+
 List the image generation models available.
 
 ---
@@ -322,6 +343,7 @@ ConBot/
 ## Security
 
 ConBot includes security-aware safeguards:
+
 - explicit CORS allowlist
 - rate limiting per client and globally
 - request size limits
@@ -331,8 +353,35 @@ ConBot includes security-aware safeguards:
 - dependency and runtime hardening
 
 See:
+
 - `SECURITY.md`
 - `SECURITY_AUDIT.md`
+
+---
+
+## Development
+
+### Run tests
+
+```bash
+pytest -q
+```
+
+### Useful manual checks
+
+```bash
+curl -s -X POST http://localhost:8000/ask \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "What is Python?"}'
+
+curl -sN -X POST http://localhost:8000/stream \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Tell me a joke"}'
+
+curl -s -X POST http://localhost:8000/generate-image \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "a cat astronaut"}'
+```
 
 ---
 
@@ -341,30 +390,32 @@ See:
 Contributions are welcome.
 
 ### Recommended workflow
+
 1. Fork the repo
 2. Create a feature branch
 3. Make your changes
-4. Run tests
+4. Run the relevant tests
 5. Open a pull request
 
 ```bash
 pytest -q
 ```
 
-If you add a feature, please include tests where practical.
+For more detailed guidance, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
 ## Roadmap
 
 Planned improvements include:
+
 - CI/CD automation
 - dependency lockfile management
 - better observability and analytics
 - public documentation for deployment and privacy
 - more starter-friendly customization examples
 - broader model/provider abstraction
-- more frontend polish and UX improvements
+- frontend polish and UX enhancements
 
 ---
 
@@ -376,6 +427,20 @@ See the [LICENSE](LICENSE) file for details.
 
 ---
 
+## Code of Conduct
+
+This project is committed to a respectful and inclusive community. By participating, you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+---
+
+## Support
+
+For bugs, questions, or ideas, open an issue:
+
+- https://github.com/Kumar6-Vinay/ConBot/issues
+
+---
+
 ## Author
 
 Kumar Vinay  
@@ -383,23 +448,124 @@ GitHub: [@Kumar6-Vinay](https://github.com/Kumar6-Vinay)
 
 ---
 
-## Support
+## Final note
 
-For bugs, questions, or ideas, open an issue:
-- https://github.com/Kumar6-Vinay/ConBot/issues
+ConBot is designed to be practical, minimal, and extensible rather than bloated. It is a strong foundation for building a self-hosted AI assistant or a custom chat product without locking yourself to a single provider.
+
+If you want to go further, the project can be extended with:
+
+- authentication
+- persistent chat history
+- vector search
+- file upload support
+- custom prompt management
+- team workspaces
+
+The core structure is already in place.
 
 ---
 
-## Final note
+## Star this repo
 
-ConBot is designed to be practical, minimal, and extensible rather than bloated. It is a solid foundation for building a self-hosted AI assistant or a custom chat product without locking yourself to a single provider.
+If you like self-hosted AI projects with provider fallback, image generation, and a clean Python backend, consider giving ConBot a star.
 
-If you want to go further:
-- add authentication
-- add persistent chat history
-- add vector search
-- add file upload support
-- add custom prompt management
-- add team workspaces
+It is a practical starting point for building your own AI assistant or product on top of a flexible provider stack.
 
-The core structure is already in place.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
