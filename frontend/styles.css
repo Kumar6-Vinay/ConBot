@@ -12,12 +12,14 @@
   --ink: #18181b;
   --ink-2: #3f3f46;
   --ink-3: #52525b;
-  --placeholder: #71717a;
+  --placeholder: #94a3b8;
 
   --hairline: #e4e4e7;
   --accent: #2563eb;
   --accent-ink: #ffffff;
-  --bubble: #2563eb;
+  --accent-warm: #f97316;
+  --accent-warm-ink: #ffffff;
+  --bubble: #3b82f6;
   --code-bg: #f4f4f5;
 
   /* A distinct accent for the image generator, separate from chat's blue */
@@ -43,15 +45,17 @@ body.dark {
   --ink: #fafafa;
   --ink-2: #d4d4d8;
   --ink-3: #a1a1aa;
-  --placeholder: #71717a;
+  --placeholder: #94a3b8;
   --hairline: #27272a;
   --accent: #3b82f6;
   --accent-ink: #000000;
+  --accent-warm: #fb923c;
+  --accent-warm-ink: #000000;
   --bubble: #3b82f6;
   --code-bg: #18181b;
   --accent-image: #a76bff;
   --accent-image-ink: #000000;
-  --composer-shadow: 0 1px 2px rgba(0, 0, 0, 0.24), 0 10px 30px rgba(0, 0, 0, 0.36);
+  --composer-shadow: 0 1px 2px rgba(0, 0, 0, 0.24), 0 12px 36px rgba(0, 0, 0, 0.36);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -62,7 +66,7 @@ body.dark {
     --ink: #fafafa;
     --ink-2: #d4d4d8;
     --ink-3: #a1a1aa;
-    --placeholder: #71717a;
+    --placeholder: #94a3b8;
     --hairline: #27272a;
     --accent: #3b82f6;
     --accent-ink: #000000;
@@ -70,7 +74,7 @@ body.dark {
     --code-bg: #18181b;
     --accent-image: #a76bff;
     --accent-image-ink: #000000;
-    --composer-shadow: 0 1px 2px rgba(0, 0, 0, 0.24), 0 10px 30px rgba(0, 0, 0, 0.36);
+    --composer-shadow: 0 1px 2px rgba(0, 0, 0, 0.24), 0 12px 36px rgba(0, 0, 0, 0.36);
   }
 }
 
@@ -190,11 +194,37 @@ body.dark .ic-moon { display: block; }
 
 .ask-heading {
   margin: 0;
-  font-size: 36px;
+  font-size: 38px;
   font-weight: 600;
   letter-spacing: -0.025em;
   color: var(--ink);
   animation: rise 0.7s var(--ease) both;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.ask-heading .emoji {
+  font-size: 42px;
+  line-height: 1;
+  animation: chipIn 0.5s var(--ease) forwards;
+  opacity: 0;
+}
+
+.ask-heading span {
+  animation: chipIn 0.5s var(--ease) 0.1s forwards;
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.ask-heading::before {
+  content: "👋";
+  font-size: 42px;
+  line-height: 1;
+  color: var(--accent-warm);
+  animation: chipIn 0.5s var(--ease) 0.2s forwards;
+  opacity: 0;
 }
 
 .hero-inner .composer {
@@ -205,21 +235,70 @@ body.dark .ic-moon { display: block; }
 }
 
 .chips {
-  margin: 20px auto 0;
-  display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
+  margin: 24px auto 0;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 12px;
   animation: rise 0.7s var(--ease) 0.1s both;
 }
 
 .chip {
-  height: 40px;
-  padding: 0 16px;
+  height: 44px;
+  padding: 0 18px;
   display: inline-flex; align-items: center;
   font-size: 14px;
   color: var(--ink-2);
   background: var(--canvas);
   border: 1px solid var(--hairline);
   border-radius: 999px;
-  transition: color 0.2s var(--ease), border-color 0.2s var(--ease), transform 0.15s var(--ease);
+  transition: all 0.2s var(--ease-out);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  animation: chipIn 0.5s var(--ease) 0.3s forwards;
+  opacity: 0;
+}
+
+.chip::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 999px;
+  opacity: 0;
+  transition: opacity 0.2s var(--ease);
+}
+
+.chip:hover {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--hairline));
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  background: color-mix(in srgb, var(--surface) 80%, var(--canvas));
+}
+
+.chip:hover::before {
+  opacity: 0.4;
+}
+
+.chip:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+.chip:focus-visible {
+  outline: 2px solid var(--accent-warm);
+  outline-offset: 2px;
+}
+
+.chip.chip-accent {
+  color: var(--accent-warm);
+  border-color: var(--accent-warm);
+}
+
+.chip.chip-accent:hover {
+  background: color-mix(in srgb, var(--accent-warm) 12%, transparent);
+  color: var(--accent-warm-ink);
 }
 .chip:hover {
   color: var(--ink);
@@ -229,6 +308,11 @@ body.dark .ic-moon { display: block; }
 
 @keyframes rise {
   from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes chipIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.95); }
   to   { opacity: 1; transform: none; }
 }
 
