@@ -29,7 +29,7 @@ async def stream(request: ChatRequest, http_request: Request) -> StreamingRespon
     # Check configuration before the response starts. Once headers are sent
     # the status code is fixed, so a 503 raised inside the generator would
     # reach the client as a 200 with an error event.
-    if not config.GEMINI_API_KEY:
+    if not any((config.GEMINI_API_KEY, config.OPENROUTER_API_KEY, config.NVIDIA_API_KEY)):
         raise no_llm_error()
 
     rate_limit.enforce_rate_limit(http_request, request_id)
