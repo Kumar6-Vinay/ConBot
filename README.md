@@ -255,7 +255,8 @@ The project is designed to be flexible:
 
 Current default configuration:
 
-- `PRIMARY_MODEL=openrouter:nvidia/nemotron-3.5-super-vl:free`
+- `PRIMARY_MODEL=google:gemini-2.5-flash`
+- `TEXT_FALLBACK_CHAIN=google:gemini-2.5-flash-lite,openrouter:nvidia/nemotron-3.5-super-vl:free`
 
 ---
 
