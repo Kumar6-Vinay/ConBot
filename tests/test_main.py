@@ -1,8 +1,3 @@
-"""Regression tests for ConBOT. No network: every upstream call is faked.
-
-Run:  pip install -r requirements.txt -r requirements-dev.txt && pytest -q
-"""
-import asyncio
 import json
 import os
 import sys
@@ -22,8 +17,6 @@ from app.api import deps  # noqa: E402
 from app.core import rate_limit, security  # noqa: E402
 from app.models.ask import Turn  # noqa: E402
 from app.services import conversation  # noqa: E402
-
-ORIGINAL_STREAM = deps.stream_answer
 
 
 # ---------------------------------------------------------------- helpers
@@ -139,6 +132,20 @@ def test_stream_emits_followups_and_no_raw_tag(client):
     assert ev[-1] == {"type": "done"}
 
 
+def test_openrouter_only_configuration_can_stream(client, monkeypatch):
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "")
+    monkeypatch.setattr(config, "OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setattr(config, "NVIDIA_API_KEY", "")
+    monkeypatch.setattr(deps, "GEMINI_API_KEY", "")
+    monkeypatch.setattr(deps, "OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setattr(deps, "NVIDIA_API_KEY", "")
+
+    response = client.post("/v1/stream", json={"prompt": "hello"})
+
+    assert response.status_code == 200
+    assert any(event["type"] == "delta" for event in events(response))
+
+
 # ---------------------------------------------------------------- /ask
 
 def test_ask_strips_blocks(client, monkeypatch):
@@ -162,8 +169,6 @@ def test_ask_clarify(client, monkeypatch):
 # ---------------------------------------------------------------- fallback
 
 def test_primary_model_names_a_provider_and_model():
-    # Chain advance, fail-fast, breaker and budget are covered in
-    # test_fallback.py; this only guards the shape of the primary link.
     from app.services import fallback
     provider, model_id = fallback._parse_chain("text")[0]
     assert provider in ("google", "openrouter")
@@ -211,7 +216,7 @@ _PNG_1PX = (
 
 def test_valid_image_builds_multimodal_final_turn():
     msgs = conversation.build_messages("sys", [], "what is this?", None, _PNG_1PX)
-    final = msgs[-2]  # last is the followups reminder
+    final = msgs[-2]
     assert final["role"] == "user"
     assert isinstance(final["content"], list)
     kinds = {part["type"] for part in final["content"]}
@@ -220,7 +225,6 @@ def test_valid_image_builds_multimodal_final_turn():
 
 
 def test_image_is_not_added_to_history_or_reused():
-    # History carries text only; images never persist across turns.
     hist = [Turn(role="user", content="earlier"), Turn(role="assistant", content="ok")]
     msgs = conversation.build_messages("sys", hist, "next", None, None)
     assert all(isinstance(m["content"], str) for m in msgs)
@@ -258,11 +262,7 @@ def test_image_on_stream_reaches_the_model(client, monkeypatch):
     assert isinstance(seen["final"]["content"], list)
 
 
-
-
 def test_image_request_blocked_without_gemini_key(client, monkeypatch):
-    # Image questions need a vision-capable Google model, so they are refused
-    # up front when GEMINI_API_KEY is missing (deps.prepare and /stream both check).
     monkeypatch.setattr(config, "GEMINI_API_KEY", "")
     monkeypatch.setattr(deps, "GEMINI_API_KEY", "")
     r = client.post("/v1/stream", json={"prompt": "what is this?", "image": _PNG_1PX})
@@ -270,4 +270,4 @@ def test_image_request_blocked_without_gemini_key(client, monkeypatch):
 
 
 def test_vision_model_detection():
-    assert config.model_supports_vision("text")  # maps to gemma-4, a vision model
+    assert config.model_supports_vision("text")

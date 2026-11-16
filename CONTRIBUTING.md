@@ -1,68 +1,38 @@
 # Contributing to ConBot
 
-Thanks for your interest in contributing to ConBot.
-
-This project is intended to be a practical, self-hosted AI assistant with a clean backend/frontend separation and a low-friction developer experience. We welcome issue reports, feature suggestions, documentation improvements, and code contributions.
-
-## How to contribute
-
-1. Fork the repository.
-2. Create a feature branch from `main`.
-3. Make your change.
-4. Run the relevant tests before opening a pull request.
-5. Open a pull request with a clear description of the change and why it matters.
+Thanks for your interest in improving ConBot. Contributions that improve correctness, reliability, accessibility, security, or developer experience are welcome.
 
 ## Development setup
+
+Use Python 3.12, matching the CI workflow and Docker image:
 
 ```bash
 git clone https://github.com/Kumar6-Vinay/ConBot.git
 cd ConBot
-python -m venv venv
-source venv/bin/activate
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\Activate.ps1
 pip install -r requirements.txt -r requirements-dev.txt
 cp .env.example .env
 ```
 
-Then start the backend and frontend as described in the main README.
+Set credentials only for the provider/model configuration you plan to exercise. Tests should not require real upstream API credentials; mock external calls in new tests. See the README for local API and frontend instructions.
 
-## Code expectations
+## Before opening a pull request
 
-- keep changes focused and easy to review
-- prefer clear, small commits over broad refactors
-- document new behavior where relevant
-- add or update tests for bug fixes and new functionality
-- avoid breaking existing configuration conventions unless the change is intentional and documented
+1. Keep changes focused and explain the user or engineering problem they address.
+2. Add or update tests for behavior changes and bug fixes.
+3. Run `pytest -q` and report the result.
+4. Update documentation and `.env.example` when configuration or API behavior changes.
+5. Never include API keys, personal data, or production request contents in commits, fixtures, logs, or screenshots.
+6. For frontend changes, include a screenshot or short recording when it helps reviewers assess the result.
 
-## Testing
+## Pull request description
 
-Run the test suite before submitting a pull request:
+Please include:
 
-```bash
-pytest -q
-```
+- the problem and proposed solution;
+- notable tradeoffs or compatibility changes;
+- how the change was tested;
+- any new environment variables or deployment steps.
 
-## Pull request guidelines
-
-- keep PR titles concise and informative
-- explain the problem and solution clearly
-- include screenshots or examples when UI behavior changes
-- mention configuration changes or environment impact
-- link related issues when applicable
-
-## Community expectations
-
-Please be respectful, constructive, and helpful in discussions. We aim to keep this project collaborative, welcoming, and technically thoughtful.
-
-## Reporting issues
-
-Before opening a bug report or feature request, check whether it already exists.
-
-Use clear issue titles and include:
-
-- what happened
-- what you expected to happen
-- steps to reproduce
-- relevant environment details
-- any logs, screenshots, or API responses that help explain the issue
-
-Thank you for helping improve ConBot.
+For security-sensitive issues, follow [SECURITY.md](SECURITY.md) rather than filing a public issue with exploit details.
