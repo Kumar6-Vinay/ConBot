@@ -18,8 +18,9 @@ class _Env(BaseSettings):
     GOOGLE_API_KEY: str = ""
     OPENROUTER_API_KEY: str = ""
     NVIDIA_API_KEY: str = ""
-    PRIMARY_MODEL: str = "openrouter:nvidia/nemotron-3.5-super-vl:free"
+    PRIMARY_MODEL: str = "google:gemini-2.5-flash"
     TEXT_FALLBACK_CHAIN: str = (
+        "google:gemini-2.5-flash-lite,"
         "openrouter:nvidia/nemotron-3.5-super-vl:free"
     )
     TEMPERATURE: float = 0.7
@@ -78,9 +79,9 @@ NVIDIA_BASE = "https://integrate.api.nvidia.com/v1"
 # ConBOT mode -> primary model (provider:model_id format).
 # Examples: "openrouter:nvidia/nemotron-3.5-super-vl:free",
 #           "openrouter:qwen/qwen3.8-27b:free", "google:gemini-2.5-flash"
-# Default is Nemotron 3.5 Super VL via OpenRouter (free endpoint).
-# Verify the exact model slug on OpenRouter's catalog — free models get
-# retired/repriced without notice. To use a different model:
+# Default is Gemini 2.5 Flash direct. OpenRouter free models get
+# retired/repriced/overloaded without notice, so they sit behind it in
+# TEXT_FALLBACK_CHAIN. To use a different model:
 #   PRIMARY_MODEL=openrouter:meta-llama/llama-3.1-405b-instruct
 PRIMARY_MODEL = _env.PRIMARY_MODEL
 GEMINI_MODEL_MAP = {
